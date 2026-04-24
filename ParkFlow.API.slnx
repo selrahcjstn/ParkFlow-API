@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitignore" />
+  </Folder>
+  <Project Path="ParkFlow.API/ParkFlow.API.csproj" />
+  <Project Path="ParkFlow.Application/ParkFlow.Application.csproj" />
+  <Project Path="ParkFlow.Domain/ParkFlow.Domain.csproj" />
+  <Project Path="ParkFlow.Infrastructure/ParkFlow.Infrastructure.csproj" />
+  <Project Path="ParkFlow.Persistence/ParkFlow.Persistence.csproj" />
+</Solution>

@@ -1,0 +1,34 @@
+# Build results
+bin/
+obj/
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ASP.NET Core
+appsettings.Development.json
+
+# User secrets (IMPORTANT)
+secrets.json
+**/secrets.json
+
+# EF Core
+Migrations/*Designer.cs
+Migrations/*.resx
+
+# Logs
+*.log
+
+# Node 
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Publish output
+publish/
