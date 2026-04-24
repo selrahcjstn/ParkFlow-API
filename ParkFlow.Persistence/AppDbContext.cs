@@ -9,6 +9,6 @@ namespace ParkFlow.Persistence
         }
 
         //DB Sets go jere :>>
-
+        public DbSet<UserAccount> UserAccounts { get; set; }
     }
 }
