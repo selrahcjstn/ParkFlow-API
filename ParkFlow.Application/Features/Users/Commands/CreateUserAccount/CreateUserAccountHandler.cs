@@ -1,5 +1,7 @@
-﻿using MediatR;
+﻿using FluentValidation;
+using MediatR;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount
 {
@@ -7,14 +9,26 @@ namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount
         : IRequestHandler<CreateUserAccountCommand, Guid>
     {
         private readonly IUserAccountRepository _userAccountRepository;
+        private readonly IValidator<CreateUserAccountCommand> _validator;
 
-        public CreateUserAccountHandler(IUserAccountRepository userAccountRepository)
+        public CreateUserAccountHandler(
+            IUserAccountRepository userAccountRepository,
+            IValidator<CreateUserAccountCommand> validator)
         {
             _userAccountRepository = userAccountRepository;
+            _validator = validator;
         }
 
         public async Task<Guid> Handle(CreateUserAccountCommand request, CancellationToken cancellationToken)
         {
+            var validationResult = await _validator.ValidateAsync(request, cancellationToken);
+
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                throw new Exception(errors);
+            }
+
             var user = new UserAccount(
                 request.Email,
                 request.Password,
