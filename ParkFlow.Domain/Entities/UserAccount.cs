@@ -26,4 +26,15 @@ public class UserAccount : BaseEntity
         Status = AccountStatus.Active;
         Roles = role;
     }
+
+    // Domain Methods
+    public void UpdateEmail(string? email, string? phoneNumber, Roles? role)
+    {
+        if(!string.IsNullOrWhiteSpace(email))
+            Email = email;
+        if(!string.IsNullOrWhiteSpace(phoneNumber))
+            PhoneNumber = phoneNumber;
+        if(role.HasValue)
+            Roles = role.Value;
+    }
 }

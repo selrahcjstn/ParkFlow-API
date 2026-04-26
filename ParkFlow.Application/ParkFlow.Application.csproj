@@ -18,7 +18,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Features\Users\Commands\UpdateUserAccount\" />
     <Folder Include="Features\Users\DTOs\" />
     <Folder Include="Features\Users\Mappings\" />
     <Folder Include="Features\Users\Queries\" />
