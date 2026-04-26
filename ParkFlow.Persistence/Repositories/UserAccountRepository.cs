@@ -2,14 +2,9 @@
 
 namespace ParkFlow.Persistence.Repositories
 {
-    public class UserAccountRepository : IUserAccountRepository
+    public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepository
     {
-        private readonly AppDbContext _appDbContext;
-
-        public UserAccountRepository(AppDbContext appDbContext)
-        {
-            _appDbContext = appDbContext;
-        }
+        private readonly AppDbContext _appDbContext = appDbContext;
 
         public async Task AddAsync(UserAccount user)
         {
@@ -23,11 +18,6 @@ namespace ParkFlow.Persistence.Repositories
         }
 
         public Task<UserAccount?> GetByIdAsync(Guid id)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task SaveChangesAsync()
         {
             throw new NotImplementedException();
         }

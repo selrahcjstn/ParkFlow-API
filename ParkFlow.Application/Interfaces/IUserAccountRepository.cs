@@ -7,7 +7,5 @@
 
         Task AddAsync(UserAccount user);
         Task UpdateAsync(UserAccount user);
-
-        Task SaveChangesAsync();
     }
 }

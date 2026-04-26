@@ -15,16 +15,13 @@
     </PackageReference>
     <PackageReference Include="Serilog" Version="4.3.1" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ParkFlow.Application\ParkFlow.Application.csproj" />
     <ProjectReference Include="..\ParkFlow.Infrastructure\ParkFlow.Infrastructure.csproj" />
     <ProjectReference Include="..\ParkFlow.Persistence\ParkFlow.Persistence.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Controllers\" />
   </ItemGroup>
 
 </Project>
