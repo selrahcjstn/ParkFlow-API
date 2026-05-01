@@ -8,7 +8,7 @@ public class UpdateUserAccountHandler(IUserAccountRepository userAccountReposito
     private readonly IUserAccountRepository _userAccountRepository = userAccountRepository;
 
     public async Task<Guid> Handle(UpdateUserAccountCommand request, CancellationToken cancellationToken)
-    {
+    { 
         var user = await _userAccountRepository.GetByIdAsync(request.Id);
 
         if(user == null)

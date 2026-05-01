@@ -19,12 +19,13 @@ namespace ParkFlow.Persistence.Repositories
 
         public Task<UserAccount?> GetByIdAsync(Guid id)
         {
-            throw new NotImplementedException();
+            return _appDbContext.UserAccounts.FindAsync(id).AsTask();
         }
 
         public Task UpdateAsync(UserAccount user)
         {
-            throw new NotImplementedException();
+            _appDbContext.UserAccounts.Update(user);
+            return _appDbContext.SaveChangesAsync();
         }
     }
 }
