@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Features.Users.Commands.CreateUserAccount;
 using ParkFlow.Application.Features.Users.Commands.UpdateUserAccount;
+using ParkFlow.Application.Features.Users.DTOs;
 
 namespace ParkFlow.API.Controllers
 {
@@ -23,10 +24,16 @@ namespace ParkFlow.API.Controllers
             return Ok(result);
         }
 
-        [HttpPatch("{id}")]
-        public async Task<ActionResult<Guid>> Update(Guid id, UpdateUserAccountCommand command)
+       [HttpPatch("{id}")]
+        public async Task<ActionResult<Guid>> Update(Guid id, UpdateUserAccountRequest request)
         {
-            var updatedCommand = command with { Id = id };
+            var command = new UpdateUserAccountCommand(
+                id,
+                request.Email,
+                request.PhoneNumber,
+                request.Role
+            );
+
             var result = await _mediator.Send(command);
             return Ok(result);
         }
