@@ -10,4 +10,8 @@
     <ProjectReference Include="..\ParkFlow.Application\ParkFlow.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Security\" />
+  </ItemGroup>
+
 </Project>

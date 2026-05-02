@@ -10,13 +10,16 @@ namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount
     {
         private readonly IUserAccountRepository _userAccountRepository;
         private readonly IValidator<CreateUserAccountCommand> _validator;
+        private readonly IPasswordHasher _passwordHasher;
 
         public CreateUserAccountHandler(
             IUserAccountRepository userAccountRepository,
-            IValidator<CreateUserAccountCommand> validator)
+            IValidator<CreateUserAccountCommand> validator,
+            IPasswordHasher passwordHasher)
         {
             _userAccountRepository = userAccountRepository;
             _validator = validator;
+            _passwordHasher = passwordHasher;
         }
 
         public async Task<Guid> Handle(CreateUserAccountCommand request, CancellationToken cancellationToken)
@@ -29,9 +32,11 @@ namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount
                 throw new Exception(errors);
             }
 
+            var hashedPassword = _passwordHasher.HashPassword(request.Password);
+
             var user = new UserAccount(
                 request.Email,
-                request.Password,
+                hashedPassword,
                 request.PhoneNumber,
                 request.Role
             );
