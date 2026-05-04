@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Features\Users\Commands\LoginUserAccount\" />
     <Folder Include="Features\Users\DTOs\" />
     <Folder Include="Features\Users\Mappings\" />
     <Folder Include="Features\Users\Queries\" />
