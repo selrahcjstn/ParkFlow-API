@@ -1,4 +1,5 @@
-﻿using ParkFlow.Application.Interfaces;
+﻿using Microsoft.EntityFrameworkCore;
+using ParkFlow.Application.Interfaces;
 
 namespace ParkFlow.Persistence.Repositories
 {
@@ -12,9 +13,11 @@ namespace ParkFlow.Persistence.Repositories
             await _appDbContext.SaveChangesAsync();
         }
 
-        public Task<UserAccount?> GetByEmailAsync(string email)
+       public async Task<UserAccount?> GetByEmailAsync(string email)
         {
-            throw new NotImplementedException();
+            return await _appDbContext.UserAccounts
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Email == email);
         }
 
         public Task<UserAccount?> GetByIdAsync(Guid id)
