@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Features.Users.Commands.CreateUserAccount;
+using ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 using ParkFlow.Application.Features.Users.Commands.UpdateUserAccount;
 using ParkFlow.Application.Features.Users.DTOs;
 
@@ -32,6 +33,18 @@ namespace ParkFlow.API.Controllers
                 request.Email,
                 request.PhoneNumber,
                 request.Role
+            );
+
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        [HttpPost("login")]
+        public async Task<ActionResult<Guid>> Login(LoginRequestDTO request)
+        {
+           var command = new LoginUserAccountCommand(
+                request.Email,
+                request.Password
             );
 
             var result = await _mediator.Send(command);
