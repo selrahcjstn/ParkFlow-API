@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Features.Users.Commands.CreateUserAccount;
 using ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
@@ -25,7 +26,8 @@ namespace ParkFlow.API.Controllers
             return Ok(result);
         }
 
-       [HttpPatch("{id}")]
+        [Authorize]
+        [HttpPatch("{id}")]
         public async Task<ActionResult<Guid>> Update(Guid id, UpdateUserAccountRequest request)
         {
             var command = new UpdateUserAccountCommand(
@@ -40,9 +42,9 @@ namespace ParkFlow.API.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<Guid>> Login(LoginRequestDTO request)
+        public async Task<ActionResult<string>> Login(LoginRequestDTO request)
         {
-           var command = new LoginUserAccountCommand(
+            var command = new LoginUserAccountCommand(
                 request.Email,
                 request.Password
             );

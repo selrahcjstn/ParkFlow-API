@@ -3,17 +3,22 @@ using ParkFlow.Application.Interfaces;
 
 namespace ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 
-public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, Guid>
+public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, string>
 {
     private readonly IUserAccountRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IJwtService _jwtService;
 
-    public LoginUserAccountHandler(IUserAccountRepository userRepository, IPasswordHasher passwordHasher)
+    public LoginUserAccountHandler(
+        IUserAccountRepository userRepository, 
+        IPasswordHasher passwordHasher, 
+        IJwtService jwtService)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
+        _jwtService = jwtService;
     }
-    public async Task<Guid> Handle(LoginUserAccountCommand request, CancellationToken cancellationToken)
+    public async Task<string> Handle(LoginUserAccountCommand request, CancellationToken cancellationToken)
     {
         var user = await _userRepository.GetByEmailAsync(request.Email);
 
@@ -25,6 +30,6 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
         if(!isPasswordValid)
             throw new Exception("Invalid email or password.");
 
-        return user.Id;
+        return _jwtService.GenerateToken(user);
     }
 }

@@ -1,9 +1,10 @@
-using ParkFlow.Persistence;
+﻿using ParkFlow.Persistence;
 using ParkFlow.Application;
 using ParkFlow.Infrastructure;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -15,11 +16,12 @@ builder.Services.AddInfrastructure();
 
 builder.Services.AddControllers();
 
-// SwaggerGen:
+// Swagger configuration:
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-var key = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]);
+// JWT Authentication configuration:
+var key = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT key is missing"));
 builder.Services.AddAuthentication(option =>
 {
     option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -49,8 +51,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Middleware configuration:
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
