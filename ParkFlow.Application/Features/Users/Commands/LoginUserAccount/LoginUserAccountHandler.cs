@@ -20,7 +20,7 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
         if (user == null)
             throw new Exception("Invalid email or password.");
 
-        var isPasswordValid = _passwordHasher.VerifyPassword(request.Password, user.PasswordHash);
+        var isPasswordValid = _passwordHasher.VerifyPassword(user.PasswordHash, request.Password);
 
         if(!isPasswordValid)
             throw new Exception("Invalid email or password.");

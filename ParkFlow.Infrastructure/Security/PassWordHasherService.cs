@@ -12,7 +12,14 @@ public class PasswordHasherService : IPasswordHasher
 
     public bool VerifyPassword(string hashedPassword, string providedPassword)
     {
-        var result = _hasher.VerifyHashedPassword(null!, hashedPassword, providedPassword);
-        return result == PasswordVerificationResult.Success;
+        try
+        {
+            var result = _hasher.VerifyHashedPassword(null!, hashedPassword, providedPassword);
+            return result == PasswordVerificationResult.Success;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 }

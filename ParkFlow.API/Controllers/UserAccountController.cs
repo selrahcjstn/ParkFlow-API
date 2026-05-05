@@ -18,7 +18,7 @@ namespace ParkFlow.API.Controllers
             _mediator = mediator;
         }
 
-        [HttpPost]
+        [HttpPost("register")]
         public async Task<ActionResult<Guid>> Create(CreateUserAccountCommand command)
         {
             var result = await _mediator.Send(command);
