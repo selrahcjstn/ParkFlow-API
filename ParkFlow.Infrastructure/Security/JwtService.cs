@@ -13,7 +13,15 @@ namespace ParkFlow.Infrastructure.Security
 
         public string GenerateToken(UserAccount user)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+            var jwtKey = _configuration["Jwt:Key"]
+                ?? throw new InvalidOperationException("JWT key is missing. Set Jwt:Key in configuration or user secrets.");
+            var expiryValue = _configuration["Jwt:ExpiryMinutes"];
+            if (!double.TryParse(expiryValue, out var expiryMinutes))
+            {
+                throw new InvalidOperationException("JWT expiry is invalid. Set Jwt:ExpiryMinutes to a numeric value.");
+            }
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var claims = new[]
@@ -27,7 +35,7 @@ namespace ParkFlow.Infrastructure.Security
                 issuer: _configuration["Jwt:Issuer"],
                 audience: _configuration["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(double.Parse(_configuration["Jwt:ExpiryMinutes"])),
+                expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
                 signingCredentials: creds
             );
 
