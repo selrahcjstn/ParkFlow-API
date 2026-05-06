@@ -1,6 +1,6 @@
 # ParkFlow
 
-ParkFlow is a parking management system built using ASP.NET Core with Clean Architecture.
+ParkFlow is a parking management system designed to simplify and organize parking operations such as slot tracking, vehicle records, and parking flow management. It is built using ASP.NET Core with Clean Architecture principles.
 
 ## Features
 - Manage parking data
