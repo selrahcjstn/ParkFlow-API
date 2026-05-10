@@ -9,30 +9,30 @@ public class UserProfile : BaseEntity
     public UserAccount UserAccount { get; private set; } = null!;
 
     // Profile Data
-    public string Firstname { get; private set; } = null!;
-    public string Lastname { get; private set; } = null!;
+    public string FirstName { get; private set; } = null!;
+    public string LastName { get; private set; } = null!;
     public string? ProfilePictureUrl { get; private set; }
 
     private UserProfile() { }
 
     public UserProfile(
         Guid userAccountId,
-        string firstname,
-        string lastname,
+        string firstName,
+        string lastName,
         string? profilePictureUrl)
     {
         UserAccountId = userAccountId;
-        Firstname = firstname;
-        Lastname = lastname;
+        FirstName = firstName;
+        LastName = lastName;
         ProfilePictureUrl = profilePictureUrl;
     }
 
-    public void UpdateProfile(string? firstname, string? lastname, string? profilePictureUrl)
+    public void UpdateProfile(string? firstName, string? lastName, string? profilePictureUrl)
     {
-        if (!string.IsNullOrWhiteSpace(firstname))
-            Firstname = firstname;
-        if (!string.IsNullOrWhiteSpace(lastname))
-            Lastname = lastname;
+        if (!string.IsNullOrWhiteSpace(firstName))
+            FirstName = firstName;
+        if (!string.IsNullOrWhiteSpace(lastName))
+            LastName = lastName;
         if (!string.IsNullOrWhiteSpace(profilePictureUrl))
             ProfilePictureUrl = profilePictureUrl;
     }
