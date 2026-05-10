@@ -1,4 +1,5 @@
 using ParkFlow.Application.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace ParkFlow.Persistence.Repositories;
 
@@ -11,28 +12,42 @@ public class CorSubmissionRepository : ICorSubmissionRepository
         _appDbContext = appDbContext;
     }
     
-    public Task AddCorSubmissionAsync(CorSubmission corSubmission)
+    public async Task AddCorSubmissionAsync(CorSubmission corSubmission)
     {
-        throw new NotImplementedException();
+        await _appDbContext.CorSubmissions.AddAsync(corSubmission);
+        await _appDbContext.SaveChangesAsync();
     }
 
-    public Task DeleteCorSubmissionAsync(CorSubmission corSubmission)
+    public async Task DeleteCorSubmissionAsync(CorSubmission corSubmission)
     {
-        throw new NotImplementedException();
+        _appDbContext.CorSubmissions.Remove(corSubmission);
+        await _appDbContext.SaveChangesAsync();
     }
 
     public Task<CorSubmission?> GetCorSubmissionAsync(Guid id)
     {
-        throw new NotImplementedException();
+        return _appDbContext.CorSubmissions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id);
     }
 
-    public Task<IEnumerable<CorSubmission>> ListCorSubmissionsAsync()
+    public Task<CorSubmission?> GetByUserIdAndTermAsync(Guid userAccountId, string academicTerm)
     {
-        throw new NotImplementedException();
+        return _appDbContext.CorSubmissions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.UserAccountId == userAccountId && x.AcademicTerm == academicTerm);
     }
 
-    public Task UpdateCorSubmissionAsync(CorSubmission corSubmission)
+    public async Task<IEnumerable<CorSubmission>> ListCorSubmissionsAsync()
     {
-        throw new NotImplementedException();
+        return await _appDbContext.CorSubmissions
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task UpdateCorSubmissionAsync(CorSubmission corSubmission)
+    {
+        _appDbContext.CorSubmissions.Update(corSubmission);
+        await _appDbContext.SaveChangesAsync();
     }
 }

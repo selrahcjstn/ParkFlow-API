@@ -10,6 +10,8 @@ public class CorSubmission : BaseEntity
 
     public string CorDocumentUrl { get; private set; } = null!;
 
+    public DateTime DateOfIncident { get; private set; }
+
     public CorVerificationStatus VerificationStatus { get; private set; }
 
     private CorSubmission() { }
@@ -17,11 +19,13 @@ public class CorSubmission : BaseEntity
     public CorSubmission(
         Guid userAccountId,
         string academicTerm,
-        string corDocumentUrl)
+        string corDocumentUrl,
+        DateTime dateOfIncident)
     {
         UserAccountId = userAccountId;
         AcademicTerm = academicTerm;
         CorDocumentUrl = corDocumentUrl;
+        DateOfIncident = dateOfIncident;
 
         VerificationStatus = CorVerificationStatus.NotSubmitted;
     }
