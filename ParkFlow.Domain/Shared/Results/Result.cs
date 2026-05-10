@@ -3,8 +3,8 @@ using ParkFlow.Domain.Entities;
 public class Result<T>
 {
     public bool IsSuccess { get; private set; }
-    public T Data { get; private set; }
-    public string Message { get; private set; }
+    public T? Data { get; private set; }
+    public string Message { get; private set; } = string.Empty;
     public ErrorCode ErrorCode { get; private set; }
 
     private Result() { }

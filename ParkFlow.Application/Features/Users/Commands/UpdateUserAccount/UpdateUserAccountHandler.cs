@@ -1,25 +1,27 @@
 using MediatR;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.Application.Features.Users.Commands.UpdateUserAccount;
 
-public class UpdateUserAccountHandler(IUserAccountRepository userAccountRepository) : IRequestHandler<UpdateUserAccountCommand, Guid>
+public class UpdateUserAccountHandler(IUserAccountRepository userAccountRepository) : IRequestHandler<UpdateUserAccountCommand, Result<Guid>>
 {
     private readonly IUserAccountRepository _userAccountRepository = userAccountRepository;
 
-    public async Task<Guid> Handle(UpdateUserAccountCommand request, CancellationToken cancellationToken)
+    public async Task<Result<Guid>> Handle(UpdateUserAccountCommand request, CancellationToken cancellationToken)
     { 
         var user = await _userAccountRepository.GetByIdAsync(request.Id);
 
         if(user == null)
         {
-            throw new Exception("User not found.");
+            return Result<Guid>.Failure("User not found.", ErrorCode.UserNotFound);
         }
 
        user.UpdateEmail(request.Email, request.PhoneNumber, request.Role);
 
         await _userAccountRepository.UpdateAsync(user);
 
-        return user.Id;
+        return Result<Guid>.Success(user.Id, "User account updated");
     }
+
 }

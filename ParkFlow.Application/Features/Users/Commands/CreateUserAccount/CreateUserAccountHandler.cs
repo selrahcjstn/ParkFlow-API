@@ -1,11 +1,12 @@
 ﻿using FluentValidation;
 using MediatR;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount
 {
     public class CreateUserAccountHandler
-        : IRequestHandler<CreateUserAccountCommand, Guid>
+        : IRequestHandler<CreateUserAccountCommand, Result<Guid>>
     {
         private readonly IUserAccountRepository _userAccountRepository;
         private readonly IValidator<CreateUserAccountCommand> _validator;
@@ -21,14 +22,14 @@ namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount
             _passwordHasher = passwordHasher;
         }
 
-        public async Task<Guid> Handle(CreateUserAccountCommand request, CancellationToken cancellationToken)
+        public async Task<Result<Guid>> Handle(CreateUserAccountCommand request, CancellationToken cancellationToken)
         {
             var validationResult = await _validator.ValidateAsync(request, cancellationToken);
 
             if (!validationResult.IsValid)
             {
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
-                throw new Exception(errors);
+                return Result<Guid>.Failure(errors, ErrorCode.None);
             }
 
             var hashedPassword = _passwordHasher.HashPassword(request.Password);
@@ -42,7 +43,7 @@ namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount
 
             await _userAccountRepository.AddAsync(user);
 
-            return user.Id;
+            return Result<Guid>.Success(user.Id, "User account created.");
         }
     }
 }

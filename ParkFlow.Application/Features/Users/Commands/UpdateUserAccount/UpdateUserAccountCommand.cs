@@ -8,4 +8,4 @@ public record UpdateUserAccountCommand(
     string? Email,
     string? PhoneNumber,
     Roles? Role
-) : IRequest<Guid>;
+) : IRequest<Result<Guid>>;

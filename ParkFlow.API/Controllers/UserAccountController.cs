@@ -5,6 +5,7 @@ using ParkFlow.Application.Features.Users.Commands.CreateUserAccount;
 using ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 using ParkFlow.Application.Features.Users.Commands.UpdateUserAccount;
 using ParkFlow.Application.Features.Users.DTOs;
+using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.API.Controllers
 {
@@ -20,15 +21,18 @@ namespace ParkFlow.API.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<ActionResult<Guid>> Create(CreateUserAccountCommand command)
+        public async Task<ActionResult<Result<Guid>>> Create(CreateUserAccountCommand command)
         {
             var result = await _mediator.Send(command);
-            return Ok(result);
+            if (result.IsSuccess)
+                return Ok(result);
+
+            return BadRequest(result);
         }
 
         [Authorize]
         [HttpPatch("{id}")]
-        public async Task<ActionResult<Guid>> Update(Guid id, UpdateUserAccountRequest request)
+        public async Task<ActionResult<Result<Guid>>> Update(Guid id, UpdateUserAccountRequest request)
         {
             var command = new UpdateUserAccountCommand(
                 id,
@@ -38,11 +42,16 @@ namespace ParkFlow.API.Controllers
             );
 
             var result = await _mediator.Send(command);
-            return Ok(result);
+            if (result.IsSuccess)
+                return Ok(result);
+
+            return result.ErrorCode == ErrorCode.UserNotFound
+                ? NotFound(result)
+                : BadRequest(result);
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<string>> Login(LoginRequestDTO request)
+        public async Task<ActionResult<Result<string>>> Login(LoginRequestDTO request)
         {
             var command = new LoginUserAccountCommand(
                 request.Email,
@@ -50,7 +59,12 @@ namespace ParkFlow.API.Controllers
             );
 
             var result = await _mediator.Send(command);
-            return Ok(result);
+            if (result.IsSuccess)
+                return Ok(result);
+
+            return result.ErrorCode == ErrorCode.InvalidPassword
+                ? Unauthorized(result)
+                : BadRequest(result);
         }
     }
 }

@@ -4,4 +4,4 @@ namespace ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 
 public record LoginUserAccountCommand(
     string Email,
-    string Password) : IRequest<string>;
+    string Password) : IRequest<Result<string>>;
