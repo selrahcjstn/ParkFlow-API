@@ -8,5 +8,6 @@ public enum ErrorCode
     AccountLocked,
     EmailAlreadyExists,
     PhoneNumberAlreadyExists,
-    InvalidRole
+    InvalidRole,
+    ProfileAlreadyExists
 }

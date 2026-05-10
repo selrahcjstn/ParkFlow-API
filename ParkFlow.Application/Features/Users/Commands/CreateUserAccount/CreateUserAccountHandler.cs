@@ -30,7 +30,7 @@ namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount
             if (!validationResult.IsValid)
             {
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
-                return Result<Guid>.Failure(errors, ErrorCode.None);
+                return Result<Guid>.Failure(errors, ErrorCode.UserNotFound);
             }
 
             var hashedPassword = _passwordHasher.HashPassword(request.Password);
