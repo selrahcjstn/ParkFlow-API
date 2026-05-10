@@ -15,6 +15,7 @@ namespace ParkFlow.Persistence
 
             services.AddScoped<IUserAccountRepository, UserAccountRepository>();
             services.AddScoped<IUserProfileRepository, UserProfileRepository>();
+            services.AddScoped<ICorSubmissionRepository, CorSubmissionRepository>();
             return services;
         }
     }
