@@ -9,5 +9,6 @@ public enum ErrorCode
     EmailAlreadyExists,
     PhoneNumberAlreadyExists,
     InvalidRole,
-    ProfileAlreadyExists
+    ProfileAlreadyExists,
+    UserAlreadyExists
 }

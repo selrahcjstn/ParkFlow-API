@@ -32,6 +32,13 @@ namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount
                 return Result<Guid>.Failure(errors, ErrorCode.UserNotFound);
             }
 
+            var existingUser = await _userAccountRepository.GetByEmailAsync(request.Email);
+
+            if (existingUser != null)
+            {
+                return Result<Guid>.Failure("User account with this email already exists.", ErrorCode.UserAlreadyExists);
+            }
+
             var hashedPassword = _passwordHasher.HashPassword(request.Password);
 
             var user = new UserAccount(

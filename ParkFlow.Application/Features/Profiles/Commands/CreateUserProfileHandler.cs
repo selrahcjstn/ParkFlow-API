@@ -27,6 +27,13 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
             return Result<Guid>.Failure(errors);
         }
 
+        var hasProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
+
+        if (hasProfile != null)
+        {
+            return Result<Guid>.Failure("User profile already exists.", ErrorCode.ProfileAlreadyExists);
+        }
+
         var userProfile = new UserProfile(request.UserId, request.FirstName, request.LastName, request.ProfilePictureUrl);
 
         await _userProfileRepository.AddAsync(userProfile);
