@@ -3,7 +3,7 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 
-namespace ParkFlow.Application.Features.Profiles.Commands;
+namespace ParkFlow.Application.Features.Profiles.Commands.CreateUserProfile;
 
 public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand, Result<Guid>>
 {

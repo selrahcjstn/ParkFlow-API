@@ -1,6 +1,6 @@
 using FluentValidation;
 
-namespace ParkFlow.Application.Features.Profiles.Commands;
+namespace ParkFlow.Application.Features.Profiles.Commands.CreateUserProfile;
 
 public class CreateUserProfileValidator : AbstractValidator<CreateUserProfileCommand>
 {

@@ -3,7 +3,7 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 
-namespace ParkFlow.Application.Features.Profiles.Commands;
+namespace ParkFlow.Application.Features.Profiles.Commands.UpdateUserProfile;
 
 public class UpdateUserProfileHandler : IRequestHandler<UpdateUserProfileCommand, Result<Guid>>
 {

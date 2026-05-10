@@ -1,7 +1,7 @@
 using MediatR;
 using ParkFlow.Application.Common;
 
-namespace ParkFlow.Application.Features.Profiles.Commands;
+namespace ParkFlow.Application.Features.Profiles.Commands.CreateUserProfile;
 
 public record CreateUserProfileCommand(
     Guid UserId,

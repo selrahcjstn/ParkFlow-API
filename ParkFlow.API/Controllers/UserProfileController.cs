@@ -2,8 +2,9 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Profiles.DTOs;
-using ParkFlow.Application.Features.Profiles.Commands;
 using ParkFlow.Application.Features.Profiles.Queries;
+using ParkFlow.Application.Features.Profiles.Commands.CreateUserProfile;
+using ParkFlow.Application.Features.Profiles.Commands.UpdateUserProfile;
 
 namespace ParkFlow.API.Controllers;
 
