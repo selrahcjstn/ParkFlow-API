@@ -1,4 +1,4 @@
-namespace ParkFlow.Domain.Enums;
+namespace ParkFlow.Application.Common;
 
 public enum ErrorCode
 {

@@ -6,7 +6,6 @@ using ParkFlow.Application.Features.Users.Commands.CreateUserAccount;
 using ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 using ParkFlow.Application.Features.Users.Commands.UpdateUserAccount;
 using ParkFlow.Application.Features.Users.DTOs;
-using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.API.Controllers
 {
