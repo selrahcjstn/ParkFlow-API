@@ -3,7 +3,7 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 
-namespace ParkFlow.Application.Features.Cor.CreateCorSubmission;
+namespace ParkFlow.Application.Features.Cor.Commands.CreateCorSubmission;
 
 public class CreateCorSubmissionHandler : IRequestHandler<CreateCorSubmissionCommand, Result<Guid>>
 {

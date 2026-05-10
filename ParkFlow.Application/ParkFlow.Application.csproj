@@ -20,6 +20,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Features\Cor\DTOs\" />
+    <Folder Include="Features\Cor\Queries\" />
     <Folder Include="Features\Profiles\DTOs\" />
     <Folder Include="Features\Profiles\Mappings\" />
     <Folder Include="Features\Profiles\Queries\" />

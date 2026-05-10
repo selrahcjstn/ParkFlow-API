@@ -1,6 +1,6 @@
 using FluentValidation;
 
-namespace ParkFlow.Application.Features.Cor.CreateCorSubmission;
+namespace ParkFlow.Application.Features.Cor.Commands.CreateCorSubmission;
 
 public class CreateCorSubmissionValidator : AbstractValidator<CreateCorSubmissionCommand>
 {
