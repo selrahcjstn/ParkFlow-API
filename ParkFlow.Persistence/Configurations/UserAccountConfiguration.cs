@@ -26,5 +26,12 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccount>
         entity.Property(e => e.PhoneNumber)
             .IsRequired();
 
+        entity.Property(e => e.PasswordResetTokenHash)
+            .HasMaxLength(128)
+            .IsRequired(false);
+
+        entity.Property(e => e.PasswordResetTokenExpiresAt)
+            .IsRequired(false);
+
     }
 }

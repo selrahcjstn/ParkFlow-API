@@ -14,6 +14,9 @@ public class UserAccount : BaseEntity
 
     public DateTime PasswordLastUpdatedAt { get; private set; } = DateTime.UtcNow;
 
+    public string? PasswordResetTokenHash { get; private set; }
+    public DateTime? PasswordResetTokenExpiresAt { get; private set; }
+
     private UserAccount() { } // For EF Core
 
     public UserAccount(
@@ -48,5 +51,42 @@ public class UserAccount : BaseEntity
 
         PasswordHash = newPasswordHash;
         PasswordLastUpdatedAt = DateTime.UtcNow;
+    }
+
+    public void SetPasswordResetToken(string resetTokenHash, DateTime expiresAtUtc)
+    {
+        if (string.IsNullOrWhiteSpace(resetTokenHash))
+            throw new ArgumentException("Reset token hash cannot be empty.");
+
+        if (expiresAtUtc <= DateTime.UtcNow)
+            throw new ArgumentException("Reset token expiry must be in the future.");
+
+        PasswordResetTokenHash = resetTokenHash;
+        PasswordResetTokenExpiresAt = expiresAtUtc;
+    }
+
+    public bool CanResetPasswordWithToken(string resetTokenHash, DateTime utcNow)
+    {
+        if (string.IsNullOrWhiteSpace(resetTokenHash))
+            return false;
+
+        if (PasswordResetTokenHash is null || PasswordResetTokenExpiresAt is null)
+            return false;
+
+        if (PasswordResetTokenExpiresAt.Value < utcNow)
+            return false;
+
+        return PasswordResetTokenHash == resetTokenHash;
+    }
+
+    public void ResetPasswordWithToken(string resetTokenHash, string newPasswordHash, DateTime utcNow)
+    {
+        if (!CanResetPasswordWithToken(resetTokenHash, utcNow))
+            throw new InvalidOperationException("Invalid or expired reset token.");
+
+        UpdatePassword(newPasswordHash);
+
+        PasswordResetTokenHash = null;
+        PasswordResetTokenExpiresAt = null;
     }
 }

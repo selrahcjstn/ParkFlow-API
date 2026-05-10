@@ -19,7 +19,7 @@ public class UserProfileController : ControllerBase
         _mediator = mediator;
     }
 
-    [HttpPost]
+    [HttpPost("create")]
     public async Task<ActionResult<Result<Guid>>> Create(CreateUserProfileCommand command)
     {
         var result = await _mediator.Send(command);

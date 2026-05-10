@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Users.Commands.CreateUserAccount;
+using ParkFlow.Application.Features.Users.Commands.ForgotPasswordUserAccount;
 using ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
+using ParkFlow.Application.Features.Users.Commands.ResetPasswordUserAccount;
 using ParkFlow.Application.Features.Users.Commands.UpdateUserAccount;
 using ParkFlow.Application.Features.Users.DTOs;
 
@@ -63,6 +65,40 @@ namespace ParkFlow.API.Controllers
             var result = await _mediator.Send(command);
             if (result.IsSuccess)
                 return Ok(result);
+
+            return result.ErrorCode == ErrorCode.Unauthorized
+                ? Unauthorized(result)
+                : BadRequest(result);
+        }
+
+        [HttpPost("forgot-password")]
+        public async Task<ActionResult<Result<string>>> ForgotPassword(ForgotPasswordRequestDTO request)
+        {
+            var command = new ForgotPasswordUserAccountCommand(request.Email);
+
+            var result = await _mediator.Send(command);
+            if (result.IsSuccess)
+                return Ok(result);
+
+            return result.ErrorCode == ErrorCode.NotFound
+                ? NotFound(result)
+                : BadRequest(result);
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<ActionResult<Result<Guid>>> ResetPassword(ResetPasswordRequestDTO request)
+        {
+            var command = new ResetPasswordUserAccountCommand(
+                request.Email,
+                request.ResetToken,
+                request.NewPassword);
+
+            var result = await _mediator.Send(command);
+            if (result.IsSuccess)
+                return Ok(result);
+
+            if (result.ErrorCode == ErrorCode.NotFound)
+                return NotFound(result);
 
             return result.ErrorCode == ErrorCode.Unauthorized
                 ? Unauthorized(result)
