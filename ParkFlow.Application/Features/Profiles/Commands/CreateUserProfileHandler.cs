@@ -24,14 +24,14 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
         if (!validationResult.IsValid)
         {
             var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
-            return Result<Guid>.Failure(errors);
+            return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
         }
 
         var hasProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
 
         if (hasProfile != null)
         {
-            return Result<Guid>.Failure("User profile already exists.", ErrorCode.ProfileAlreadyExists);
+            return Result<Guid>.Failure("User profile already exists.", ErrorCode.Conflict);
         }
 
         var userProfile = new UserProfile(request.UserId, request.FirstName, request.LastName, request.ProfilePictureUrl);

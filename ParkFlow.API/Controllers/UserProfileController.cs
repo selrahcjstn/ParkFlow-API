@@ -24,6 +24,8 @@ public class UserProfileController : ControllerBase
         if (result.IsSuccess)
             return Ok(result);
 
-        return BadRequest(result);
+        return result.ErrorCode == ErrorCode.Conflict
+            ? Conflict(result)
+            : BadRequest(result);
     }
 }

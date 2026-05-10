@@ -29,14 +29,14 @@ namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount
             if (!validationResult.IsValid)
             {
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
-                return Result<Guid>.Failure(errors, ErrorCode.UserNotFound);
+                return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
             }
 
             var existingUser = await _userAccountRepository.GetByEmailAsync(request.Email);
 
             if (existingUser != null)
             {
-                return Result<Guid>.Failure("User account with this email already exists.", ErrorCode.UserAlreadyExists);
+                return Result<Guid>.Failure("User account with this email already exists.", ErrorCode.Conflict);
             }
 
             var hashedPassword = _passwordHasher.HashPassword(request.Password);

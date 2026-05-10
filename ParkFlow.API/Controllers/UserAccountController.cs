@@ -27,7 +27,9 @@ namespace ParkFlow.API.Controllers
             if (result.IsSuccess)
                 return Ok(result);
 
-            return BadRequest(result);
+            return result.ErrorCode == ErrorCode.Conflict
+                ? Conflict(result)
+                : BadRequest(result);
         }
 
         [Authorize]
@@ -45,7 +47,7 @@ namespace ParkFlow.API.Controllers
             if (result.IsSuccess)
                 return Ok(result);
 
-            return result.ErrorCode == ErrorCode.UserNotFound
+            return result.ErrorCode == ErrorCode.NotFound
                 ? NotFound(result)
                 : BadRequest(result);
         }
@@ -62,7 +64,7 @@ namespace ParkFlow.API.Controllers
             if (result.IsSuccess)
                 return Ok(result);
 
-            return result.ErrorCode == ErrorCode.InvalidPassword
+            return result.ErrorCode == ErrorCode.Unauthorized
                 ? Unauthorized(result)
                 : BadRequest(result);
         }

@@ -25,12 +25,12 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
         var user = await _userRepository.GetByEmailAsync(request.Email);
 
         if (user == null)
-            return Result<string>.Failure("Invalid email or password.", ErrorCode.InvalidPassword);
+            return Result<string>.Failure("Invalid email or password.", ErrorCode.Unauthorized);
 
         var isPasswordValid = _passwordHasher.VerifyPassword(user.PasswordHash, request.Password);
 
         if(!isPasswordValid)
-            return Result<string>.Failure("Invalid email or password.", ErrorCode.InvalidPassword);
+            return Result<string>.Failure("Invalid email or password.", ErrorCode.Unauthorized);
 
         var token = _jwtService.GenerateToken(user);
         return Result<string>.Success(token, "Login successful.");

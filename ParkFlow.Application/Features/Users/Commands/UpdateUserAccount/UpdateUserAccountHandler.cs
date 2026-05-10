@@ -15,7 +15,7 @@ public class UpdateUserAccountHandler(IUserAccountRepository userAccountReposito
 
         if(user == null)
         {
-            return Result<Guid>.Failure("User not found.", ErrorCode.UserNotFound);
+            return Result<Guid>.Failure("User not found.", ErrorCode.NotFound);
         }
 
        user.UpdateEmail(request.Email, request.PhoneNumber, request.Role);
