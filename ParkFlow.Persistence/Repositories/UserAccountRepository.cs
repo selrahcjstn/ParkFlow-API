@@ -20,9 +20,9 @@ namespace ParkFlow.Persistence.Repositories
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
-        public Task<UserAccount?> GetByIdAsync(Guid id)
+        public async Task<UserAccount?> GetByIdAsync(Guid id)
         {
-            return _appDbContext.UserAccounts.FindAsync(id).AsTask();
+            return await _appDbContext.UserAccounts.FindAsync(id);
         }
 
         public Task UpdateAsync(UserAccount user)
