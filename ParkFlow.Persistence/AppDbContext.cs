@@ -15,26 +15,7 @@ namespace ParkFlow.Persistence
         {
             base.OnModelCreating(modelBuilder);
 
-            // Configure UserAccount entity
-            modelBuilder.Entity<UserAccount>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-
-                entity.Property(e => e.Id)
-                    .HasDefaultValueSql("gen_random_uuid()");
-
-                entity.Property(e => e.CreatedAt)
-                    .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                entity.Property(e => e.Email)
-                    .IsRequired();
-
-                entity.Property(e => e.PasswordHash)
-                    .IsRequired();
-
-                entity.Property(e => e.PhoneNumber)
-                    .IsRequired();
-            });
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
         }
     }
 }

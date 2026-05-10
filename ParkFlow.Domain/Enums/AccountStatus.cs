@@ -2,9 +2,8 @@
 {
     public enum AccountStatus
     {
-        Active,
-        Inactive,
         Suspended,
         PendingVerification,
+        Verified,
     }
 }

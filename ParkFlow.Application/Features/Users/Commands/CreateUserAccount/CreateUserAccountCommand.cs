@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using ParkFlow.Application.Common;
 using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount

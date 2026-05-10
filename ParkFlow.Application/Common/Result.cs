@@ -1,4 +1,6 @@
-using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Enums;
+
+namespace ParkFlow.Application.Common;
 
 public class Result<T>
 {
