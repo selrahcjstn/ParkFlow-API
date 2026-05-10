@@ -1,4 +1,3 @@
-using System;
 using FluentValidation;
 using MediatR;
 using ParkFlow.Application.Common;
@@ -43,8 +42,7 @@ public class CreateCorSubmissionHandler : IRequestHandler<CreateCorSubmissionCom
         (
             request.UserId,
             request.AcademicTerm,
-            request.CorDocumentUrl,
-            request.DateOfIncident
+            request.CorDocumentUrl
         );
 
         await _corSubmissionRepository.AddCorSubmissionAsync(corSubmission);
