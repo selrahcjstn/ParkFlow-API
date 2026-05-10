@@ -7,4 +7,5 @@
   <Project Path="ParkFlow.Domain/ParkFlow.Domain.csproj" />
   <Project Path="ParkFlow.Infrastructure/ParkFlow.Infrastructure.csproj" />
   <Project Path="ParkFlow.Persistence/ParkFlow.Persistence.csproj" />
+  <Project Path="Test/Test.csproj" />
 </Solution>
