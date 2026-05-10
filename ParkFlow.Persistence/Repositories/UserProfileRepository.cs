@@ -1,4 +1,5 @@
 using ParkFlow.Application.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace ParkFlow.Persistence.Repositories;
 
@@ -19,7 +20,9 @@ public class UserProfileRepository : IUserProfileRepository
 
     public async Task<UserProfile?> GetByUserIdAsync(Guid userId)
     {
-        return await _appDbContext.UserProfiles.FindAsync(userId);
+        return await _appDbContext.UserProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.UserAccountId == userId);
     }
 
     public async Task UpdateAsync(UserProfile profile)
