@@ -26,4 +26,19 @@ public class CorSubmission : BaseEntity
 
         VerificationStatus = CorVerificationStatus.NotSubmitted;
     }
+
+    public void UpdateSubmission(
+        string? academicTerm,
+        string? corDocumentUrl,
+        CorVerificationStatus? verificationStatus)
+    {
+        if (!string.IsNullOrWhiteSpace(academicTerm))
+            AcademicTerm = academicTerm;
+
+        if (!string.IsNullOrWhiteSpace(corDocumentUrl))
+            CorDocumentUrl = corDocumentUrl;
+
+        if (verificationStatus.HasValue)
+            VerificationStatus = verificationStatus.Value;
+    }
 }
