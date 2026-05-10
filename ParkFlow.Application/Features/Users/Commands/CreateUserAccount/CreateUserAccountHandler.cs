@@ -1,7 +1,6 @@
 ﻿using FluentValidation;
 using MediatR;
 using ParkFlow.Application.Interfaces;
-using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount
 {

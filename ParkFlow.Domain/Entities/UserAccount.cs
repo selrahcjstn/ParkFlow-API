@@ -1,4 +1,4 @@
-﻿using ParkFlow.Domain.Entities;
+﻿using ParkFlow.Domain.Shared.Base;
 using ParkFlow.Domain.Enums;
 
 public class UserAccount : BaseEntity
