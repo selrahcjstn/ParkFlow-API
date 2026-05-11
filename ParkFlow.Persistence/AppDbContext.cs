@@ -14,6 +14,7 @@ namespace ParkFlow.Persistence
         public DbSet<UserProfile> UserProfiles { get; set; }
         public DbSet<CorSubmission> CorSubmissions { get; set; }
         public DbSet<ParkingSchedule> ParkingSchedules { get; set; }
+        public DbSet<Vehicle> Vehicles { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

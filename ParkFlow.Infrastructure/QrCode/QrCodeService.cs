@@ -1,4 +1,3 @@
-using System;
 using ParkFlow.Application.Interfaces;
 using QRCoder;
 
@@ -11,7 +10,7 @@ public class QrCodeService : IQrCodeService
         using var qrGenerator = new QRCodeGenerator();
         using var qrCodeData = qrGenerator.CreateQrCode(text, QRCodeGenerator.ECCLevel.Q);
         var qrCode = new PngByteQRCode(qrCodeData);
-        
-        return qrCode.GetGraphic(20);   
+
+        return qrCode.GetGraphic(20);
     }
 }

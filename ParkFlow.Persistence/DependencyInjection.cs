@@ -17,6 +17,7 @@ namespace ParkFlow.Persistence
             services.AddScoped<IUserProfileRepository, UserProfileRepository>();
             services.AddScoped<ICorSubmissionRepository, CorSubmissionRepository>();
             services.AddScoped<IParkingScheduleRepository, ParkingScheduleRepository>();
+            services.AddScoped<IVehicleRepository, VehicleRepository>();
             return services;
         }
     }
