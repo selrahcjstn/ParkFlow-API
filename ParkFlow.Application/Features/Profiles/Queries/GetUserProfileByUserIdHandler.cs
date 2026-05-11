@@ -5,27 +5,21 @@ using ParkFlow.Application.Interfaces;
 
 namespace ParkFlow.Application.Features.Profiles.Queries;
 
-public class GetMyProfileHandler
-    : IRequestHandler<GetMyProfileQuery, Result<UserProfileDto>>
+public class GetUserProfileByUserIdHandler : IRequestHandler<GetUserProfileByUserIdQuery, Result<UserProfileDto>>
 {
     private readonly IUserProfileRepository _userProfileRepository;
-    private readonly IUserContext _userContext;
 
-    public GetMyProfileHandler(
-        IUserProfileRepository userProfileRepository,
-        IUserContext userContext)
+    public GetUserProfileByUserIdHandler(IUserProfileRepository userProfileRepository)
     {
         _userProfileRepository = userProfileRepository;
-        _userContext = userContext;
     }
 
-    public async Task<Result<UserProfileDto>> Handle(
-        GetMyProfileQuery request,
-        CancellationToken cancellationToken)
+    public async Task<Result<UserProfileDto>> Handle(GetUserProfileByUserIdQuery request, CancellationToken cancellationToken)
     {
-        var userId = _userContext.GetUserId();
+        if (request.UserId == Guid.Empty)
+            return Result<UserProfileDto>.Failure("UserId is required.", ErrorCode.BadRequest);
 
-        var profile = await _userProfileRepository.GetByUserIdAsync(userId);
+        var profile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
 
         if (profile == null)
             return Result<UserProfileDto>.Failure("User profile not found.", ErrorCode.NotFound);

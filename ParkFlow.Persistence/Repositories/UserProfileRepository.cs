@@ -21,6 +21,7 @@ public class UserProfileRepository : IUserProfileRepository
     public async Task<UserProfile?> GetByUserIdAsync(Guid userId)
     {
         return await _appDbContext.UserProfiles
+            .Include(p => p.UserAccount)
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.UserAccountId == userId);
     }
