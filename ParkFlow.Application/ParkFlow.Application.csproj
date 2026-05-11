@@ -25,6 +25,10 @@
     <Folder Include="Features\Profiles\DTOs\" />
     <Folder Include="Features\Profiles\Mappings\" />
     <Folder Include="Features\Profiles\Queries\" />
+    <Folder Include="Features\Schedules\" />
+    <Folder Include="Features\Schedules\Command\" />
+    <Folder Include="Features\Schedules\DTOs\" />
+    <Folder Include="Features\Schedules\Queries\" />
     <Folder Include="Features\Users\DTOs\" />
     <Folder Include="Features\Users\Mappings\" />
     <Folder Include="Features\Users\Queries\" />
