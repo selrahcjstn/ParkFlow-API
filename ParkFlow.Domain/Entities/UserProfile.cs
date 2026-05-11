@@ -27,23 +27,56 @@ public class UserProfile : BaseEntity
 
     public UserProfile(
         Guid userAccountId,
+        string idCardNumber,
         string firstName,
         string lastName,
-        string? profilePictureUrl)
+        string? profilePictureUrl,
+        string? course,
+        string? section,
+        int? yearLevel,
+        string? office,
+        string? department)
     {
         UserAccountId = userAccountId;
+        IdCardNumber = idCardNumber;
         FirstName = firstName;
         LastName = lastName;
         ProfilePictureUrl = profilePictureUrl;
+        Course = course;
+        Section = section;
+        YearLevel = yearLevel;
+        Office = office;
+        Department = department;
     }
 
-    public void UpdateProfile(string? firstName, string? lastName, string? profilePictureUrl)
+    public void UpdateProfile(
+        string? idCardNumber,
+        string? firstName,
+        string? lastName,
+        string? profilePictureUrl,
+        string? course,
+        string? section,
+        int? yearLevel,
+        string? office,
+        string? department)
     {
+        if (!string.IsNullOrWhiteSpace(idCardNumber))
+            IdCardNumber = idCardNumber;
         if (!string.IsNullOrWhiteSpace(firstName))
             FirstName = firstName;
         if (!string.IsNullOrWhiteSpace(lastName))
             LastName = lastName;
         if (!string.IsNullOrWhiteSpace(profilePictureUrl))
             ProfilePictureUrl = profilePictureUrl;
+        if (!string.IsNullOrWhiteSpace(course))
+            Course = course;
+        if (!string.IsNullOrWhiteSpace(section))
+            Section = section;
+        if (yearLevel.HasValue)
+            YearLevel = yearLevel;
+        if (!string.IsNullOrWhiteSpace(office))
+            Office = office;
+        if (!string.IsNullOrWhiteSpace(department))
+            Department = department;
     }
 }

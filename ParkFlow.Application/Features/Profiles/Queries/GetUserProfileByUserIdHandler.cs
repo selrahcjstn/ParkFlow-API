@@ -27,9 +27,15 @@ public class GetUserProfileByUserIdHandler : IRequestHandler<GetUserProfileByUse
         var dto = new UserProfileDto(
             profile.Id,
             profile.UserAccountId,
+            profile.IdCardNumber,
             profile.FirstName,
             profile.LastName,
-            profile.ProfilePictureUrl);
+            profile.ProfilePictureUrl,
+            profile.Course,
+            profile.Section,
+            profile.YearLevel,
+            profile.Office,
+            profile.Department);
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");
     }

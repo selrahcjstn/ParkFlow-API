@@ -33,7 +33,16 @@ public class UpdateUserProfileHandler : IRequestHandler<UpdateUserProfileCommand
         if (profile == null)
             return Result<Guid>.Failure("User profile not found.", ErrorCode.NotFound);
 
-        profile.UpdateProfile(request.FirstName, request.LastName, request.ProfilePictureUrl);
+        profile.UpdateProfile(
+            request.IdCardNumber,
+            request.FirstName,
+            request.LastName,
+            request.ProfilePictureUrl,
+            request.Course,
+            request.Section,
+            request.YearLevel,
+            request.Office,
+            request.Department);
 
         await _userProfileRepository.UpdateAsync(profile);
 
