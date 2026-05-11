@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.Persistence
 {
@@ -12,6 +13,7 @@ namespace ParkFlow.Persistence
         public DbSet<UserAccount> UserAccounts { get; set; }
         public DbSet<UserProfile> UserProfiles { get; set; }
         public DbSet<CorSubmission> CorSubmissions { get; set; }
+        public DbSet<ParkingSchedule> ParkingSchedules { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
