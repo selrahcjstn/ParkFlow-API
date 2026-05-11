@@ -9,6 +9,7 @@ public class UserAccount : BaseEntity
     public string PhoneNumber { get; private set; } = null!;
     public AccountStatus Status { get; private set; }
     public Roles Roles { get; private set; }
+    
 
     private UserProfile UserProfile { get; set; } = null!; // Navigation property
 

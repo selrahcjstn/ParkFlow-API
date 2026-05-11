@@ -32,6 +32,10 @@
     <Folder Include="Features\Users\DTOs\" />
     <Folder Include="Features\Users\Mappings\" />
     <Folder Include="Features\Users\Queries\" />
+    <Folder Include="Features\Vehicle\" />
+    <Folder Include="Features\Vehicle\Command\" />
+    <Folder Include="Features\Vehicle\DTOs\" />
+    <Folder Include="Features\Vehicle\Queries\" />
   </ItemGroup>
 
 </Project>
