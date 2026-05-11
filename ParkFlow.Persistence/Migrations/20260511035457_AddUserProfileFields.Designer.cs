@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ParkFlow.Persistence;
@@ -11,9 +12,11 @@ using ParkFlow.Persistence;
 namespace ParkFlow.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260511035457_AddUserProfileFields")]
+    partial class AddUserProfileFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -191,8 +194,7 @@ namespace ParkFlow.Persistence.Migrations
                         .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Course")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -200,8 +202,7 @@ namespace ParkFlow.Persistence.Migrations
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("Department")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("text");
 
                     b.Property<string>("FirstName")
                         .IsRequired()
@@ -210,8 +211,7 @@ namespace ParkFlow.Persistence.Migrations
 
                     b.Property<string>("IdCardNumber")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("text");
 
                     b.Property<string>("LastName")
                         .IsRequired()
@@ -219,16 +219,14 @@ namespace ParkFlow.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("Office")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProfilePictureUrl")
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
 
                     b.Property<string>("Section")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
