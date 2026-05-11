@@ -4,8 +4,6 @@ public class UserProfile : BaseEntity
 {
     // FK
     public Guid UserAccountId { get; private set; }
-
-    // Navigation
     public UserAccount UserAccount { get; private set; } = null!;
 
     // Profile Data

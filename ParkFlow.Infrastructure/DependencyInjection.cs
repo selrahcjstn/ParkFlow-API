@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Infrastructure.QrCode;
 using ParkFlow.Infrastructure.Security;
 
 namespace ParkFlow.Infrastructure;
@@ -10,6 +11,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IPasswordHasher, PasswordHasherService>();
         services.AddScoped<IJwtService, JwtService>();
+        services.AddScoped<IQrCodeService, QrCodeService>();
         return services;
     }
 }

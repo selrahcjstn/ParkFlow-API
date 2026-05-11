@@ -3,6 +3,7 @@ using ParkFlow.Domain.Enums;
 
 public class CorSubmission : BaseEntity
 {
+    // FK
     public Guid UserAccountId { get; private set; }
     public UserAccount UserAccount { get; private set; } = null!;
 

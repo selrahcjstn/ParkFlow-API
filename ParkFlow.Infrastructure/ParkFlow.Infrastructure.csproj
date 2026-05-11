@@ -11,10 +11,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="QRCoder" Version="1.8.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.18.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="QrCode\" />
     <Folder Include="Security\" />
   </ItemGroup>
 

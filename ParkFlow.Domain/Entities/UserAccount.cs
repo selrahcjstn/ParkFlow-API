@@ -12,7 +12,7 @@ public class UserAccount : BaseEntity
 
     private UserProfile UserProfile { get; set; } = null!; // Navigation property
 
-    public DateTime PasswordLastUpdatedAt { get; private set; } = DateTime.UtcNow;
+    public DateTime PasswordLastUpdatedAt { get; private set; }
 
     public string? PasswordResetTokenHash { get; private set; }
     public DateTime? PasswordResetTokenExpiresAt { get; private set; }

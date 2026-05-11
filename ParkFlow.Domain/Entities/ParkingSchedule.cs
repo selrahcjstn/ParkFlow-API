@@ -2,6 +2,7 @@ namespace ParkFlow.Domain.Entities;
 
 public class ParkingSchedule : BaseEntity
 {
+    // FK
     public Guid SubmissionId { get; private set; }
     public CorSubmission CorSubmission { get; private set; } = null!;
 
