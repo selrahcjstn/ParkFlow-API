@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Profiles.DTOs;
@@ -32,10 +33,11 @@ public class UserProfileController : ControllerBase
             : BadRequest(result);
     }
 
-    [HttpGet("{userId:guid}")]
-    public async Task<ActionResult<Result<UserProfileDto>>> GetByUserId(Guid userId)
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<ActionResult<Result<UserProfileDto>>> GetByUserId()
     {
-        var result = await _mediator.Send(new GetUserProfileByUserIdQuery(userId));
+        var result = await _mediator.Send(new GetMyProfileQuery());
 
         if (result.IsSuccess)
             return Ok(result);

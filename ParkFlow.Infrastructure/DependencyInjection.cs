@@ -12,6 +12,8 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, PasswordHasherService>();
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IQrCodeService, QrCodeService>();
+        services.AddHttpContextAccessor();
+        services.AddScoped<IUserContext, UserContext>();
         return services;
     }
 }
