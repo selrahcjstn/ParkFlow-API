@@ -12,6 +12,5 @@ public record CreateUserProfileCommand(
     string? Course,
     string? Section,
     int? YearLevel,
-    string? Office,
-    string? Department
+    string? Office
 ) : IRequest<Result<Guid>>;

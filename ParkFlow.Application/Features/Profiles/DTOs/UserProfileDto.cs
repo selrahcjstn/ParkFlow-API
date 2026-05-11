@@ -14,6 +14,5 @@ public record UserProfileDto(
     string? Course,
     string? Section,
     int? YearLevel,
-    string? Office,
-    string? Department
+    string? Office
 );

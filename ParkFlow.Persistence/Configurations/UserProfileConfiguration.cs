@@ -46,9 +46,6 @@ public class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
         entity.Property(e => e.Office)
             .HasMaxLength(100);
 
-        entity.Property(e => e.Department)
-            .HasMaxLength(100);
-
         // One-to-One Relationship
         entity.HasOne(e => e.UserAccount)
             .WithOne()

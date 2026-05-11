@@ -8,6 +8,5 @@ public record UpdateUserProfileRequest(
     string? Course,
     string? Section,
     int? YearLevel,
-    string? Office,
-    string? Department
+    string? Office
 );

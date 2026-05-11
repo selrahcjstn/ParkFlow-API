@@ -42,8 +42,7 @@ public class GetMyProfileHandler
             profile.Course,
             profile.Section,
             profile.YearLevel,
-            profile.Office,
-            profile.Department);
+            profile.Office);
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");
     }

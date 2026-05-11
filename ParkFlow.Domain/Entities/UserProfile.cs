@@ -21,7 +21,6 @@ public class UserProfile : BaseEntity
 
     // Optional Staff Details:
     public string? Office { get; private set; }
-    public string? Department { get; private set; }
 
     private UserProfile() { }
 
@@ -34,8 +33,7 @@ public class UserProfile : BaseEntity
         string? course,
         string? section,
         int? yearLevel,
-        string? office,
-        string? department)
+        string? office)
     {
         UserAccountId = userAccountId;
         IdCardNumber = idCardNumber;
@@ -46,7 +44,6 @@ public class UserProfile : BaseEntity
         Section = section;
         YearLevel = yearLevel;
         Office = office;
-        Department = department;
     }
 
     public void UpdateProfile(
@@ -57,8 +54,7 @@ public class UserProfile : BaseEntity
         string? course,
         string? section,
         int? yearLevel,
-        string? office,
-        string? department)
+        string? office)
     {
         if (!string.IsNullOrWhiteSpace(idCardNumber))
             IdCardNumber = idCardNumber;
@@ -76,7 +72,5 @@ public class UserProfile : BaseEntity
             YearLevel = yearLevel;
         if (!string.IsNullOrWhiteSpace(office))
             Office = office;
-        if (!string.IsNullOrWhiteSpace(department))
-            Department = department;
     }
 }

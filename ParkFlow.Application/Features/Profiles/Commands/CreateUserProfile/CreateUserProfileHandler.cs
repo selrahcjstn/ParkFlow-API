@@ -43,8 +43,7 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
             request.Course,
             request.Section,
             request.YearLevel,
-            request.Office,
-            request.Department);
+            request.Office);
 
         await _userProfileRepository.AddAsync(userProfile);
 

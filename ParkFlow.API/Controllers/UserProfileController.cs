@@ -59,8 +59,7 @@ public class UserProfileController : ControllerBase
             request.Course,
             request.Section,
             request.YearLevel,
-            request.Office,
-            request.Department);
+            request.Office);
 
         var result = await _mediator.Send(command);
 

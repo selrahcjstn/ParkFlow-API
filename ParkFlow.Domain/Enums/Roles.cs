@@ -4,7 +4,8 @@
     {
         Guard,
         Student,
-        Personnel,
-        Administrator
+        UniversityStaff,
+        NonAcademicPersonnel,
+        Admin
     }
 }

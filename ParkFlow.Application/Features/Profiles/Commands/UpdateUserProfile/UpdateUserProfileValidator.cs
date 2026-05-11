@@ -54,11 +54,6 @@ public class UpdateUserProfileValidator : AbstractValidator<UpdateUserProfileCom
             .WithMessage("Office must not exceed 100 characters.")
             .When(x => !string.IsNullOrWhiteSpace(x.Office));
 
-        RuleFor(x => x.Department)
-            .MaximumLength(100)
-            .WithMessage("Department must not exceed 100 characters.")
-            .When(x => !string.IsNullOrWhiteSpace(x.Department));
-
         RuleFor(x => x)
             .Must(HasAnyChange)
             .WithMessage("At least one field must be provided to update.");
@@ -72,8 +67,7 @@ public class UpdateUserProfileValidator : AbstractValidator<UpdateUserProfileCom
                && string.IsNullOrWhiteSpace(cmd.Course)
                && string.IsNullOrWhiteSpace(cmd.Section)
                && !cmd.YearLevel.HasValue
-               && string.IsNullOrWhiteSpace(cmd.Office)
-               && string.IsNullOrWhiteSpace(cmd.Department));
+             && string.IsNullOrWhiteSpace(cmd.Office));
 
     private static bool BeAValidAbsoluteUrl(string? url)
     {

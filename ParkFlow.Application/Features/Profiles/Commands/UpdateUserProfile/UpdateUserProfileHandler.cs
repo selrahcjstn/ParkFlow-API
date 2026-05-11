@@ -41,8 +41,7 @@ public class UpdateUserProfileHandler : IRequestHandler<UpdateUserProfileCommand
             request.Course,
             request.Section,
             request.YearLevel,
-            request.Office,
-            request.Department);
+            request.Office);
 
         await _userProfileRepository.UpdateAsync(profile);
 

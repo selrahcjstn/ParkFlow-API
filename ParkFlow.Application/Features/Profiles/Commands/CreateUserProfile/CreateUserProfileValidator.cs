@@ -54,11 +54,6 @@ public class CreateUserProfileValidator : AbstractValidator<CreateUserProfileCom
             .MaximumLength(100)
             .WithMessage("Office must not exceed 100 characters.")
             .When(x => !string.IsNullOrWhiteSpace(x.Office));
-
-        RuleFor(x => x.Department)
-            .MaximumLength(100)
-            .WithMessage("Department must not exceed 100 characters.")
-            .When(x => !string.IsNullOrWhiteSpace(x.Department));
     }
 
     private static bool BeAValidAbsoluteUrl(string? url)
