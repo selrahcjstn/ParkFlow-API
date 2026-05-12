@@ -5,7 +5,7 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using VehicleEntity = ParkFlow.Domain.Entities.Vehicle;
 
-namespace ParkFlow.Application.Features.Vehicle.Command;
+namespace ParkFlow.Application.Features.Vehicles.Command;
 
 public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result<Guid>>
 {

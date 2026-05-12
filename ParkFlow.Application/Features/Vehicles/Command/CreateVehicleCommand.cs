@@ -1,7 +1,7 @@
 using MediatR;
 using ParkFlow.Application.Common;
 
-namespace ParkFlow.Application.Features.Vehicle.Command;
+namespace ParkFlow.Application.Features.Vehicles.Command;
 
 public record CreateVehicleCommand(
     Guid OwnerId,

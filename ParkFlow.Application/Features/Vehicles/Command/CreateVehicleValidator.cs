@@ -1,6 +1,6 @@
 using FluentValidation;
 
-namespace ParkFlow.Application.Features.Vehicle.Command;
+namespace ParkFlow.Application.Features.Vehicles.Command;
 
 public class CreateVehicleValidator : AbstractValidator<CreateVehicleCommand>
 {
