@@ -18,6 +18,14 @@ public class UserProfileRepository : IUserProfileRepository
         await _appDbContext.SaveChangesAsync();
     }
 
+    public Task<UserProfile?> GetByIdAsync(Guid id)
+    {
+        return _appDbContext.UserProfiles
+            .Include(p => p.UserAccount)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == id);
+    }
+
     public async Task<UserProfile?> GetByUserIdAsync(Guid userId)
     {
         return await _appDbContext.UserProfiles

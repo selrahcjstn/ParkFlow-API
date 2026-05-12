@@ -16,7 +16,7 @@ public class VehicleController : ControllerBase
         _mediator = mediator;
     }
 
-    [HttpPost]
+    [HttpPost("create")]
     public async Task<ActionResult<Result<Guid>>> Create(CreateVehicleCommand command)
     {
         var result = await _mediator.Send(command);
