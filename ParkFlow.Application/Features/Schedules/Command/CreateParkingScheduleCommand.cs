@@ -1,10 +1,17 @@
 using MediatR;
+using ParkFlow.Application.Common;
 
 namespace ParkFlow.Application.Features.Schedules.Command;
 
-public record CreateParkingScheduleCommand(
-    Guid SubmissionId,
-    DayOfWeek DayOfWeek,
-    TimeSpan StartTime,
-    TimeSpan EndTime) : IRequest<ParkFlow.Application.Common.Result<Guid>>;
-    
+public class CreateParkingScheduleCommand : IRequest<Result<Guid>>
+{
+    public Guid SubmissionId { get; set; }
+    public List<CreateParkingScheduleItem> Schedules { get; set; } = new();
+}
+
+public class CreateParkingScheduleItem
+{
+    public DayOfWeek DayOfWeek { get; set; }
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan EndTime { get; set; }
+}

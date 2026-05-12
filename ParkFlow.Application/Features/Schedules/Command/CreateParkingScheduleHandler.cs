@@ -3,7 +3,6 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
-using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Schedules.Command;
 
@@ -30,10 +29,23 @@ public class CreateParkingScheduleHandler : IRequestHandler<CreateParkingSchedul
             return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
         }
 
-        var parkingSchedule = new ParkingSchedule(request.SubmissionId, request.DayOfWeek, request.StartTime, request.EndTime);
+        var schedules = new List<ParkingSchedule>();
 
-        await _parkingScheduleRepository.AddAsync(parkingSchedule);
+        foreach (var item in request.Schedules)
+        {
+            schedules.Add(new ParkingSchedule(
+                request.SubmissionId,
+                item.DayOfWeek,
+                item.StartTime,
+                item.EndTime
+            ));
+        }
 
-        return Result<Guid>.Success(parkingSchedule.Id, "Parking schedule created.");
+        foreach (var schedule in schedules)
+        {
+            await _parkingScheduleRepository.AddAsync(schedule);
+        }
+
+        return Result<Guid>.Success(Guid.NewGuid(), "Parking schedules created.");
     }
 }

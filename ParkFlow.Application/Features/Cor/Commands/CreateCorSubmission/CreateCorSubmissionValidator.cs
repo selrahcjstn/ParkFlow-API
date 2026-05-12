@@ -23,12 +23,6 @@ public class CreateCorSubmissionValidator : AbstractValidator<CreateCorSubmissio
             .WithMessage("COR document URL must be a valid URL.")
             .MaximumLength(2048)
             .WithMessage("COR document URL is too long.");
-
-        RuleFor(x => x.DateOfIncident)
-            .NotEmpty()
-            .WithMessage("Date of incident is required.")
-            .LessThanOrEqualTo(DateTime.UtcNow)
-            .WithMessage("Date of incident cannot be in the future.");
     }
 
     private static bool BeValidUrl(string? url)

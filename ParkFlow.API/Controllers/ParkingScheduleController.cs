@@ -16,7 +16,7 @@ public class ParkingScheduleController : ControllerBase
         _mediator = mediator;
     }
 
-    [HttpPost]
+    [HttpPost("create")]
     public async Task<ActionResult<Result<Guid>>> Create(CreateParkingScheduleCommand command)
     {
         var result = await _mediator.Send(command);
