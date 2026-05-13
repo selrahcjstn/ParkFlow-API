@@ -95,16 +95,31 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
             {
                 foreach (var v in request.Vehicles)
                 {
-                    // generate QR bytes and hash them (SHA256 base64) to fit DB column limits
-                    var qrBytes = _qrCodeService.GenerateQrCode(v.PlateNumber + "|" + user.Id);
-                    var qrCodeHash = HashQrBytes(qrBytes);
+                    // generate unique QR hash
+                    var qrCodeHash = Guid.NewGuid().ToString();
 
-                    var vehicle = new Vehicle(user.Id, v.PlateNumber, v.Brand, qrCodeHash);
+                    // optional: generate QR image bytes if needed
+                    var qrBytes = _qrCodeService.GenerateQrCode(qrCodeHash);
+
+                    var vehicle = new Vehicle(
+                        user.Id,
+                        v.PlateNumber,
+                        v.Brand,
+                        qrCodeHash
+                    );
+
                     await _vehicleRepository.AddAsync(vehicle);
-                    vehiclesCreated.Add(new VehicleResultDto(vehicle.Id, vehicle.PlateNumber, vehicle.Brand, vehicle.QrCodeHash));
+
+                    vehiclesCreated.Add(
+                        new VehicleResultDto(
+                            vehicle.Id,
+                            vehicle.PlateNumber,
+                            vehicle.Brand,
+                            vehicle.QrCodeHash
+                        )
+                    );
                 }
             }
-
             
             var resultDto = new RegisterResultDto(user.Id, submissionId, vehiclesCreated.Any() ? vehiclesCreated : null);
             return Result<RegisterResultDto>.Success(resultDto, "Registered successfully.");

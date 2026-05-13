@@ -6,25 +6,25 @@ public class RegisterUserAggregateValidator : AbstractValidator<RegisterUserAggr
 {
     public RegisterUserAggregateValidator()
     {
-        RuleFor(x => x.Account).NotNull().WithMessage("Account is required.");
-        When(x => x.Account != null, () =>
+        RuleFor(x => x.Account).NotNull().WithMessage("Account is required.")
+            .ChildRules(account =>
+            {
+                account.RuleFor(a => a.Email).NotEmpty().EmailAddress();
+                account.RuleFor(a => a.Password).NotEmpty().MinimumLength(6);
+                account.RuleFor(a => a.PhoneNumber).NotEmpty();
+            });
+
+        RuleFor(x => x.Profile).NotNull().ChildRules(profile =>
         {
-            RuleFor(x => x.Account.Email).NotEmpty().EmailAddress();
-            RuleFor(x => x.Account.Password).NotEmpty().MinimumLength(6);
-            RuleFor(x => x.Account.PhoneNumber).NotEmpty();
+            profile.RuleFor(p => p.IdCardNumber).NotEmpty();
+            profile.RuleFor(p => p.FirstName).NotEmpty();
+            profile.RuleFor(p => p.LastName).NotEmpty();
         });
 
-        When(x => x.Profile != null, () =>
+        RuleFor(x => x.CorSubmission).NotNull().DependentRules(() =>
         {
-            RuleFor(x => x.Profile!.IdCardNumber).NotEmpty();
-            RuleFor(x => x.Profile!.FirstName).NotEmpty();
-            RuleFor(x => x.Profile!.LastName).NotEmpty();
-        });
-
-        When(x => x.CorSubmission != null, () =>
-        {
-            RuleFor(x => x.CorSubmission.AcademicTerm).NotEmpty();
-            RuleFor(x => x.CorSubmission.CorDocumentUrl).NotEmpty();
+            RuleFor(x => x.CorSubmission!.AcademicTerm).NotEmpty();
+            RuleFor(x => x.CorSubmission!.CorDocumentUrl).NotEmpty();
         });
     }
 }
