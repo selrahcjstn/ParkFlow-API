@@ -22,4 +22,6 @@ public record ParkingScheduleItemDto(DayOfWeek DayOfWeek, TimeSpan StartTime, Ti
 
 public record VehicleDto(string PlateNumber, string Brand);
 
-public record RegisterResultDto(Guid UserId, Guid? SubmissionId, List<Guid>? VehicleIds);
+public record VehicleResultDto(Guid Id, string PlateNumber, string Brand, string QrCodeHash);
+
+public record RegisterResultDto(Guid UserId, Guid? SubmissionId, List<VehicleResultDto>? Vehicles);

@@ -1,6 +1,7 @@
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
+using System.Security.Cryptography;
 using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.Application.Features.Users.Commands.RegisterUserAggregate;
@@ -51,7 +52,7 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
             await _userAccountRepository.AddAsync(user);
 
             Guid? submissionId = null;
-            var vehicleIds = new List<Guid>();
+            var vehiclesCreated = new List<VehicleResultDto>();
 
             // Create profile
             if (request.Profile is not null)
@@ -94,22 +95,32 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
             {
                 foreach (var v in request.Vehicles)
                 {
-                    // generate QR bytes and convert to base64 as a stored hash/string
+                    // generate QR bytes and hash them (SHA256 base64) to fit DB column limits
                     var qrBytes = _qrCodeService.GenerateQrCode(v.PlateNumber + "|" + user.Id);
-                    var qrBase64 = Convert.ToBase64String(qrBytes);
+                    var qrCodeHash = HashQrBytes(qrBytes);
 
-                    var vehicle = new Vehicle(user.Id, v.PlateNumber, v.Brand, qrBase64);
+                    var vehicle = new Vehicle(user.Id, v.PlateNumber, v.Brand, qrCodeHash);
                     await _vehicleRepository.AddAsync(vehicle);
-                    vehicleIds.Add(vehicle.Id);
+                    vehiclesCreated.Add(new VehicleResultDto(vehicle.Id, vehicle.PlateNumber, vehicle.Brand, vehicle.QrCodeHash));
                 }
             }
 
-            var resultDto = new RegisterResultDto(user.Id, submissionId, vehicleIds.Any() ? vehicleIds : null);
+            
+            var resultDto = new RegisterResultDto(user.Id, submissionId, vehiclesCreated.Any() ? vehiclesCreated : null);
             return Result<RegisterResultDto>.Success(resultDto, "Registered successfully.");
         }
         catch (Exception ex)
         {
-            return Result<RegisterResultDto>.Failure("Registration failed: " + ex.Message, ErrorCode.BadRequest);
+            // If there is an inner exception (e.g., EF Core DbUpdateException), include it for debugging
+            var inner = ex.InnerException?.Message;
+            var message = "Registration failed: " + ex.Message + (inner is null ? string.Empty : " -- " + inner);
+            return Result<RegisterResultDto>.Failure(message, ErrorCode.BadRequest);
         }
+    }
+
+    private static string HashQrBytes(byte[] bytes)
+    {
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToBase64String(hash);
     }
 }

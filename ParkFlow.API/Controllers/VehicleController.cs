@@ -1,7 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
-using ParkFlow.Application.Features.Vehicle.Command;
+using ParkFlow.Application.Features.Vehicles.Command;
 
 namespace ParkFlow.API.Controllers;
 
