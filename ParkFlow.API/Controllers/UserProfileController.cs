@@ -52,14 +52,9 @@ public class UserProfileController : ControllerBase
     {
         var command = new UpdateUserProfileCommand(
             userId,
-            request.IdCardNumber,
             request.FirstName,
             request.LastName,
-            request.ProfilePictureUrl,
-            request.Course,
-            request.Section,
-            request.YearLevel,
-            request.Office);
+            request.ProfilePictureUrl);
 
         var result = await _mediator.Send(command);
 

@@ -19,4 +19,8 @@
     <ProjectReference Include="..\ParkFlow.Domain\ParkFlow.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Features\Users\Commands\" />
+  </ItemGroup>
+
 </Project>

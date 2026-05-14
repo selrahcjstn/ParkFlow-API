@@ -1,5 +1,3 @@
-using ParkFlow.Domain.Enums;
-
 namespace ParkFlow.Application.Features.Profiles.DTOs;
 
 public record UserProfileDto(
