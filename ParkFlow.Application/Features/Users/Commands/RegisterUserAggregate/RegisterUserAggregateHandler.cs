@@ -1,7 +1,6 @@
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
-using System.Security.Cryptography;
 using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.Application.Features.Users.Commands.RegisterUserAggregate;
@@ -95,10 +94,7 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
             {
                 foreach (var v in request.Vehicles)
                 {
-                    // generate unique QR hash
                     var qrCodeHash = Guid.NewGuid().ToString();
-
-                    // optional: generate QR image bytes if needed
                     var qrBytes = _qrCodeService.GenerateQrCode(qrCodeHash);
 
                     var vehicle = new Vehicle(
@@ -120,22 +116,15 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
                     );
                 }
             }
-            
+
             var resultDto = new RegisterResultDto(user.Id, submissionId, vehiclesCreated.Any() ? vehiclesCreated : null);
             return Result<RegisterResultDto>.Success(resultDto, "Registered successfully.");
         }
         catch (Exception ex)
         {
-            // If there is an inner exception (e.g., EF Core DbUpdateException), include it for debugging
             var inner = ex.InnerException?.Message;
             var message = "Registration failed: " + ex.Message + (inner is null ? string.Empty : " -- " + inner);
             return Result<RegisterResultDto>.Failure(message, ErrorCode.BadRequest);
         }
-    }
-
-    private static string HashQrBytes(byte[] bytes)
-    {
-        var hash = SHA256.HashData(bytes);
-        return Convert.ToBase64String(hash);
     }
 }
