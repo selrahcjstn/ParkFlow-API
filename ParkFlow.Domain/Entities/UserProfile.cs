@@ -14,47 +14,32 @@ public class UserProfile : BaseEntity
     public string LastName { get; private set; } = null!;
     public string? ProfilePictureUrl { get; private set; }
 
-    // Optional Student Account Details:
-    public string? Course { get; private set; }
-    public string? Section { get; private set; }
-    public int? YearLevel { get; private set; }
 
-    // Optional Staff Details:
-    public string? Office { get; private set; }
 
     private UserProfile() { }
 
     public UserProfile(
-        Guid userAccountId,
+        UserAccount userAccount,
         string idCardNumber,
         string firstName,
         string lastName,
-        string? profilePictureUrl,
-        string? course,
-        string? section,
-        int? yearLevel,
-        string? office)
+        string? profilePictureUrl)
     {
-        UserAccountId = userAccountId;
+        UserAccount = userAccount;
+        UserAccountId = userAccount.Id;
+
         IdCardNumber = idCardNumber;
         FirstName = firstName;
         LastName = lastName;
         ProfilePictureUrl = profilePictureUrl;
-        Course = course;
-        Section = section;
-        YearLevel = yearLevel;
-        Office = office;
     }
 
     public void UpdateProfile(
         string? idCardNumber,
         string? firstName,
         string? lastName,
-        string? profilePictureUrl,
-        string? course,
-        string? section,
-        int? yearLevel,
-        string? office)
+        string? profilePictureUrl
+        )
     {
         if (!string.IsNullOrWhiteSpace(idCardNumber))
             IdCardNumber = idCardNumber;
@@ -64,13 +49,5 @@ public class UserProfile : BaseEntity
             LastName = lastName;
         if (!string.IsNullOrWhiteSpace(profilePictureUrl))
             ProfilePictureUrl = profilePictureUrl;
-        if (!string.IsNullOrWhiteSpace(course))
-            Course = course;
-        if (!string.IsNullOrWhiteSpace(section))
-            Section = section;
-        if (yearLevel.HasValue)
-            YearLevel = yearLevel;
-        if (!string.IsNullOrWhiteSpace(office))
-            Office = office;
     }
 }
