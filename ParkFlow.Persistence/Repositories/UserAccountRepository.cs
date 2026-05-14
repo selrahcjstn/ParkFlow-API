@@ -13,16 +13,38 @@ namespace ParkFlow.Persistence.Repositories
             await _appDbContext.SaveChangesAsync();
         }
 
-       public async Task<UserAccount?> GetByEmailAsync(string email)
+        public async Task<UserAccount?> GetByEmailAsync(string email)
         {
             return await _appDbContext.UserAccounts
                 .AsNoTracking()
+                .Include(u => u.UserProfile)
+                    .ThenInclude(p => p.Student)
+                .Include(u => u.UserProfile)
+                    .ThenInclude(p => p.Personnel)
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
         public async Task<UserAccount?> GetByIdAsync(Guid id)
         {
             return await _appDbContext.UserAccounts.FindAsync(id);
+        }
+
+        public async Task<string> GetProfileTypeByUserId(Guid userId)
+        {
+            var user = await _appDbContext.UserAccounts
+                .Include(u => u.UserProfile)
+                    .ThenInclude(p => p.Student)
+                .Include(u => u.UserProfile)
+                    .ThenInclude(p => p.Personnel)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user?.UserProfile?.Student != null)
+                return "student";
+
+            if (user?.UserProfile?.Personnel != null)
+                return "personnel";
+
+            throw new Exception("Invalid profile type");
         }
 
         public Task UpdateAsync(UserAccount user)

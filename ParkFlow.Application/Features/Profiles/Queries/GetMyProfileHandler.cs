@@ -34,15 +34,10 @@ public class GetMyProfileHandler
             profile.Id,
             profile.UserAccountId,
             profile.UserAccount.PhoneNumber,
-            profile.UserAccount.Roles,
             profile.IdCardNumber,
             profile.FirstName,
             profile.LastName,
-            profile.ProfilePictureUrl,
-            profile.Course,
-            profile.Section,
-            profile.YearLevel,
-            profile.Office);
+            profile.ProfilePictureUrl);
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");
     }

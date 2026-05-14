@@ -8,10 +8,8 @@ public class UserAccount : BaseEntity
     public string PasswordHash { get; private set; } = null!;
     public string PhoneNumber { get; private set; } = null!;
     public AccountStatus Status { get; private set; }
-    public Roles Roles { get; private set; }
     
-
-    private UserProfile UserProfile { get; set; } = null!; // Navigation property
+        public UserProfile UserProfile { get; set; } = null!;
 
     public DateTime PasswordLastUpdatedAt { get; private set; }
 
@@ -23,15 +21,13 @@ public class UserAccount : BaseEntity
     public UserAccount(
         string email,
         string passwordHash,
-        string phoneNumber,
-        Roles role)
+        string phoneNumber)
     {
         Email = email;
         PasswordHash = passwordHash;
         PhoneNumber = phoneNumber;
 
         Status = AccountStatus.PendingVerification;
-        Roles = role;
     }
 
     // Domain Methods
@@ -41,8 +37,6 @@ public class UserAccount : BaseEntity
             Email = email;
         if (!string.IsNullOrWhiteSpace(phoneNumber))
             PhoneNumber = phoneNumber;
-        if (role.HasValue)
-            Roles = role.Value;
     }
 
     public void UpdatePassword(string newPasswordHash)

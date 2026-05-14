@@ -7,14 +7,16 @@ namespace ParkFlow.Application.Features.Users.Commands.RegisterUserAggregate;
 public record RegisterUserAggregateCommand(
     AccountDto Account,
     ProfileDto Profile,
+    StudentDto? Student,
+    PersonnelDto? Personnel,
     CorDto? CorSubmission,
     List<ParkingScheduleItemDto>? ParkingSchedules,
     List<VehicleDto>? Vehicles
 ) : IRequest<Result<RegisterResultDto>>;
 
-public record AccountDto(string Email, string Password, string PhoneNumber, Roles Role);
+public record AccountDto(string Email, string Password, string PhoneNumber);
 
-public record ProfileDto(string IdCardNumber, string FirstName, string LastName, string? ProfilePictureUrl, string? Course, string? Section, int? YearLevel, string? Office);
+public record ProfileDto(string FirstName, string LastName, string? ProfilePictureUrl);
 
 public record CorDto(string AcademicTerm, string CorDocumentUrl);
 
@@ -25,3 +27,15 @@ public record VehicleDto(string PlateNumber, string Brand);
 public record VehicleResultDto(Guid Id, string PlateNumber, string Brand, string QrCodeHash);
 
 public record RegisterResultDto(Guid UserId, Guid? SubmissionId, List<VehicleResultDto>? Vehicles);
+
+public record StudentDto(
+    string StudentNumber,
+    string Course,
+    string Section,
+    int YearLevel
+);
+
+public record PersonnelDto(
+    string IdCardNumber,
+    string Department
+);

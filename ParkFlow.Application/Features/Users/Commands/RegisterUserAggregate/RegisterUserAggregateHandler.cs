@@ -12,6 +12,9 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
     private readonly IVehicleRepository _vehicleRepository;
+    private readonly IStudentRepository _studentRepository;
+    private readonly IPersonnelRepository _personnelRepository;
+    private readonly IGuardRepository _guardRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IQrCodeService _qrCodeService;
 
@@ -21,6 +24,9 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
         ICorSubmissionRepository corSubmissionRepository,
         IParkingScheduleRepository parkingScheduleRepository,
         IVehicleRepository vehicleRepository,
+        IStudentRepository studentRepository,
+        IPersonnelRepository personnelRepository,
+        IGuardRepository guardRepository,
         IPasswordHasher passwordHasher,
         IQrCodeService qrCodeService)
     {
@@ -29,6 +35,9 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
         _corSubmissionRepository = corSubmissionRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
         _vehicleRepository = vehicleRepository;
+        _studentRepository = studentRepository;
+        _personnelRepository = personnelRepository;
+        _guardRepository = guardRepository;
         _passwordHasher = passwordHasher;
         _qrCodeService = qrCodeService;
     }
@@ -47,29 +56,50 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
         {
             // Create account
             var hashed = _passwordHasher.HashPassword(request.Account.Password);
-            var user = new UserAccount(request.Account.Email, hashed, request.Account.PhoneNumber, request.Account.Role);
+            var user = new UserAccount(request.Account.Email, hashed, request.Account.PhoneNumber);
             await _userAccountRepository.AddAsync(user);
 
             Guid? submissionId = null;
             var vehiclesCreated = new List<VehicleResultDto>();
 
-            // Create profile
             if (request.Profile is not null)
             {
                 var profile = new UserProfile(
-                    user.Id,
-                    request.Profile.IdCardNumber,
+                    user,
                     request.Profile.FirstName,
                     request.Profile.LastName,
-                    request.Profile.ProfilePictureUrl,
-                    request.Profile.Course,
-                    request.Profile.Section,
-                    request.Profile.YearLevel,
-                    request.Profile.Office
+                    request.Profile.ProfilePictureUrl
                 );
 
                 await _userProfileRepository.AddAsync(profile);
+
+                // STUDENT
+                if (request.Student is not null)
+                {
+                    var student = new Student(
+                        profile,
+                        request.Student.StudentNumber,
+                        request.Student.Course,
+                        request.Student.Section,
+                        request.Student.YearLevel
+                    );
+
+                    await _studentRepository.AddAsync(student);
+                }
+
+                // PERSONNEL
+                if (request.Personnel is not null)
+                {
+                    var personnel = new Personnel(
+                        profile,
+                        request.Personnel.IdCardNumber,
+                        request.Personnel.Department
+                    );
+
+                    await _personnelRepository.AddAsync(personnel);
+                }
             }
+
 
             // Create COR submission
             if (request.CorSubmission is not null)

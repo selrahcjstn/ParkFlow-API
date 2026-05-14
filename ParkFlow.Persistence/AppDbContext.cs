@@ -15,6 +15,10 @@ namespace ParkFlow.Persistence
         public DbSet<CorSubmission> CorSubmissions { get; set; }
         public DbSet<ParkingSchedule> ParkingSchedules { get; set; }
         public DbSet<Vehicle> Vehicles { get; set; }
+        public DbSet<Admin> Admins { get; set; }
+        public DbSet<Guard> Guards { get; set; }
+        public DbSet<Student> Students { get; set; }
+        public DbSet<Personnel> Personnel { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

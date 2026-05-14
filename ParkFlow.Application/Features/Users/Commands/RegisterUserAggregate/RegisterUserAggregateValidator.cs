@@ -16,7 +16,6 @@ public class RegisterUserAggregateValidator : AbstractValidator<RegisterUserAggr
 
         RuleFor(x => x.Profile).NotNull().ChildRules(profile =>
         {
-            profile.RuleFor(p => p.IdCardNumber).NotEmpty();
             profile.RuleFor(p => p.FirstName).NotEmpty();
             profile.RuleFor(p => p.LastName).NotEmpty();
         });

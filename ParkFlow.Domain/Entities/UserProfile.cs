@@ -14,63 +14,35 @@ public class UserProfile : BaseEntity
     public string LastName { get; private set; } = null!;
     public string? ProfilePictureUrl { get; private set; }
 
-    // Optional Student Account Details:
-    public string? Course { get; private set; }
-    public string? Section { get; private set; }
-    public int? YearLevel { get; private set; }
-
-    // Optional Staff Details:
-    public string? Office { get; private set; }
+    public Student Student { get; set; }
+    public Personnel Personnel { get; set; }
 
     private UserProfile() { }
 
     public UserProfile(
-        Guid userAccountId,
-        string idCardNumber,
+        UserAccount userAccount,
         string firstName,
         string lastName,
-        string? profilePictureUrl,
-        string? course,
-        string? section,
-        int? yearLevel,
-        string? office)
+        string? profilePictureUrl)
     {
-        UserAccountId = userAccountId;
-        IdCardNumber = idCardNumber;
+        UserAccount = userAccount;
+        UserAccountId = userAccount.Id;
         FirstName = firstName;
         LastName = lastName;
         ProfilePictureUrl = profilePictureUrl;
-        Course = course;
-        Section = section;
-        YearLevel = yearLevel;
-        Office = office;
     }
 
     public void UpdateProfile(
-        string? idCardNumber,
         string? firstName,
         string? lastName,
-        string? profilePictureUrl,
-        string? course,
-        string? section,
-        int? yearLevel,
-        string? office)
+        string? profilePictureUrl
+        )
     {
-        if (!string.IsNullOrWhiteSpace(idCardNumber))
-            IdCardNumber = idCardNumber;
         if (!string.IsNullOrWhiteSpace(firstName))
             FirstName = firstName;
         if (!string.IsNullOrWhiteSpace(lastName))
             LastName = lastName;
         if (!string.IsNullOrWhiteSpace(profilePictureUrl))
             ProfilePictureUrl = profilePictureUrl;
-        if (!string.IsNullOrWhiteSpace(course))
-            Course = course;
-        if (!string.IsNullOrWhiteSpace(section))
-            Section = section;
-        if (yearLevel.HasValue)
-            YearLevel = yearLevel;
-        if (!string.IsNullOrWhiteSpace(office))
-            Office = office;
     }
 }

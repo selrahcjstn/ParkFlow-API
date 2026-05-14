@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
-using ParkFlow.Application.Features.Users.Commands.CreateUserAccount;
 using ParkFlow.Application.Features.Users.Commands.ForgotPasswordUserAccount;
 using ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 using ParkFlow.Application.Features.Users.Commands.ResetPasswordUserAccount;
@@ -20,18 +19,6 @@ namespace ParkFlow.API.Controllers
         public UserAccountController(IMediator mediator)
         {
             _mediator = mediator;
-        }
-
-        [HttpPost("register")]
-        public async Task<ActionResult<Result<Guid>>> Create(CreateUserAccountCommand command)
-        {
-            var result = await _mediator.Send(command);
-            if (result.IsSuccess)
-                return Ok(result);
-
-            return result.ErrorCode == ErrorCode.Conflict
-                ? Conflict(result)
-                : BadRequest(result);
         }
 
         [Authorize]

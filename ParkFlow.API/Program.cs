@@ -45,6 +45,12 @@ builder.Services.AddAuthentication(option =>
     };
 });
 
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("StudentOnly", policy =>
+        policy.RequireClaim("profile_type", "student"))
+    .AddPolicy("PersonnelOnly", policy =>
+        policy.RequireClaim("profile_type", "personnel"));
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

@@ -9,13 +9,16 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
 {
     private readonly IUserProfileRepository _userProfileRepository;
     private readonly IValidator<CreateUserProfileCommand> _validator;
+    private readonly IUserAccountRepository _userAccountRepository;
 
     public CreateUserProfileHandler(
         IUserProfileRepository userProfileRepository,
-        IValidator<CreateUserProfileCommand> validator)
+        IValidator<CreateUserProfileCommand> validator,
+        IUserAccountRepository userAccountRepository)
     {
         _userProfileRepository = userProfileRepository;
         _validator = validator;
+        _userAccountRepository = userAccountRepository;
     }
     public async Task<Result<Guid>> Handle(CreateUserProfileCommand request, CancellationToken cancellationToken)
     {
@@ -34,16 +37,19 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
             return Result<Guid>.Failure("User profile already exists.", ErrorCode.Conflict);
         }
 
+        var user = await _userAccountRepository.GetByIdAsync(request.UserId);
+
+        if (user is null)
+        {
+            return Result<Guid>.Failure("User account not found.", ErrorCode.NotFound);
+        }
+
         var userProfile = new UserProfile(
-            request.UserId,
-            request.IdCardNumber,
+            user,
             request.FirstName,
             request.LastName,
-            request.ProfilePictureUrl,
-            request.Course,
-            request.Section,
-            request.YearLevel,
-            request.Office);
+            request.ProfilePictureUrl
+        );
 
         await _userProfileRepository.AddAsync(userProfile);
 
