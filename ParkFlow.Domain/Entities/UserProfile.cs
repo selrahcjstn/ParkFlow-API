@@ -20,29 +20,23 @@ public class UserProfile : BaseEntity
 
     public UserProfile(
         UserAccount userAccount,
-        string idCardNumber,
         string firstName,
         string lastName,
         string? profilePictureUrl)
     {
         UserAccount = userAccount;
         UserAccountId = userAccount.Id;
-
-        IdCardNumber = idCardNumber;
         FirstName = firstName;
         LastName = lastName;
         ProfilePictureUrl = profilePictureUrl;
     }
 
     public void UpdateProfile(
-        string? idCardNumber,
         string? firstName,
         string? lastName,
         string? profilePictureUrl
         )
     {
-        if (!string.IsNullOrWhiteSpace(idCardNumber))
-            IdCardNumber = idCardNumber;
         if (!string.IsNullOrWhiteSpace(firstName))
             FirstName = firstName;
         if (!string.IsNullOrWhiteSpace(lastName))

@@ -12,6 +12,9 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
     private readonly IVehicleRepository _vehicleRepository;
+    private readonly IStudentRepository _studentRepository;
+    private readonly IPersonnelRepository _personnelRepository;
+    private readonly IGuardRepository _guardRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IQrCodeService _qrCodeService;
 
@@ -21,6 +24,9 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
         ICorSubmissionRepository corSubmissionRepository,
         IParkingScheduleRepository parkingScheduleRepository,
         IVehicleRepository vehicleRepository,
+        IStudentRepository studentRepository,
+        IPersonnelRepository personnelRepository,
+        IGuardRepository guardRepository,
         IPasswordHasher passwordHasher,
         IQrCodeService qrCodeService)
     {
@@ -29,6 +35,9 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
         _corSubmissionRepository = corSubmissionRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
         _vehicleRepository = vehicleRepository;
+        _studentRepository = studentRepository;
+        _personnelRepository = personnelRepository;
+        _guardRepository = guardRepository;
         _passwordHasher = passwordHasher;
         _qrCodeService = qrCodeService;
     }
@@ -58,13 +67,26 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
             {
                 var profile = new UserProfile(
                     user,
-                    request.Profile.IdCardNumber,
                     request.Profile.FirstName,
                     request.Profile.LastName,
                     request.Profile.ProfilePictureUrl
                 );
 
+                var student = new Student(
+                    profile,
+                    request.Student.StudentNumber,
+                    request.Student.Course,
+                    request.Student.Section,
+                    request.Student.YearLevel);
+
+                var personnel = new Personnel(
+                    profile,
+                    request.Personnel.IdCardNumber,
+                    request.Personnel.Department);
+
                 await _userProfileRepository.AddAsync(profile);
+                await _personnelRepository.AddAsync(personnel);
+                await _studentRepository.AddAsync(student);
             }
 
             // Create COR submission
