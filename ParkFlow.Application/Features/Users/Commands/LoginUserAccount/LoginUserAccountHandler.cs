@@ -1,7 +1,6 @@
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
-using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 
@@ -12,8 +11,8 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
     private readonly IJwtService _jwtService;
 
     public LoginUserAccountHandler(
-        IUserAccountRepository userRepository, 
-        IPasswordHasher passwordHasher, 
+        IUserAccountRepository userRepository,
+        IPasswordHasher passwordHasher,
         IJwtService jwtService)
     {
         _userRepository = userRepository;
@@ -29,10 +28,31 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
 
         var isPasswordValid = _passwordHasher.VerifyPassword(user.PasswordHash, request.Password);
 
-        if(!isPasswordValid)
+        if (!isPasswordValid)
             return Result<string>.Failure("Invalid email or password.", ErrorCode.Unauthorized);
 
-        var token = _jwtService.GenerateToken(user);
+        var profile = user.UserProfile;
+
+        if (profile == null)
+            return Result<string>.Failure("Profile missing.", ErrorCode.Unauthorized);
+
+        string profileType;
+
+        if (profile.Student != null)
+        {
+            profileType = "student";
+        }
+        else if (profile.Personnel != null)
+        {
+            profileType = "personnel";
+        }
+        else
+        {
+            return Result<string>.Failure("Invalid profile type.", ErrorCode.Unauthorized);
+        }
+
+        var token = _jwtService.GenerateToken(user, profileType);
+
         return Result<string>.Success(token, "Login successful.");
     }
 }

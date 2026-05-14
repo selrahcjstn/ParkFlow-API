@@ -14,7 +14,8 @@ public class UserProfile : BaseEntity
     public string LastName { get; private set; } = null!;
     public string? ProfilePictureUrl { get; private set; }
 
-
+    public Student Student { get; set; }
+    public Personnel Personnel { get; set; }
 
     private UserProfile() { }
 

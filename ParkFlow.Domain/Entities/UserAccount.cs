@@ -8,6 +8,8 @@ public class UserAccount : BaseEntity
     public string PasswordHash { get; private set; } = null!;
     public string PhoneNumber { get; private set; } = null!;
     public AccountStatus Status { get; private set; }
+    
+        public UserProfile UserProfile { get; set; } = null!;
 
     public DateTime PasswordLastUpdatedAt { get; private set; }
 

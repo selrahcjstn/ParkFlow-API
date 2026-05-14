@@ -11,25 +11,27 @@ namespace ParkFlow.Infrastructure.Security
     {
         private readonly IConfiguration _configuration = configuration;
 
-        public string GenerateToken(UserAccount user)
+        public string GenerateToken(UserAccount user, string profileType)
         {
             var jwtKey = _configuration["Jwt:Key"]
-                ?? throw new InvalidOperationException("JWT key is missing. Set Jwt:Key in configuration or user secrets.");
+                ?? throw new InvalidOperationException("JWT key is missing.");
+
             var expiryValue = _configuration["Jwt:ExpiryMinutes"];
+
             if (!double.TryParse(expiryValue, out var expiryMinutes))
-            {
-                throw new InvalidOperationException("JWT expiry is invalid. Set Jwt:ExpiryMinutes to a numeric value.");
-            }
+                throw new InvalidOperationException("JWT expiry is invalid.");
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[]
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-            };
+            var claims = new List<Claim>
+    {
+        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+        new Claim(JwtRegisteredClaimNames.Email, user.Email),
+        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+        new Claim("user_id", user.Id.ToString()),
+        new Claim("profile_type", profileType)
+    };
 
             var token = new JwtSecurityToken(
                 issuer: _configuration["Jwt:Issuer"],
