@@ -34,7 +34,6 @@ public class GetMyProfileHandler
             profile.Id,
             profile.UserAccountId,
             profile.UserAccount.PhoneNumber,
-            profile.IdCardNumber,
             profile.FirstName,
             profile.LastName,
             profile.ProfilePictureUrl);

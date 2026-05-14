@@ -4,7 +4,6 @@ public record UserProfileDto(
     Guid Id,
     Guid UserAccountId,
     string PhoneNumber,
-    string IdCardNumber,
     string FirstName,
     string LastName,
     string? ProfilePictureUrl

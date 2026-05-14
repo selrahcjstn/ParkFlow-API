@@ -39,7 +39,7 @@ public class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
 
         // One-to-One Relationship
         entity.HasOne(e => e.UserAccount)
-            .WithOne()
+            .WithOne(e => e.UserProfile)
             .HasForeignKey<UserProfile>(e => e.UserAccountId)
             .OnDelete(DeleteBehavior.Cascade);
 

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ParkFlow.Persistence;
@@ -11,9 +12,11 @@ using ParkFlow.Persistence;
 namespace ParkFlow.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260514112423_AddRoleEntities")]
+    partial class AddRoleEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -75,13 +78,6 @@ namespace ParkFlow.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Admins");
-
-                    b.HasData(
-                        new
-                        {
-                            UserProfileId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-                            RoleLevel = 0
-                        });
                 });
 
             modelBuilder.Entity("ParkFlow.Domain.Entities.Guard", b =>
@@ -98,13 +94,6 @@ namespace ParkFlow.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Guards");
-
-                    b.HasData(
-                        new
-                        {
-                            UserProfileId = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-                            AssignedGate = 1
-                        });
                 });
 
             modelBuilder.Entity("ParkFlow.Domain.Entities.ParkingSchedule", b =>
@@ -165,14 +154,6 @@ namespace ParkFlow.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Personnel");
-
-                    b.HasData(
-                        new
-                        {
-                            UserProfileId = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"),
-                            Department = "Administration",
-                            IdCardNumber = "PERSONNEL-0001"
-                        });
                 });
 
             modelBuilder.Entity("ParkFlow.Domain.Entities.Vehicle", b =>
@@ -247,16 +228,6 @@ namespace ParkFlow.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Students");
-
-                    b.HasData(
-                        new
-                        {
-                            UserProfileId = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"),
-                            Course = "BSIT",
-                            Section = "A",
-                            StudentNumber = "STUDENT-0001",
-                            YearLevel = 1
-                        });
                 });
 
             modelBuilder.Entity("UserAccount", b =>
@@ -302,48 +273,6 @@ namespace ParkFlow.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("UserAccounts");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            CreatedAt = new DateTime(2026, 5, 14, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "admin@parkflow.local",
-                            PasswordHash = "seed-password-hash-admin",
-                            PasswordLastUpdatedAt = new DateTime(2026, 5, 14, 0, 0, 0, 0, DateTimeKind.Utc),
-                            PhoneNumber = "09170000001",
-                            Status = 2
-                        },
-                        new
-                        {
-                            Id = new Guid("22222222-2222-2222-2222-222222222222"),
-                            CreatedAt = new DateTime(2026, 5, 14, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "guard@parkflow.local",
-                            PasswordHash = "seed-password-hash-guard",
-                            PasswordLastUpdatedAt = new DateTime(2026, 5, 14, 0, 0, 0, 0, DateTimeKind.Utc),
-                            PhoneNumber = "09170000002",
-                            Status = 2
-                        },
-                        new
-                        {
-                            Id = new Guid("33333333-3333-3333-3333-333333333333"),
-                            CreatedAt = new DateTime(2026, 5, 14, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "personnel@parkflow.local",
-                            PasswordHash = "seed-password-hash-personnel",
-                            PasswordLastUpdatedAt = new DateTime(2026, 5, 14, 0, 0, 0, 0, DateTimeKind.Utc),
-                            PhoneNumber = "09170000003",
-                            Status = 2
-                        },
-                        new
-                        {
-                            Id = new Guid("44444444-4444-4444-4444-444444444444"),
-                            CreatedAt = new DateTime(2026, 5, 14, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "student@parkflow.local",
-                            PasswordHash = "seed-password-hash-student",
-                            PasswordLastUpdatedAt = new DateTime(2026, 5, 14, 0, 0, 0, 0, DateTimeKind.Utc),
-                            PhoneNumber = "09170000004",
-                            Status = 2
-                        });
                 });
 
             modelBuilder.Entity("UserProfile", b =>
@@ -389,44 +318,6 @@ namespace ParkFlow.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("UserProfiles");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-                            CreatedAt = new DateTime(2026, 5, 14, 0, 0, 0, 0, DateTimeKind.Utc),
-                            FirstName = "Admin",
-                            IdCardNumber = "ADMIN-0001",
-                            LastName = "User",
-                            UserAccountId = new Guid("11111111-1111-1111-1111-111111111111")
-                        },
-                        new
-                        {
-                            Id = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-                            CreatedAt = new DateTime(2026, 5, 14, 0, 0, 0, 0, DateTimeKind.Utc),
-                            FirstName = "Guard",
-                            IdCardNumber = "GUARD-0001",
-                            LastName = "User",
-                            UserAccountId = new Guid("22222222-2222-2222-2222-222222222222")
-                        },
-                        new
-                        {
-                            Id = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"),
-                            CreatedAt = new DateTime(2026, 5, 14, 0, 0, 0, 0, DateTimeKind.Utc),
-                            FirstName = "Personnel",
-                            IdCardNumber = "PERSONNEL-0001",
-                            LastName = "User",
-                            UserAccountId = new Guid("33333333-3333-3333-3333-333333333333")
-                        },
-                        new
-                        {
-                            Id = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"),
-                            CreatedAt = new DateTime(2026, 5, 14, 0, 0, 0, 0, DateTimeKind.Utc),
-                            FirstName = "Student",
-                            IdCardNumber = "STUDENT-0001",
-                            LastName = "User",
-                            UserAccountId = new Guid("44444444-4444-4444-4444-444444444444")
-                        });
                 });
 
             modelBuilder.Entity("CorSubmission", b =>
