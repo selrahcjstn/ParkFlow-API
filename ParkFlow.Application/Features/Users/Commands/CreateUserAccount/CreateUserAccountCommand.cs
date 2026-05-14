@@ -7,7 +7,6 @@ namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount
     public record CreateUserAccountCommand(
             string Email,
             string Password,
-            string PhoneNumber,
-            Roles Role
+            string PhoneNumber
     ) : IRequest<Result<Guid>>;
 }

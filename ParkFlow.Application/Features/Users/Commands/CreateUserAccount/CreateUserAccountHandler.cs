@@ -44,8 +44,7 @@ namespace ParkFlow.Application.Features.Users.Commands.CreateUserAccount
             var user = new UserAccount(
                 request.Email,
                 hashedPassword,
-                request.PhoneNumber,
-                request.Role
+                request.PhoneNumber
             );
 
             await _userAccountRepository.AddAsync(user);
