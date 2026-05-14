@@ -47,7 +47,7 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
         {
             // Create account
             var hashed = _passwordHasher.HashPassword(request.Account.Password);
-            var user = new UserAccount(request.Account.Email, hashed, request.Account.PhoneNumber, request.Account.Role);
+            var user = new UserAccount(request.Account.Email, hashed, request.Account.PhoneNumber);
             await _userAccountRepository.AddAsync(user);
 
             Guid? submissionId = null;
@@ -57,15 +57,11 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
             if (request.Profile is not null)
             {
                 var profile = new UserProfile(
-                    user.Id,
+                    user,
                     request.Profile.IdCardNumber,
                     request.Profile.FirstName,
                     request.Profile.LastName,
-                    request.Profile.ProfilePictureUrl,
-                    request.Profile.Course,
-                    request.Profile.Section,
-                    request.Profile.YearLevel,
-                    request.Profile.Office
+                    request.Profile.ProfilePictureUrl
                 );
 
                 await _userProfileRepository.AddAsync(profile);
