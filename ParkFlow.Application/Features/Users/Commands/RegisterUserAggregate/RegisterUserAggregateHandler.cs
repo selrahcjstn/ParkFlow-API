@@ -62,7 +62,6 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
             Guid? submissionId = null;
             var vehiclesCreated = new List<VehicleResultDto>();
 
-            // Create profile
             if (request.Profile is not null)
             {
                 var profile = new UserProfile(
@@ -72,22 +71,35 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
                     request.Profile.ProfilePictureUrl
                 );
 
-                var student = new Student(
-                    profile,
-                    request.Student.StudentNumber,
-                    request.Student.Course,
-                    request.Student.Section,
-                    request.Student.YearLevel);
-
-                var personnel = new Personnel(
-                    profile,
-                    request.Personnel.IdCardNumber,
-                    request.Personnel.Department);
-
                 await _userProfileRepository.AddAsync(profile);
-                await _personnelRepository.AddAsync(personnel);
-                await _studentRepository.AddAsync(student);
+
+                // STUDENT
+                if (request.Student is not null)
+                {
+                    var student = new Student(
+                        profile,
+                        request.Student.StudentNumber,
+                        request.Student.Course,
+                        request.Student.Section,
+                        request.Student.YearLevel
+                    );
+
+                    await _studentRepository.AddAsync(student);
+                }
+
+                // PERSONNEL
+                if (request.Personnel is not null)
+                {
+                    var personnel = new Personnel(
+                        profile,
+                        request.Personnel.IdCardNumber,
+                        request.Personnel.Department
+                    );
+
+                    await _personnelRepository.AddAsync(personnel);
+                }
             }
+
 
             // Create COR submission
             if (request.CorSubmission is not null)

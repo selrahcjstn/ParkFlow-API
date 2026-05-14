@@ -7,14 +7,14 @@ namespace ParkFlow.Application.Features.Users.Commands.RegisterUserAggregate;
 public record RegisterUserAggregateCommand(
     AccountDto Account,
     ProfileDto Profile,
-    StudentDto Student,
-    PersonnelDto Personnel,
+    StudentDto? Student,
+    PersonnelDto? Personnel,
     CorDto? CorSubmission,
     List<ParkingScheduleItemDto>? ParkingSchedules,
     List<VehicleDto>? Vehicles
 ) : IRequest<Result<RegisterResultDto>>;
 
-public record AccountDto(string Email, string Password, string PhoneNumber, Roles Role);
+public record AccountDto(string Email, string Password, string PhoneNumber);
 
 public record ProfileDto(string FirstName, string LastName, string? ProfilePictureUrl);
 
