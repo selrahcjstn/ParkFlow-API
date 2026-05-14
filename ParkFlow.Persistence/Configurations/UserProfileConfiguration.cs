@@ -31,11 +31,6 @@ public class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
         entity.Property(e => e.ProfilePictureUrl)
             .HasMaxLength(2048);
 
-        entity.Property(e => e.IdCardNumber)
-            .IsRequired();
-
-        entity.Property(e => e.IdCardNumber)
-            .HasMaxLength(50);
 
         // One-to-One Relationship
         entity.HasOne(e => e.UserAccount)
