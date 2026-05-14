@@ -15,13 +15,6 @@ public class UpdateUserProfileValidator : AbstractValidator<UpdateUserProfileCom
             .WithMessage("First name must not exceed 100 characters.")
             .When(x => x.FirstName != null);
 
-        RuleFor(x => x.IdCardNumber)
-            .NotEmpty()
-            .WithMessage("Id card number cannot be empty.")
-            .MaximumLength(50)
-            .WithMessage("Id card number must not exceed 50 characters.")
-            .When(x => x.IdCardNumber != null);
-
         RuleFor(x => x.LastName)
             .MaximumLength(100)
             .WithMessage("Last name must not exceed 100 characters.")
@@ -34,40 +27,15 @@ public class UpdateUserProfileValidator : AbstractValidator<UpdateUserProfileCom
             .When(x => !string.IsNullOrWhiteSpace(x.ProfilePictureUrl))
             .WithMessage("Profile picture URL must be a valid absolute URL.");
 
-        RuleFor(x => x.Course)
-            .MaximumLength(100)
-            .WithMessage("Course must not exceed 100 characters.")
-            .When(x => !string.IsNullOrWhiteSpace(x.Course));
-
-        RuleFor(x => x.Section)
-            .MaximumLength(50)
-            .WithMessage("Section must not exceed 50 characters.")
-            .When(x => !string.IsNullOrWhiteSpace(x.Section));
-
-        RuleFor(x => x.YearLevel)
-            .GreaterThan(0)
-            .WithMessage("Year level must be greater than 0.")
-            .When(x => x.YearLevel.HasValue);
-
-        RuleFor(x => x.Office)
-            .MaximumLength(100)
-            .WithMessage("Office must not exceed 100 characters.")
-            .When(x => !string.IsNullOrWhiteSpace(x.Office));
-
         RuleFor(x => x)
             .Must(HasAnyChange)
             .WithMessage("At least one field must be provided to update.");
     }
 
     private static bool HasAnyChange(UpdateUserProfileCommand cmd)
-           => !(string.IsNullOrWhiteSpace(cmd.IdCardNumber)
-               && string.IsNullOrWhiteSpace(cmd.FirstName)
+           => !(string.IsNullOrWhiteSpace(cmd.FirstName)
                && string.IsNullOrWhiteSpace(cmd.LastName)
-               && string.IsNullOrWhiteSpace(cmd.ProfilePictureUrl)
-               && string.IsNullOrWhiteSpace(cmd.Course)
-               && string.IsNullOrWhiteSpace(cmd.Section)
-               && !cmd.YearLevel.HasValue
-             && string.IsNullOrWhiteSpace(cmd.Office));
+               && string.IsNullOrWhiteSpace(cmd.ProfilePictureUrl));
 
     private static bool BeAValidAbsoluteUrl(string? url)
     {

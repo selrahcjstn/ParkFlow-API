@@ -34,26 +34,6 @@ public class CreateUserProfileValidator : AbstractValidator<CreateUserProfileCom
             .Must(BeAValidAbsoluteUrl)
             .When(x => !string.IsNullOrWhiteSpace(x.ProfilePictureUrl))
             .WithMessage("Profile picture URL must be a valid absolute URL.");
-
-        RuleFor(x => x.Course)
-            .MaximumLength(100)
-            .WithMessage("Course must not exceed 100 characters.")
-            .When(x => !string.IsNullOrWhiteSpace(x.Course));
-
-        RuleFor(x => x.Section)
-            .MaximumLength(50)
-            .WithMessage("Section must not exceed 50 characters.")
-            .When(x => !string.IsNullOrWhiteSpace(x.Section));
-
-        RuleFor(x => x.YearLevel)
-            .GreaterThan(0)
-            .WithMessage("Year level must be greater than 0.")
-            .When(x => x.YearLevel.HasValue);
-
-        RuleFor(x => x.Office)
-            .MaximumLength(100)
-            .WithMessage("Office must not exceed 100 characters.")
-            .When(x => !string.IsNullOrWhiteSpace(x.Office));
     }
 
     private static bool BeAValidAbsoluteUrl(string? url)
