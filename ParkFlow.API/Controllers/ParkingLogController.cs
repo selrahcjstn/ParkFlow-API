@@ -16,30 +16,10 @@ public class ParkingLogController : ControllerBase
         _mediator = mediator;
     }
 
+    // ENTRY
     [HttpPost("entry")]
-    public async Task<ActionResult<Result<Guid>>> LogEntry(Guid vehicleId, Guid guardId, DateTime? entryTime = null)
+    public async Task<ActionResult<Result<Guid>>> LogEntry([FromBody] CreateParkingLogCommand command)
     {
-        var command = new CreateParkingLogCommand(
-            vehicleId,
-            guardId,
-            entryTime ?? DateTime.UtcNow,
-            null,
-            ParkingStatus.Parked);
-
-        var result = await _mediator.Send(command);
-        return result.IsSuccess ? Ok(result) : BadRequest(result);
-    }
-
-    [HttpPost("exit")]
-    public async Task<ActionResult<Result<Guid>>> LogExit(Guid vehicleId, Guid guardId, DateTime? exitTime = null)
-    {
-        var command = new CreateParkingLogCommand(
-            vehicleId,
-            guardId,
-            DateTime.UtcNow,
-            exitTime ?? DateTime.UtcNow,
-            ParkingStatus.Exited);
-
         var result = await _mediator.Send(command);
         return result.IsSuccess ? Ok(result) : BadRequest(result);
     }

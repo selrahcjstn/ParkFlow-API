@@ -2,6 +2,9 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Enums;
+using System;
+using System.Threading.Tasks;
 
 namespace ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
 
@@ -10,15 +13,21 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     private readonly IParkingLogRepository _parkingLogRepository;
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IGuardRepository _guardRepository;
+    private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IParkingScheduleRepository _parkingScheduleRepository;
 
     public CreateParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
         IVehicleRepository vehicleRepository,
-        IGuardRepository guardRepository)
+        IGuardRepository guardRepository,
+        ICorSubmissionRepository corSubmissionRepository,
+        IParkingScheduleRepository parkingScheduleRepository)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
         _guardRepository = guardRepository;
+        _corSubmissionRepository = corSubmissionRepository;
+        _parkingScheduleRepository = parkingScheduleRepository;
     }
 
     public async Task<Result<Guid>> Handle(CreateParkingLogCommand request, CancellationToken cancellationToken)
@@ -33,37 +42,39 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         if (guard == null)
             return Result<Guid>.Failure("Guard not found.", ErrorCode.NotFound);
 
-        // If creating a parked entry
-        if (request.Status == ParkingStatus.Parked)
-        {
-            var active = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(request.VehicleId);
-            if (active != null)
-            {
-                return Result<Guid>.Failure("Vehicle is already parked.", ErrorCode.Conflict);
-            }
+        // Check if vehicle already has active parking log
+        var active = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(request.VehicleId);
+        if (active != null)
+            return Result<Guid>.Failure("Vehicle is already parked.", ErrorCode.Conflict);
 
-            var parkingLog = new ParkingLog(vehicle, guard, request.EntryTime, ParkingStatus.Parked);
-            await _parkingLogRepository.AddParkingLogAsync(parkingLog);
+        // Validate COR submission
+        var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
+        var verifiedCor = corSubmissions.FirstOrDefault(c =>
+            c.UserAccountId == vehicle.OwnerId &&
+            c.VerificationStatus == CorVerificationStatus.Verified);
 
-            return Result<Guid>.Success(parkingLog.Id, "Parking log created.");
-        }
+        if (verifiedCor == null)
+            return Result<Guid>.Failure("User does not have a verified COR submission.", ErrorCode.Forbidden);
 
-        // If exiting a parked vehicle
-        if (request.Status == ParkingStatus.Exited)
-        {
-            var active = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(request.VehicleId);
-            if (active == null)
-            {
-                return Result<Guid>.Failure("Active parking log not found for vehicle.", ErrorCode.NotFound);
-            }
+        // Validate schedule
+        var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
+        var todayDayOfWeek = request.EntryTime.DayOfWeek;
+        var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == todayDayOfWeek);
 
-            var exitTime = request.ExitTime ?? DateTime.UtcNow;
-            active.Exit(exitTime);
-            await _parkingLogRepository.UpdateParkingLogAsync(active);
+        if (todaySchedule == null)
+            return Result<Guid>.Failure("No parking schedule for today.", ErrorCode.Forbidden);
 
-            return Result<Guid>.Success(active.Id, "Parking log exited.");
-        }
+        var entryTimeOfDay = request.EntryTime.TimeOfDay;
+        var earliestAllowedEntry = todaySchedule.StartTime.Add(TimeSpan.FromMinutes(-30));
 
-        return Result<Guid>.Failure("Invalid parking status.", ErrorCode.BadRequest);
+        if (entryTimeOfDay < earliestAllowedEntry || entryTimeOfDay > todaySchedule.EndTime)
+            return Result<Guid>.Failure("Entry time does not align with parking schedule.", ErrorCode.BadRequest);
+
+        // Create parking log ONLY
+        var parkingLog = new ParkingLog(vehicle, guard, request.EntryTime, ParkingStatus.Parked);
+
+        await _parkingLogRepository.AddParkingLogAsync(parkingLog);
+
+        return Result<Guid>.Success(parkingLog.Id, "Parking log created.");
     }
 }
