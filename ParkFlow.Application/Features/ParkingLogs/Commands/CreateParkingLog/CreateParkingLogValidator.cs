@@ -1,5 +1,7 @@
 
 using FluentValidation;
+using System;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
 
@@ -23,8 +25,8 @@ public class CreateParkingLogValidator : AbstractValidator<CreateParkingLogComma
 
 		When(x => x.ExitTime.HasValue, () =>
 		{
-			RuleFor(x => x.ExitTime.Value)
-				.GreaterThanOrEqualTo(x => x.EntryTime)
+			RuleFor(x => x.ExitTime)
+				.GreaterThanOrEqualTo(x => (DateTime?)x.EntryTime)
 				.WithMessage("ExitTime must be the same or after EntryTime.");
 		});
 
