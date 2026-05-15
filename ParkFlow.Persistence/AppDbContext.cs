@@ -19,6 +19,7 @@ namespace ParkFlow.Persistence
         public DbSet<Guard> Guards { get; set; }
         public DbSet<Student> Students { get; set; }
         public DbSet<Personnel> Personnel { get; set; }
+        public DbSet<ParkingLog> ParkingLogs { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

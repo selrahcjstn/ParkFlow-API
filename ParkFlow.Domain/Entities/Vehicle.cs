@@ -1,15 +1,15 @@
-namespace ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Entities;
 
 public class Vehicle : BaseEntity
 {
-    // FK
     public Guid OwnerId { get; private set; }
     public UserAccount Owner { get; private set; } = null!;
 
+    public string PlateNumber { get; private set; } = null!;
+    public string Brand { get; private set; } = null!;
+    public string QrCodeHash { get; private set; } = null!;
 
-    public String PlateNumber { get; private set; } = null!;
-    public String Brand { get; private set; } = null!;
-    public String QrCodeHash { get; private set; } = null!;
+    public ICollection<ParkingLog> ParkingLogs { get; private set; } = [];
 
     private Vehicle() { }
 
