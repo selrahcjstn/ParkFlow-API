@@ -4,6 +4,8 @@ using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
 using System;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
@@ -32,23 +34,27 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
 
     public async Task<Result<Guid>> Handle(CreateParkingLogCommand request, CancellationToken cancellationToken)
     {
-        // Ensure vehicle exists
-        var vehicle = await _vehicleRepository.GetByIdAsync(request.VehicleId);
-        if (vehicle == null)
-            return Result<Guid>.Failure("Vehicle not found.", ErrorCode.NotFound);
+        // 1. Resolve VEHICLE from QR
+        var vehicle = await _vehicleRepository.GetByQrCodeHashAsync(request.QrCodeHash);
 
-        // Ensure guard exists
+        if (vehicle == null)
+            return Result<Guid>.Failure("Invalid QR code. Vehicle not found.", ErrorCode.NotFound);
+
+        // 2. Ensure guard exists
         var guard = await _guardRepository.GetByUserProfileIdAsync(request.GuardId);
+
         if (guard == null)
             return Result<Guid>.Failure("Guard not found.", ErrorCode.NotFound);
 
-        // Check if vehicle already has active parking log
-        var active = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(request.VehicleId);
+        // 3. Check active parking log
+        var active = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id);
+
         if (active != null)
             return Result<Guid>.Failure("Vehicle is already parked.", ErrorCode.Conflict);
 
-        // Validate COR submission
+        // 4. Validate COR submission
         var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
+
         var verifiedCor = corSubmissions.FirstOrDefault(c =>
             c.UserAccountId == vehicle.OwnerId &&
             c.VerificationStatus == CorVerificationStatus.Verified);
@@ -56,21 +62,24 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         if (verifiedCor == null)
             return Result<Guid>.Failure("User does not have a verified COR submission.", ErrorCode.Forbidden);
 
-        // Validate schedule
+        // 5. Validate schedule
         var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
+
         var todayDayOfWeek = request.EntryTime.DayOfWeek;
+
         var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == todayDayOfWeek);
 
         if (todaySchedule == null)
             return Result<Guid>.Failure("No parking schedule for today.", ErrorCode.Forbidden);
 
         var entryTimeOfDay = request.EntryTime.TimeOfDay;
+
         var earliestAllowedEntry = todaySchedule.StartTime.Add(TimeSpan.FromMinutes(-30));
 
         if (entryTimeOfDay < earliestAllowedEntry || entryTimeOfDay > todaySchedule.EndTime)
             return Result<Guid>.Failure("Entry time does not align with parking schedule.", ErrorCode.BadRequest);
 
-        // Create parking log ONLY
+        // 6. Create parking log
         var parkingLog = new ParkingLog(vehicle, guard, request.EntryTime, ParkingStatus.Parked);
 
         await _parkingLogRepository.AddParkingLogAsync(parkingLog);

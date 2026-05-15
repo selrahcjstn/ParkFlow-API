@@ -4,7 +4,7 @@ using ParkFlow.Application.Common;
 namespace ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
 
 public record CreateParkingLogCommand(
-    Guid VehicleId,
+    string QrCodeHash,
     Guid GuardId,
     DateTime EntryTime,
     DateTime? ExitTime

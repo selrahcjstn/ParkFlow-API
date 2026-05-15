@@ -1,5 +1,6 @@
 
 using FluentValidation;
+using System;
 
 namespace ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
 
@@ -7,9 +8,11 @@ public class CreateParkingLogValidator : AbstractValidator<CreateParkingLogComma
 {
 	public CreateParkingLogValidator()
 	{
-		RuleFor(x => x.VehicleId)
+		RuleFor(x => x.QrCodeHash)
 			.NotEmpty()
-			.WithMessage("VehicleId is required.");
+			.WithMessage("QrCodeHash is required.")
+			.MaximumLength(200)
+			.WithMessage("QrCodeHash is too long.");
 
 		RuleFor(x => x.GuardId)
 			.NotEmpty()
