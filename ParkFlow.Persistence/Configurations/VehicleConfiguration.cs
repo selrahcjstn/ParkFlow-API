@@ -33,6 +33,11 @@ public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
 			.HasForeignKey(e => e.OwnerId)
 			.OnDelete(DeleteBehavior.Cascade);
 
+		entity.HasMany(e => e.ParkingLogs)
+			.WithOne(p => p.Vehicle)
+			.HasForeignKey(p => p.VehicleId)
+			.OnDelete(DeleteBehavior.Cascade);
+
 		entity.HasIndex(e => e.OwnerId);
 	}
 }

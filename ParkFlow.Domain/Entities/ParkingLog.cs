@@ -14,4 +14,29 @@ public class ParkingLog : BaseEntity
 
     private ParkingLog() { }
 
+    public ParkingLog(
+        Vehicle vehicle,
+         Guard guard,
+        DateTime entryTime,
+        ParkingStatus status)
+    {
+        // Vehicle ID
+        Vehicle = vehicle;
+        VehicleId = vehicle.Id;
+
+        // Guard ID
+        Guard = guard;
+        GuardId = guard.UserProfileId;
+
+        EntryTime = entryTime;
+        Status = status;
+    }
+
+    public void Exit(DateTime exitTime)
+    {
+        ExitTime = exitTime;
+        Status = ParkingStatus.Exited;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
 }
