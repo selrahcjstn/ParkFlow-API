@@ -5,7 +5,7 @@ public class ParkingLog : BaseEntity
     public Guid VehicleId { get; private set; }
     public Vehicle Vehicle { get; private set; } = null!;
 
-    public Guid  GuardId { get; private set; }
+    public Guid GuardId { get; private set; }
     public Guard Guard { get; private set; } = null!;
 
     public DateTime EntryTime { get; private set; }
@@ -15,19 +15,13 @@ public class ParkingLog : BaseEntity
     private ParkingLog() { }
 
     public ParkingLog(
-        Vehicle vehicle,
-         Guard guard,
+        Guid vehicleId,
+        Guid guardId,
         DateTime entryTime,
         ParkingStatus status)
     {
-        // Vehicle ID
-        Vehicle = vehicle;
-        VehicleId = vehicle.Id;
-
-        // Guard ID
-        Guard = guard;
-        GuardId = guard.UserProfileId;
-
+        VehicleId = vehicleId;
+        GuardId = guardId;
         EntryTime = entryTime;
         Status = status;
     }
@@ -38,5 +32,4 @@ public class ParkingLog : BaseEntity
         Status = ParkingStatus.Exited;
         UpdatedAt = DateTime.UtcNow;
     }
-
 }

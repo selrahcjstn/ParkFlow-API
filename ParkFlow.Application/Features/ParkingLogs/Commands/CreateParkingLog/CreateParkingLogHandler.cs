@@ -88,7 +88,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             return Result<Guid>.Failure("Entry time does not align with parking schedule.", ErrorCode.BadRequest);
 
         // 6. Create parking log
-        var parkingLog = new ParkingLog(vehicle, guard, request.EntryTime, ParkingStatus.Parked);
+        var parkingLog = new ParkingLog(vehicle.Id, guard.UserProfileId, request.EntryTime, ParkingStatus.Parked);
 
         await _parkingLogRepository.AddParkingLogAsync(parkingLog);
 
