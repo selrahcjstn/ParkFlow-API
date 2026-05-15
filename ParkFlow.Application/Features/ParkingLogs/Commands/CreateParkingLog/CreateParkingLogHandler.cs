@@ -14,6 +14,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
 {
     private readonly IParkingLogRepository _parkingLogRepository;
     private readonly IVehicleRepository _vehicleRepository;
+    private readonly IUserProfileRepository _userProfileRepository;
     private readonly IGuardRepository _guardRepository;
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
@@ -21,12 +22,14 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     public CreateParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
         IVehicleRepository vehicleRepository,
+        IUserProfileRepository userProfileRepository,
         IGuardRepository guardRepository,
         ICorSubmissionRepository corSubmissionRepository,
         IParkingScheduleRepository parkingScheduleRepository)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
+        _userProfileRepository = userProfileRepository;
         _guardRepository = guardRepository;
         _corSubmissionRepository = corSubmissionRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
@@ -40,8 +43,13 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         if (vehicle == null)
             return Result<Guid>.Failure("Invalid QR code. Vehicle not found.", ErrorCode.NotFound);
 
-        // 2. Ensure guard exists
-        var guard = await _guardRepository.GetByUserProfileIdAsync(request.GuardId);
+        // 2. Resolve the user's profile first, then ensure the guard exists
+        var userProfile = await _userProfileRepository.GetByUserIdAsync(request.userId);
+
+        if (userProfile == null)
+            return Result<Guid>.Failure("User profile not found.", ErrorCode.NotFound);
+
+        var guard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
 
         if (guard == null)
             return Result<Guid>.Failure("Guard not found.", ErrorCode.NotFound);

@@ -14,21 +14,14 @@ public class CreateParkingLogValidator : AbstractValidator<CreateParkingLogComma
 			.MaximumLength(200)
 			.WithMessage("QrCodeHash is too long.");
 
-		RuleFor(x => x.GuardId)
+		RuleFor(x => x.userId)
 			.NotEmpty()
-			.WithMessage("GuardId is required.");
+			.WithMessage("UserId is required.");
 
 		RuleFor(x => x.EntryTime)
 			.NotEmpty()
 			.WithMessage("EntryTime is required.")
 			.LessThanOrEqualTo(DateTime.UtcNow.AddMinutes(5))
 			.WithMessage("EntryTime cannot be in the far future.");
-
-		When(x => x.ExitTime.HasValue, () =>
-		{
-			RuleFor(x => x.ExitTime)
-				.GreaterThanOrEqualTo(x => (DateTime?)x.EntryTime)
-				.WithMessage("ExitTime must be the same or after EntryTime.");
-		});
 	}
 }
