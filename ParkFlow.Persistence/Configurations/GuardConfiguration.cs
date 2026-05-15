@@ -14,7 +14,7 @@ public class GuardConfiguration : IEntityTypeConfiguration<Guard>
 			.IsRequired();
 
 		entity.HasOne(e => e.UserProfile)
-			.WithOne()
+			.WithOne(e => e.Guard)
 			.HasForeignKey<Guard>(e => e.UserProfileId)
 			.OnDelete(DeleteBehavior.Cascade);
 

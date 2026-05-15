@@ -36,20 +36,23 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
         if (profile == null)
             return Result<string>.Failure("Profile missing.", ErrorCode.Unauthorized);
 
-        string profileType;
+string? profileType = null;
 
-        if (profile.Student != null)
-        {
-            profileType = "student";
-        }
-        else if (profile.Personnel != null)
-        {
-            profileType = "personnel";
-        }
-        else
-        {
-            return Result<string>.Failure("Invalid profile type.", ErrorCode.Unauthorized);
-        }
+if (profile.Student != null)
+    profileType = "student";
+
+else if (profile.Personnel != null)
+    profileType = "personnel";
+
+else if (profile.Guard != null)
+    profileType = "guard";
+
+if (profileType == null)
+{
+    return Result<string>.Failure(
+        "Invalid profile type.",
+        ErrorCode.Unauthorized);
+}
 
         var token = _jwtService.GenerateToken(user, profileType);
 

@@ -21,6 +21,8 @@ namespace ParkFlow.Persistence.Repositories
                     .ThenInclude(p => p.Student)
                 .Include(u => u.UserProfile)
                     .ThenInclude(p => p.Personnel)
+                .Include(u => u.UserProfile)
+                    .ThenInclude(p => p.Guard)
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
@@ -36,6 +38,8 @@ namespace ParkFlow.Persistence.Repositories
                     .ThenInclude(p => p.Student)
                 .Include(u => u.UserProfile)
                     .ThenInclude(p => p.Personnel)
+                .Include(u => u.UserProfile)
+                    .ThenInclude(p => p.Guard)
                 .FirstOrDefaultAsync(u => u.Id == userId);
 
             if (user?.UserProfile?.Student != null)
@@ -43,6 +47,9 @@ namespace ParkFlow.Persistence.Repositories
 
             if (user?.UserProfile?.Personnel != null)
                 return "personnel";
+
+            if (user?.UserProfile?.Guard != null)
+                return "guard";
 
             throw new Exception("Invalid profile type");
         }

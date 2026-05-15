@@ -58,7 +58,7 @@ public class CreateGuardAccountHandler : IRequestHandler<CreateGuardAccountComma
 		if (existingGuard != null)
 			return Result<Guid>.Failure("Guard already exists for this profile.", ErrorCode.Conflict);
 
-		var guard = new Guard(userProfile.Id, request.AssignedGate);
+		var guard = new Guard(userProfile, request.AssignedGate);
 		await _guardRepository.AddAsync(guard);
 
 		return Result<Guid>.Success(user.Id, "Guard account created successfully.");

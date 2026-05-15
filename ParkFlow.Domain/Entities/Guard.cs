@@ -2,23 +2,20 @@ namespace ParkFlow.Domain.Entities;
 
 public class Guard
 {
-    // PK + FK
-    public Guid UserProfileId { get; private set; }
+    public Guid UserProfileId { get; set; }   // FK + PK
+    public UserProfile UserProfile { get; set; } = null!;
 
-    public UserProfile UserProfile { get; private set; } = null!;
-
-    public ICollection<ParkingLog> ParkingLogs { get; private set; }
+    public ICollection<ParkingLog> ParkingLogs { get; set; }
         = new List<ParkingLog>();
 
-    public int AssignedGate { get; private set; }
+    public int AssignedGate { get; set; }
 
     private Guard() { }
 
-    public Guard(
-        Guid userProfileId,
-        int assignedGate)
+    public Guard(UserProfile userProfile, int assignedGate)
     {
-        UserProfileId = userProfileId;
+        UserProfile = userProfile;
+        UserProfileId = userProfile.Id;
         AssignedGate = assignedGate;
     }
 
