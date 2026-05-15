@@ -7,6 +7,5 @@ public record CreateParkingLogCommand(
     Guid VehicleId,
     Guid GuardId,
     DateTime EntryTime,
-    DateTime? ExitTime,
-    ParkingStatus Status
+    DateTime? ExitTime
 ) : IRequest<Result<Guid>>;
