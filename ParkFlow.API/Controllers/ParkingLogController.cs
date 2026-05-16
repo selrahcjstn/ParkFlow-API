@@ -18,7 +18,7 @@ public class ParkingLogController : ControllerBase
 
     // ENTRY
     [HttpPost("entry")]
-    public async Task<ActionResult<Result<Guid>>> LogEntry([FromBody] CreateParkingLogCommand command)
+    public async Task<ActionResult<Result<ParkFlow.Application.Features.ParkingLogs.DTOs.CreateParkingLogResponse>>> LogEntry([FromBody] CreateParkingLogCommand command)
     {
         var result = await _mediator.Send(command);
         return result.IsSuccess ? Ok(result) : BadRequest(result);
