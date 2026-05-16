@@ -3,10 +3,6 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
 
