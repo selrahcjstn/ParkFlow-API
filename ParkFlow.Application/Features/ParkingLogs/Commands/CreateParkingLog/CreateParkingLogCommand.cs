@@ -6,6 +6,5 @@ namespace ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
 
 public record CreateParkingLogCommand(
     string QrCodeHash,
-    Guid userId,
-    DateTime EntryTime
+    Guid userId
 ) : IRequest<Result<CreateParkingLogResponse>>;
