@@ -156,8 +156,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             PlateNumber = vehicle.PlateNumber,
             Brand = vehicle.Brand,
             EntryTime = parkingLog.EntryTime,
-            EntryDate = parkingLog.EntryTime.Date,
-            LogId = parkingLog.Id
+            EntryDate = parkingLog.EntryTime.Date
         };
 
         return Result<CreateParkingLogResponse>.Success(response, "Parking log created.");

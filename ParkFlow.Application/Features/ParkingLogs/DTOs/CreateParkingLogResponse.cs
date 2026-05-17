@@ -17,5 +17,4 @@ public class CreateParkingLogResponse
 
     public DateTime EntryTime { get; set; }
     public DateTime EntryDate { get; set; }
-    public Guid LogId { get; set; }
 }
