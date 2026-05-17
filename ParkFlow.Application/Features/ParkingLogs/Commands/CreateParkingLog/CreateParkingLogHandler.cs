@@ -66,32 +66,32 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         if (active != null)
             return Result<CreateParkingLogResponse>.Failure("Vehicle is already parked.", ErrorCode.Conflict);
 
-        // // 4. Validate COR submission
-        // var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
+        // 4. Validate COR submission
+        var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
 
-        // var verifiedCor = corSubmissions.FirstOrDefault(c =>
-        //     c.UserAccountId == vehicle.OwnerId &&
-        //     c.VerificationStatus == CorVerificationStatus.Verified);
+        var verifiedCor = corSubmissions.FirstOrDefault(c =>
+            c.UserAccountId == vehicle.OwnerId &&
+            c.VerificationStatus == CorVerificationStatus.Verified);
 
-        // if (verifiedCor == null)
-        //     return Result<CreateParkingLogResponse>.Failure("User does not have a verified COR submission.", ErrorCode.Forbidden);
+        if (verifiedCor == null)
+            return Result<CreateParkingLogResponse>.Failure("User does not have a verified COR submission.", ErrorCode.Forbidden);
 
         // 5. Validate schedule
-        // var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
+        var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
 
-        // var todayDayOfWeek = request.EntryTime.DayOfWeek;
+        var todayDayOfWeek = DateTime.UtcNow.DayOfWeek;
 
-        // var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == todayDayOfWeek);
+        var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == todayDayOfWeek);
 
-        // if (todaySchedule == null)
-        //     return Result<CreateParkingLogResponse>.Failure("No parking schedule for today.", ErrorCode.Forbidden);
+        if (todaySchedule == null)
+            return Result<CreateParkingLogResponse>.Failure("No parking schedule for today.", ErrorCode.Forbidden);
 
-        // var entryTimeOfDay = request.EntryTime.TimeOfDay;
+        var entryTimeOfDay = DateTime.UtcNow.TimeOfDay;
 
-        // var earliestAllowedEntry = todaySchedule.StartTime.Add(TimeSpan.FromMinutes(-30));
+        var earliestAllowedEntry = todaySchedule.StartTime.Add(TimeSpan.FromMinutes(-30));
 
-        // if (entryTimeOfDay < earliestAllowedEntry || entryTimeOfDay > todaySchedule.EndTime)
-        //     return Result<CreateParkingLogResponse>.Failure("Entry time does not align with parking schedule.", ErrorCode.BadRequest);
+        if (entryTimeOfDay < earliestAllowedEntry || entryTimeOfDay > todaySchedule.EndTime)
+            return Result<CreateParkingLogResponse>.Failure("Entry time does not align with parking schedule.", ErrorCode.BadRequest);
 
         // 6. Create parking log
         var parkingLog = new ParkingLog(vehicle.Id, guard.UserProfileId, ParkingStatus.Parked);
