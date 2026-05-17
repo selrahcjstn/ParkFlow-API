@@ -21,18 +21,54 @@ public class GetRecentParkingHistoryHandler : IRequestHandler<GetRecentParkingHi
 
         var dtos = logs.Select(parkingLog =>
         {
-            var transactionType = parkingLog.ExitTime.HasValue ? "Exit" : "Entry";
+            var ownerProfile = parkingLog.Vehicle.Owner.UserProfile;
+            var student = ownerProfile.Student;
+            var personnel = ownerProfile.Personnel;
+
+            string role;
+            string idNumber = string.Empty;
+            string course = string.Empty;
+            int yearLevel = 0;
+            string section = string.Empty;
+            string department = string.Empty;
+
+            if (student != null)
+            {
+                role = "student";
+                idNumber = student.StudentNumber;
+                course = student.Course;
+                yearLevel = student.YearLevel;
+                section = student.Section;
+            }
+            else if (personnel != null)
+            {
+                role = "personnel";
+                idNumber = personnel.IdCardNumber;
+                department = personnel.Department;
+            }
+            else if (ownerProfile.Guard != null)
+            {
+                role = "guard";
+            }
+            else
+            {
+                role = "admin";
+            }
 
             return new ParkingLogActivityDto(
-                parkingLog.Id,
+                ownerProfile.FirstName,
+                ownerProfile.LastName,
+                role,
+                parkingLog.Status.ToString(),
+                idNumber,
+                course,
+                yearLevel,
+                section,
+                department,
                 parkingLog.Vehicle.PlateNumber,
-                parkingLog.EntryTime.Date,
-                parkingLog.CreatedAt,
                 parkingLog.Vehicle.Brand,
-                parkingLog.Vehicle.VehicleType,
-                transactionType,
-                parkingLog.EntryTime,
-                parkingLog.ExitTime);
+                parkingLog.EntryTime.ToString("O"),
+                parkingLog.EntryTime.Date.ToString("yyyy-MM-dd"));
         });
 
         return Result<IEnumerable<ParkingLogActivityDto>>.Success(dtos, "Recent parking history retrieved.");
