@@ -131,7 +131,8 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
                         user.Id,
                         v.PlateNumber,
                         v.Brand,
-                        qrCodeHash
+                        qrCodeHash,
+                        v.VehicleType
                     );
 
                     await _vehicleRepository.AddAsync(vehicle);
@@ -141,7 +142,8 @@ public class RegisterUserAggregateHandler : IRequestHandler<RegisterUserAggregat
                             vehicle.Id,
                             vehicle.PlateNumber,
                             vehicle.Brand,
-                            vehicle.QrCodeHash
+                            vehicle.QrCodeHash,
+                            vehicle.VehicleType
                         )
                     );
                 }

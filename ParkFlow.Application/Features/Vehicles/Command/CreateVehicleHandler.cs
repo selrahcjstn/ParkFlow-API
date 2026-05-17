@@ -36,7 +36,7 @@ public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result
         var qrBytes = _qrCodeService.GenerateQrCode(qrPayload);
         var qrCodeHash = HashQrBytes(qrBytes);
 
-        var vehicle = new Vehicle(request.OwnerId, request.PlateNumber, request.Brand, qrCodeHash);
+        var vehicle = new Vehicle(request.OwnerId, request.PlateNumber, request.Brand, qrCodeHash, request.VehicleType);
 
         await _vehicleRepository.AddAsync(vehicle);
 

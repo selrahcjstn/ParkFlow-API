@@ -22,9 +22,9 @@ public record CorDto(string AcademicTerm, string CorDocumentUrl);
 
 public record ParkingScheduleItemDto(DayOfWeek DayOfWeek, TimeSpan StartTime, TimeSpan EndTime);
 
-public record VehicleDto(string PlateNumber, string Brand);
+public record VehicleDto(string PlateNumber, string Brand, VehicleType VehicleType);
 
-public record VehicleResultDto(Guid Id, string PlateNumber, string Brand, string QrCodeHash);
+public record VehicleResultDto(Guid Id, string PlateNumber, string Brand, string QrCodeHash, VehicleType VehicleType);
 
 public record RegisterResultDto(Guid UserId, Guid? SubmissionId, List<VehicleResultDto>? Vehicles);
 

@@ -1,10 +1,12 @@
 using MediatR;
 using ParkFlow.Application.Common;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Vehicles.Command;
 
 public record CreateVehicleCommand(
     Guid OwnerId,
     string PlateNumber,
-    string Brand
+    string Brand,
+    VehicleType VehicleType
 ) : IRequest<Result<Guid>>;

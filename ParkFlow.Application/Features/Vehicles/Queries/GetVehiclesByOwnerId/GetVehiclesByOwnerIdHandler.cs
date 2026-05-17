@@ -17,7 +17,7 @@ public class GetVehiclesByOwnerIdHandler : IRequestHandler<GetVehiclesByOwnerIdQ
     {
         var vehicles = await _vehicleRepository.GetByOwnerIdAsync(request.OwnerId);
 
-        var dtos = vehicles.Select(v => new VehicleDto(v.Id, v.PlateNumber, v.Brand, v.QrCodeHash));
+        var dtos = vehicles.Select(v => new VehicleDto(v.Id, v.PlateNumber, v.Brand, v.QrCodeHash, v.VehicleType));
 
         return Result<IEnumerable<VehicleDto>>.Success(dtos, "Vehicles retrieved.");
     }
