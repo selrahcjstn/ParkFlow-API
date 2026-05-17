@@ -22,9 +22,14 @@
   <ItemGroup>
     <Folder Include="Features\Cor\DTOs\" />
     <Folder Include="Features\Cor\Queries\" />
+    <Folder Include="Features\ParkingLogs\Commands\CreateParkingLog\" />
+    <Folder Include="Features\ParkingLogs\DTOs\" />
+    <Folder Include="Features\ParkingLogs\Queries\" />
     <Folder Include="Features\Profiles\DTOs\" />
     <Folder Include="Features\Profiles\Mappings\" />
     <Folder Include="Features\Profiles\Queries\" />
+    <Folder Include="Features\RegisterGuard\DTO\" />
+    <Folder Include="Features\RegisterGuard\Queries\" />
     <Folder Include="Features\Schedules\" />
     <Folder Include="Features\Schedules\Command\" />
     <Folder Include="Features\Schedules\DTOs\" />

@@ -20,8 +20,4 @@
     <ProjectReference Include="..\ParkFlow.Application\ParkFlow.Application.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Configurations\" />
-  </ItemGroup>
-
 </Project>

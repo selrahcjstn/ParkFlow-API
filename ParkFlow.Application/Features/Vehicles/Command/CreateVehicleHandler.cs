@@ -3,7 +3,6 @@ using FluentValidation;
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
-using VehicleEntity = ParkFlow.Domain.Entities.Vehicle;
 
 namespace ParkFlow.Application.Features.Vehicles.Command;
 
@@ -37,7 +36,7 @@ public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result
         var qrBytes = _qrCodeService.GenerateQrCode(qrPayload);
         var qrCodeHash = HashQrBytes(qrBytes);
 
-        var vehicle = new VehicleEntity(request.OwnerId, request.PlateNumber, request.Brand, qrCodeHash);
+        var vehicle = new Vehicle(request.OwnerId, request.PlateNumber, request.Brand, qrCodeHash);
 
         await _vehicleRepository.AddAsync(vehicle);
 

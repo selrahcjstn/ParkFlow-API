@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ParkFlow.Persistence;
@@ -11,9 +12,11 @@ using ParkFlow.Persistence;
 namespace ParkFlow.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260514112423_AddRoleEntities")]
+    partial class AddRoleEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -93,45 +96,6 @@ namespace ParkFlow.Persistence.Migrations
                     b.ToTable("Guards");
                 });
 
-            modelBuilder.Entity("ParkFlow.Domain.Entities.ParkingLog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<DateTime>("EntryTime")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("ExitTime")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("GuardId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("VehicleId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("GuardId");
-
-                    b.HasIndex("VehicleId");
-
-                    b.ToTable("ParkingLogs");
-                });
-
             modelBuilder.Entity("ParkFlow.Domain.Entities.ParkingSchedule", b =>
                 {
                     b.Property<Guid>("Id")
@@ -190,6 +154,46 @@ namespace ParkFlow.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Personnel");
+                });
+
+            modelBuilder.Entity("ParkFlow.Domain.Entities.Vehicle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Brand")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PlateNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("QrCodeHash")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("Vehicles");
                 });
 
             modelBuilder.Entity("Student", b =>
@@ -288,6 +292,11 @@ namespace ParkFlow.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("IdCardNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -309,46 +318,6 @@ namespace ParkFlow.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("UserProfiles");
-                });
-
-            modelBuilder.Entity("Vehicle", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<string>("Brand")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<Guid>("OwnerId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("PlateNumber")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("QrCodeHash")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OwnerId");
-
-                    b.ToTable("Vehicles");
                 });
 
             modelBuilder.Entity("CorSubmission", b =>
@@ -384,25 +353,6 @@ namespace ParkFlow.Persistence.Migrations
                     b.Navigation("UserProfile");
                 });
 
-            modelBuilder.Entity("ParkFlow.Domain.Entities.ParkingLog", b =>
-                {
-                    b.HasOne("ParkFlow.Domain.Entities.Guard", "Guard")
-                        .WithMany("ParkingLogs")
-                        .HasForeignKey("GuardId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Vehicle", "Vehicle")
-                        .WithMany("ParkingLogs")
-                        .HasForeignKey("VehicleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Guard");
-
-                    b.Navigation("Vehicle");
-                });
-
             modelBuilder.Entity("ParkFlow.Domain.Entities.ParkingSchedule", b =>
                 {
                     b.HasOne("CorSubmission", "CorSubmission")
@@ -423,6 +373,17 @@ namespace ParkFlow.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("UserProfile");
+                });
+
+            modelBuilder.Entity("ParkFlow.Domain.Entities.Vehicle", b =>
+                {
+                    b.HasOne("UserAccount", "Owner")
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Owner");
                 });
 
             modelBuilder.Entity("Student", b =>
@@ -447,22 +408,6 @@ namespace ParkFlow.Persistence.Migrations
                     b.Navigation("UserAccount");
                 });
 
-            modelBuilder.Entity("Vehicle", b =>
-                {
-                    b.HasOne("UserAccount", "Owner")
-                        .WithMany()
-                        .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Owner");
-                });
-
-            modelBuilder.Entity("ParkFlow.Domain.Entities.Guard", b =>
-                {
-                    b.Navigation("ParkingLogs");
-                });
-
             modelBuilder.Entity("UserAccount", b =>
                 {
                     b.Navigation("UserProfile")
@@ -471,14 +416,11 @@ namespace ParkFlow.Persistence.Migrations
 
             modelBuilder.Entity("UserProfile", b =>
                 {
-                    b.Navigation("Personnel");
+                    b.Navigation("Personnel")
+                        .IsRequired();
 
-                    b.Navigation("Student");
-                });
-
-            modelBuilder.Entity("Vehicle", b =>
-                {
-                    b.Navigation("ParkingLogs");
+                    b.Navigation("Student")
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

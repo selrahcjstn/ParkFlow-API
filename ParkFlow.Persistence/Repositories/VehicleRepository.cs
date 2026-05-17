@@ -30,6 +30,13 @@ public class VehicleRepository : IVehicleRepository
         return _appDbContext.Set<Vehicle>().FindAsync(id).AsTask();
     }
 
+    public async Task<Vehicle?> GetByQrCodeHashAsync(string qrCodeHash)
+    {
+        return await _appDbContext.Set<Vehicle>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(v => v.QrCodeHash == qrCodeHash);
+    }
+
     public async Task<IEnumerable<Vehicle>> GetByOwnerIdAsync(Guid ownerId)
     {
         return await _appDbContext.Set<Vehicle>()
