@@ -27,12 +27,7 @@ public class ParkingLogController : ControllerBase
         return result.IsSuccess ? Ok(result) : BadRequest(result);
     }
 
-    [HttpPost("exit")]
-    public async Task<ActionResult<Result<ParkFlow.Application.Features.ParkingLogs.DTOs.ExitParkingLogResponse>>> Exit([FromBody] ParkFlow.Application.Features.ParkingLogs.Commands.ExitParkingLog.ExitParkingLogCommand command)
-    {
-        var result = await _mediator.Send(command);
-        return result.IsSuccess ? Ok(result) : BadRequest(result);
-    }
+    
 
     [HttpGet("today")]
     public async Task<ActionResult<Result<ParkingLogsTodayResponse>>> GetToday([FromQuery] int limit = 100)
