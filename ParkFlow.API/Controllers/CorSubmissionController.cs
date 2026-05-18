@@ -25,24 +25,14 @@ public class CorSubmissionController : ControllerBase
     public async Task<ActionResult<Result<Guid>>> Create(CreateCorSubmissionCommand command)
     {
         var result = await _mediator.Send(command);
-
-        if (result.IsSuccess)
-            return Ok(result);
-
-        return result.ErrorCode == ErrorCode.Conflict
-            ? Conflict(result)
-            : BadRequest(result);
+        return this.ToActionResult(result);
     }
 
     [HttpGet]
     public async Task<ActionResult<Result<IEnumerable<CorSubmissionDto>>>> List()
     {
         var result = await _mediator.Send(new ListCorSubmissionsQuery());
-
-        if (result.IsSuccess)
-            return Ok(result);
-
-        return BadRequest(result);
+        return this.ToActionResult(result);
     }
 
     [HttpPatch("{corSubmissionId:guid}")]
@@ -55,13 +45,7 @@ public class CorSubmissionController : ControllerBase
             request.VerificationStatus);
 
         var result = await _mediator.Send(command);
-
-        if (result.IsSuccess)
-            return Ok(result);
-
-        return result.ErrorCode == ErrorCode.NotFound
-            ? NotFound(result)
-            : BadRequest(result);
+        return this.ToActionResult(result);
     }
 
     [HttpPatch("{corSubmissionId:guid}/validate")]
@@ -70,25 +54,13 @@ public class CorSubmissionController : ControllerBase
         var command = new ValidateCorSubmissionCommand(corSubmissionId, request.VerificationStatus);
 
         var result = await _mediator.Send(command);
-
-        if (result.IsSuccess)
-            return Ok(result);
-
-        return result.ErrorCode == ErrorCode.NotFound
-            ? NotFound(result)
-            : BadRequest(result);
+        return this.ToActionResult(result);
     }
 
     [HttpDelete("{corSubmissionId:guid}")]
     public async Task<ActionResult<Result<Guid>>> Delete(Guid corSubmissionId)
     {
         var result = await _mediator.Send(new DeleteCorSubmissionCommand(corSubmissionId));
-
-        if (result.IsSuccess)
-            return Ok(result);
-
-        return result.ErrorCode == ErrorCode.NotFound
-            ? NotFound(result)
-            : BadRequest(result);
+        return this.ToActionResult(result);
     }
 }

@@ -24,8 +24,6 @@ public class ParkingScheduleController : ControllerBase
         if (result.IsSuccess)
             return Ok(result);
 
-        return result.ErrorCode == ErrorCode.Conflict
-            ? Conflict(result)
-            : BadRequest(result);
+        return this.ToActionResult(result);
     }
 }

@@ -58,6 +58,11 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         if (vehicle == null)
             return Result<CreateParkingLogResponse>.Failure("Invalid QR code. Vehicle not found.", ErrorCode.NotFound);
 
+        var activeParkingLog = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id);
+
+        if (activeParkingLog != null)
+            return Result<CreateParkingLogResponse>.Failure("Vehicle is already parked.", ErrorCode.Conflict);
+
         // 2. Resolve the user's profile first, then ensure the guard exists
         var userProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
 

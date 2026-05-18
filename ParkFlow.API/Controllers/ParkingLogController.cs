@@ -22,10 +22,10 @@ public class ParkingLogController : ControllerBase
 
     // ENTRY
     [HttpPost("entry")]
-    public async Task<ActionResult<Result<ParkFlow.Application.Features.ParkingLogs.DTOs.CreateParkingLogResponse>>> LogEntry([FromBody] CreateParkingLogCommand command)
+    public async Task<ActionResult<Result<CreateParkingLogResponse>>> LogEntry([FromBody] CreateParkingLogCommand command)
     {
         var result = await _mediator.Send(command);
-        return result.IsSuccess ? Ok(result) : BadRequest(result);
+        return this.ToActionResult(result);
     }
 
     // EXIT
@@ -33,20 +33,20 @@ public class ParkingLogController : ControllerBase
     public async Task<ActionResult<Result<ExitParkingLogResponse>>> LogExit([FromBody] ExitParkingLogCommand command)
     {
         var result = await _mediator.Send(command);
-        return result.IsSuccess ? Ok(result) : BadRequest(result);
+        return this.ToActionResult(result);
     }
 
     [HttpGet("today")]
     public async Task<ActionResult<Result<ParkingLogsTodayResponse>>> GetToday([FromQuery] int limit = 100)
     {
         var result = await _mediator.Send(new GetTodayParkingLogsQuery(limit));
-        return result.IsSuccess ? Ok(result) : BadRequest(result);
+        return this.ToActionResult(result);
     }
 
     [HttpGet("history")]
-    public async Task<ActionResult<Result<IEnumerable<ParkFlow.Application.Features.ParkingLogs.DTOs.ParkingLogHistoryDto>>>> GetHistory([FromQuery] int limit = 20)
+    public async Task<ActionResult<Result<IEnumerable<ParkingLogHistoryDto>>>> GetHistory([FromQuery] int limit = 20)
     {
         var result = await _mediator.Send(new GetRecentParkingHistoryQuery(limit));
-        return result.IsSuccess ? Ok(result) : BadRequest(result);
+        return this.ToActionResult(result);
     }
 }

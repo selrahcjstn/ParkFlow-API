@@ -32,9 +32,7 @@ namespace ParkFlow.API.Controllers
             }
 
             await tx.RollbackAsync();
-            return result.ErrorCode == ErrorCode.Conflict
-                ? Conflict(result)
-                : BadRequest(result);
+            return this.ToActionResult(result);
         }
     }
 }
