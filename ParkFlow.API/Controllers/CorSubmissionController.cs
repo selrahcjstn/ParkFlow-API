@@ -4,6 +4,7 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Cor.Commands.CreateCorSubmission;
 using ParkFlow.Application.Features.Cor.Commands.DeleteCorSubmission;
 using ParkFlow.Application.Features.Cor.Commands.UpdateCorSubmission;
+using ParkFlow.Application.Features.Cor.Commands.ValidateCorSubmission;
 using ParkFlow.Application.Features.Cor.DTOs;
 using ParkFlow.Application.Features.Cor.Queries.ListCorSubmissions;
 
@@ -20,7 +21,7 @@ public class CorSubmissionController : ControllerBase
         _mediator = mediator;
     }
 
-    [HttpPost]
+    [HttpPost("create")]
     public async Task<ActionResult<Result<Guid>>> Create(CreateCorSubmissionCommand command)
     {
         var result = await _mediator.Send(command);
@@ -52,6 +53,21 @@ public class CorSubmissionController : ControllerBase
             request.AcademicTerm,
             request.CorDocumentUrl,
             request.VerificationStatus);
+
+        var result = await _mediator.Send(command);
+
+        if (result.IsSuccess)
+            return Ok(result);
+
+        return result.ErrorCode == ErrorCode.NotFound
+            ? NotFound(result)
+            : BadRequest(result);
+    }
+
+    [HttpPatch("{corSubmissionId:guid}/validate")]
+    public async Task<ActionResult<Result<Guid>>> Validate(Guid corSubmissionId, [FromBody] ValidateCorSubmissionRequest request)
+    {
+        var command = new ValidateCorSubmissionCommand(corSubmissionId, request.VerificationStatus);
 
         var result = await _mediator.Send(command);
 
