@@ -23,6 +23,7 @@ namespace ParkFlow.Persistence
             services.AddScoped<IGuardRepository, GuardRepository>();
             services.AddScoped<IAdminRepository, AdminRepository>();
             services.AddScoped<IParkingLogRepository, ParkingLogRepository>();
+            services.AddScoped<IViolationRepository, ViolationRepository>();
             return services;
         }
     }
