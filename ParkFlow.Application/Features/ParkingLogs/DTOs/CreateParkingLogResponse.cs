@@ -19,13 +19,6 @@ public class CreateParkingLogResponse
     public DateTime EntryDate { get; set; }
     
     // Grace periods and time limits
-    public DateTime? EntryGracePeriod { get; set; }
-    public DateTime? ExitGracePeriod { get; set; }
-    public DateTime? EstimatedExitTime { get; set; }
     public DateTime? MaximumExitTime { get; set; }
-    
-    // Exit-related fields
-    public DateTime? ExitTime { get; set; }
-    public decimal? PenaltyFee { get; set; }
-    public double? TotalParkingHours { get; set; }
+
 }

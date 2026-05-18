@@ -108,7 +108,12 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         // Calculate grace periods and estimated times (30 minutes grace period)
         var entryGracePeriod = _parkingService.CalculateEntryGracePeriod(parkingLog.EntryTime, todaySchedule.StartTime);
         var estimatedExitTime = _parkingService.CalculateEstimatedExitTime(parkingLog.EntryTime, todaySchedule.EndTime);
-        var maximumExitTime = _parkingService.CalculateMaximumExitTime(parkingLog.EntryTime, todaySchedule.EndTime);
+        
+        // Retrieve the maximum exit time (which is currently acting as Unspecified/Local)
+        var maximumExitTimeLocal = _parkingService.CalculateMaximumExitTime(parkingLog.EntryTime, todaySchedule.EndTime);
+
+        // FIX: Explicitly set the kind to Local, then convert to UTC so it matches EntryTime
+        var maximumExitTimeUtc = DateTime.SpecifyKind(maximumExitTimeLocal, DateTimeKind.Local).ToUniversalTime();
 
         // Build response using vehicle owner profile and related subtype
         var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
@@ -137,9 +142,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             Brand = vehicle.Brand,
             EntryTime = parkingLog.EntryTime,
             EntryDate = parkingLog.EntryTime.Date,
-            EntryGracePeriod = entryGracePeriod,
-            EstimatedExitTime = estimatedExitTime,
-            MaximumExitTime = maximumExitTime
+            MaximumExitTime = maximumExitTimeUtc // Use the corrected UTC time here
         };
 
         return Result<CreateParkingLogResponse>.Success(response, "Parking log created.");
