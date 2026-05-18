@@ -4,4 +4,4 @@ using ParkFlow.Application.Features.ParkingLogs.DTOs;
 
 namespace ParkFlow.Application.Features.ParkingLogs.Queries.GetRecentParkingHistory;
 
-public record GetRecentParkingHistoryQuery(int Limit = 20) : IRequest<Result<IEnumerable<ParkingLogActivityDto>>>;
+public record GetRecentParkingHistoryQuery(int Limit = 20) : IRequest<Result<IEnumerable<ParkingLogHistoryDto>>>;

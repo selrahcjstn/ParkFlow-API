@@ -14,3 +14,9 @@ public record ParkingLogActivityDto(
     string Brand,
     string EntryTime,
     string EntryDate);
+
+public record ParkingLogHistoryDto(
+    string PlateNumber,
+    string Brand,
+    DateTime EntryTime,
+    DateTime? ExitTime);
