@@ -158,6 +158,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             Department = roleDetails.Department,
             PlateNumber = vehicle.PlateNumber,
             Brand = vehicle.Brand,
+            VehicleType = vehicle.VehicleType.ToString(),
             EntryTime = active.EntryTime,
             ExitTime = actualExitTime,
             EntryGracePeriod = entryGracePeriod,

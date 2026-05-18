@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Users.Commands.RegisterUserAggregate;
+using ParkFlow.Persistence;
 
 namespace ParkFlow.API.Controllers
 {
@@ -10,9 +11,9 @@ namespace ParkFlow.API.Controllers
     public class RegisterController : ControllerBase
     {
         private readonly IMediator _mediator;
-        private readonly ParkFlow.Persistence.AppDbContext _dbContext;
+        private readonly AppDbContext _dbContext;
 
-        public RegisterController(IMediator mediator, ParkFlow.Persistence.AppDbContext dbContext)
+        public RegisterController(IMediator mediator, AppDbContext dbContext)
         {
             _mediator = mediator;
             _dbContext = dbContext;
