@@ -89,7 +89,6 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             return Result<ExitParkingLogResponse>.Failure("No active parking log found for this vehicle.", ErrorCode.NotFound);
 
         var exitTime = DateTime.UtcNow;
-        var localExitTime = DateTime.Now;
 
         _parkingService.MarkExit(active);
         await _parkingLogRepository.UpdateParkingLogAsync(active);
@@ -97,8 +96,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
         var verifiedCor = corSubmissions.FirstOrDefault(c => c.UserAccountId == vehicle.OwnerId && c.VerificationStatus == CorVerificationStatus.Verified);
 
-        DateTime? entryGracePeriod = null;
-        DateTime? exitGracePeriod = null;
+        var endTime = exitTime;
         DateTime? maximumExitTime = null;
         decimal penaltyFee = 0m;
         bool isViolation = false;
@@ -107,17 +105,16 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         if (verifiedCor != null)
         {
             var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-            var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == localExitTime.DayOfWeek);
+            var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == exitTime.DayOfWeek);
 
             if (todaySchedule != null)
             {
-                entryGracePeriod = _parkingService.CalculateEntryGracePeriod(active.EntryTime, todaySchedule.StartTime);
-                exitGracePeriod = _parkingService.CalculateMaximumExitTime(active.EntryTime, todaySchedule.EndTime);
-                maximumExitTime = exitGracePeriod;
+                endTime = _parkingService.CalculateEstimatedExitTime(active.EntryTime, todaySchedule.EndTime);
+                maximumExitTime = endTime.AddMinutes(30);
 
-                if (_violationService.IsOverstay(localExitTime, todaySchedule.EndTime))
+                if (_violationService.IsOverstay(exitTime, todaySchedule.EndTime))
                 {
-                    var overstayDuration = _violationService.GetOverstayDuration(localExitTime, todaySchedule.EndTime);
+                    var overstayDuration = _violationService.GetOverstayDuration(exitTime, todaySchedule.EndTime);
                     penaltyFee = _violationService.CalculatePenalty(overstayDuration);
 
                     if (penaltyFee > 0m)
@@ -161,8 +158,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             VehicleType = vehicle.VehicleType.ToString(),
             EntryTime = active.EntryTime,
             ExitTime = actualExitTime,
-            EntryGracePeriod = entryGracePeriod,
-            ExitGracePeriod = exitGracePeriod,
+            EndTime = endTime,
             MaximumExitTime = maximumExitTime,
             PenaltyFee = penaltyFee,
             TotalParkingHours = totalParkingHours,
