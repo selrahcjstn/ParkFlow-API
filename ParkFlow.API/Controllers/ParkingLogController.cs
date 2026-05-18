@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
+using ParkFlow.Application.Features.ParkingLogs.Commands.ExitParkingLog;
 using ParkFlow.Application.Features.ParkingLogs.DTOs;
 using ParkFlow.Application.Features.ParkingLogs.Queries.GetRecentParkingHistory;
 using ParkFlow.Application.Features.ParkingLogs.Queries.GetTodayParkingLogs;
@@ -27,7 +28,13 @@ public class ParkingLogController : ControllerBase
         return result.IsSuccess ? Ok(result) : BadRequest(result);
     }
 
-    
+    // EXIT
+    [HttpPatch("exit")]
+    public async Task<ActionResult<Result<ExitParkingLogResponse>>> LogExit([FromBody] ExitParkingLogCommand command)
+    {
+        var result = await _mediator.Send(command);
+        return result.IsSuccess ? Ok(result) : BadRequest(result);
+    }
 
     [HttpGet("today")]
     public async Task<ActionResult<Result<ParkingLogsTodayResponse>>> GetToday([FromQuery] int limit = 100)

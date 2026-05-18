@@ -3,7 +3,6 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Application.Features.ParkingLogs.DTOs;
 using ParkFlow.Application.Features.ParkingLogs.Services;
-using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
@@ -19,9 +18,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     private readonly IStudentRepository _studentRepository;
     private readonly IPersonnelRepository _personnelRepository;
     private readonly IAdminRepository _adminRepository;
-    private readonly IViolationRepository _violationRepository;
     private readonly IParkingService _parkingService;
-    private readonly IViolationService _violationService;
     private readonly IScheduleService _scheduleService;
     private readonly IParkingLogRoleService _parkingLogRoleService;
 
@@ -35,9 +32,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         IStudentRepository studentRepository,
         IPersonnelRepository personnelRepository,
         IAdminRepository adminRepository,
-        IViolationRepository violationRepository,
         IParkingService parkingService,
-        IViolationService violationService,
         IScheduleService scheduleService,
         IParkingLogRoleService parkingLogRoleService)
     {
@@ -50,9 +45,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         _studentRepository = studentRepository;
         _personnelRepository = personnelRepository;
         _adminRepository = adminRepository;
-        _violationRepository = violationRepository;
         _parkingService = parkingService;
-        _violationService = violationService;
         _scheduleService = scheduleService;
         _parkingLogRoleService = parkingLogRoleService;
     }
@@ -76,87 +69,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         if (guard == null)
             return Result<CreateParkingLogResponse>.Failure("Guard not found.", ErrorCode.NotFound);
 
-        // 3. Check active parking log — if exists, treat as exit
-        var active = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id);
-
-        if (active != null)
-        {
-            var exitTime = DateTime.UtcNow;
-            _parkingService.MarkExit(active);
-            await _parkingLogRepository.UpdateParkingLogAsync(active);
-
-            var corSubmissionsForExit = await _corSubmissionRepository.ListCorSubmissionsAsync();
-            var verifiedCorForExit = corSubmissionsForExit.FirstOrDefault(c => c.UserAccountId == vehicle.OwnerId && c.VerificationStatus == CorVerificationStatus.Verified);
-
-            DateTime? entryGracePeriodCalc = null;
-            DateTime? exitGracePeriodCalc = null;
-            decimal penaltyFeeCalc = 0m;
-
-            if (verifiedCorForExit != null)
-            {
-                var schedulesForExit = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCorForExit.Id);
-                var todayScheduleForExit = schedulesForExit.FirstOrDefault(s => s.DayOfWeek == exitTime.DayOfWeek);
-                if (todayScheduleForExit != null)
-                {
-                    entryGracePeriodCalc = _parkingService.CalculateEntryGracePeriod(active.EntryTime, todayScheduleForExit.StartTime);
-                    exitGracePeriodCalc = _parkingService.CalculateMaximumExitTime(active.EntryTime, todayScheduleForExit.EndTime);
-
-                    if (_violationService.IsOverstay(exitTime, todayScheduleForExit.EndTime))
-                    {
-                        var overstayDuration = _violationService.GetOverstayDuration(exitTime, todayScheduleForExit.EndTime);
-                        penaltyFeeCalc = _violationService.CalculatePenalty(overstayDuration);
-
-                        if (penaltyFeeCalc > 0m)
-                        {
-                            var violation = new Violation(active.Id, ViolationType.Overstay, penaltyFeeCalc);
-                            await _violationRepository.AddAsync(violation);
-                        }
-                    }
-                }
-            }
-
-            var actualExitTime = active.ExitTime ?? exitTime;
-            var totalParkingHours = _parkingService.CalculateTotalParkingHours(active.EntryTime, actualExitTime);
-
-            // Build response for exit
-            var ownerProfileExit = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
-
-            if (ownerProfileExit == null)
-                return Result<CreateParkingLogResponse>.Failure("Owner profile not found.", ErrorCode.NotFound);
-
-            var studentExit = await _studentRepository.GetByUserProfileIdAsync(ownerProfileExit.Id);
-            var personnelExit = await _personnelRepository.GetByUserProfileIdAsync(ownerProfileExit.Id);
-            var adminExit = await _adminRepository.GetByUserProfileIdAsync(ownerProfileExit.Id);
-
-            var roleExitDetails = _parkingLogRoleService.GetRoleDetails(ownerProfileExit, studentExit, personnelExit, adminExit);
-
-            var exitResponse = new CreateParkingLogResponse
-            {
-                FirstName = ownerProfileExit.FirstName,
-                LastName = ownerProfileExit.LastName,
-                Role = roleExitDetails.Role,
-                Status = active.Status.ToString(),
-                IdNumber = roleExitDetails.IdNumber,
-                Course = roleExitDetails.Course,
-                YearLevel = roleExitDetails.YearLevel,
-                Section = roleExitDetails.Section,
-                Department = roleExitDetails.Department,
-                PlateNumber = vehicle.PlateNumber,
-                Brand = vehicle.Brand,
-                EntryTime = active.EntryTime,
-                EntryDate = active.EntryTime.Date,
-                ExitTime = actualExitTime,
-                EntryGracePeriod = entryGracePeriodCalc,
-                ExitGracePeriod = exitGracePeriodCalc,
-                MaximumExitTime = exitGracePeriodCalc,
-                PenaltyFee = penaltyFeeCalc,
-                TotalParkingHours = totalParkingHours
-            };
-
-            return Result<CreateParkingLogResponse>.Success(exitResponse, "Parking exit processed.");
-        }
-
-        // 4. Validate COR submission
+        // 3. Validate COR submission
         var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
 
         var verifiedCor = corSubmissions.FirstOrDefault(c =>
@@ -166,22 +79,23 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         if (verifiedCor == null)
             return Result<CreateParkingLogResponse>.Failure("User does not have a verified COR submission.", ErrorCode.Forbidden);
 
-        // 5. Validate schedule
+        // 4. Validate schedule
         var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
 
-        var todayDayOfWeek = DateTime.UtcNow.DayOfWeek;
+        var localNow = DateTime.Now;
+        var todayDayOfWeek = localNow.DayOfWeek;
 
         var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == todayDayOfWeek);
 
         if (todaySchedule == null)
             return Result<CreateParkingLogResponse>.Failure("No parking schedule for today.", ErrorCode.Forbidden);
 
-        var currentTime = DateTime.UtcNow;
+        var currentTime = localNow;
 
         if (!_scheduleService.CanEnter(currentTime, todaySchedule))
             return Result<CreateParkingLogResponse>.Failure("Entry time does not align with parking schedule.", ErrorCode.BadRequest);
 
-        // 6. Create parking log
+        // 5. Create parking log
         var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard.UserProfileId);
 
         await _parkingLogRepository.AddParkingLogAsync(parkingLog);

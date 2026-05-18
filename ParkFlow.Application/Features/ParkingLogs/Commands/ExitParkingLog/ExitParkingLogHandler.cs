@@ -1,0 +1,174 @@
+using FluentValidation;
+using MediatR;
+using ParkFlow.Application.Common;
+using ParkFlow.Application.Features.ParkingLogs.DTOs;
+using ParkFlow.Application.Features.ParkingLogs.Services;
+using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Enums;
+
+namespace ParkFlow.Application.Features.ParkingLogs.Commands.ExitParkingLog;
+
+public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Result<ExitParkingLogResponse>>
+{
+    private readonly IParkingLogRepository _parkingLogRepository;
+    private readonly IVehicleRepository _vehicleRepository;
+    private readonly IUserProfileRepository _userProfileRepository;
+    private readonly IGuardRepository _guardRepository;
+    private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IParkingScheduleRepository _parkingScheduleRepository;
+    private readonly IStudentRepository _studentRepository;
+    private readonly IPersonnelRepository _personnelRepository;
+    private readonly IAdminRepository _adminRepository;
+    private readonly IViolationRepository _violationRepository;
+    private readonly IParkingService _parkingService;
+    private readonly IViolationService _violationService;
+    private readonly IParkingLogRoleService _parkingLogRoleService;
+    private readonly IValidator<ExitParkingLogCommand> _validator;
+
+    public ExitParkingLogHandler(
+        IParkingLogRepository parkingLogRepository,
+        IVehicleRepository vehicleRepository,
+        IUserProfileRepository userProfileRepository,
+        IGuardRepository guardRepository,
+        ICorSubmissionRepository corSubmissionRepository,
+        IParkingScheduleRepository parkingScheduleRepository,
+        IStudentRepository studentRepository,
+        IPersonnelRepository personnelRepository,
+        IAdminRepository adminRepository,
+        IViolationRepository violationRepository,
+        IParkingService parkingService,
+        IViolationService violationService,
+        IParkingLogRoleService parkingLogRoleService,
+        IValidator<ExitParkingLogCommand> validator)
+    {
+        _parkingLogRepository = parkingLogRepository;
+        _vehicleRepository = vehicleRepository;
+        _userProfileRepository = userProfileRepository;
+        _guardRepository = guardRepository;
+        _corSubmissionRepository = corSubmissionRepository;
+        _parkingScheduleRepository = parkingScheduleRepository;
+        _studentRepository = studentRepository;
+        _personnelRepository = personnelRepository;
+        _adminRepository = adminRepository;
+        _violationRepository = violationRepository;
+        _parkingService = parkingService;
+        _violationService = violationService;
+        _parkingLogRoleService = parkingLogRoleService;
+        _validator = validator;
+    }
+
+    public async Task<Result<ExitParkingLogResponse>> Handle(ExitParkingLogCommand request, CancellationToken cancellationToken)
+    {
+        var validationResult = await _validator.ValidateAsync(request, cancellationToken);
+
+        if (!validationResult.IsValid)
+        {
+            var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+            return Result<ExitParkingLogResponse>.Failure(errors, ErrorCode.BadRequest);
+        }
+
+        var vehicle = await _vehicleRepository.GetByQrCodeHashAsync(request.QrCodeHash);
+
+        if (vehicle == null)
+            return Result<ExitParkingLogResponse>.Failure("Invalid QR code. Vehicle not found.", ErrorCode.NotFound);
+
+        var userProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
+
+        if (userProfile == null)
+            return Result<ExitParkingLogResponse>.Failure("User profile not found.", ErrorCode.NotFound);
+
+        var guard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
+
+        if (guard == null)
+            return Result<ExitParkingLogResponse>.Failure("Guard not found.", ErrorCode.NotFound);
+
+        var active = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id);
+
+        if (active == null)
+            return Result<ExitParkingLogResponse>.Failure("No active parking log found for this vehicle.", ErrorCode.NotFound);
+
+        var exitTime = DateTime.UtcNow;
+        var localExitTime = DateTime.Now;
+
+        _parkingService.MarkExit(active);
+        await _parkingLogRepository.UpdateParkingLogAsync(active);
+
+        var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
+        var verifiedCor = corSubmissions.FirstOrDefault(c => c.UserAccountId == vehicle.OwnerId && c.VerificationStatus == CorVerificationStatus.Verified);
+
+        DateTime? entryGracePeriod = null;
+        DateTime? exitGracePeriod = null;
+        DateTime? maximumExitTime = null;
+        decimal penaltyFee = 0m;
+        bool isViolation = false;
+        Guid? violationId = null;
+
+        if (verifiedCor != null)
+        {
+            var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
+            var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == localExitTime.DayOfWeek);
+
+            if (todaySchedule != null)
+            {
+                entryGracePeriod = _parkingService.CalculateEntryGracePeriod(active.EntryTime, todaySchedule.StartTime);
+                exitGracePeriod = _parkingService.CalculateMaximumExitTime(active.EntryTime, todaySchedule.EndTime);
+                maximumExitTime = exitGracePeriod;
+
+                if (_violationService.IsOverstay(localExitTime, todaySchedule.EndTime))
+                {
+                    var overstayDuration = _violationService.GetOverstayDuration(localExitTime, todaySchedule.EndTime);
+                    penaltyFee = _violationService.CalculatePenalty(overstayDuration);
+
+                    if (penaltyFee > 0m)
+                    {
+                        var violation = new Violation(active.Id, ViolationType.Overstay, penaltyFee);
+                        await _violationRepository.AddAsync(violation);
+                        isViolation = true;
+                        violationId = violation.Id;
+                    }
+                }
+            }
+        }
+
+        var actualExitTime = active.ExitTime ?? exitTime;
+        var totalParkingHours = _parkingService.CalculateTotalParkingHours(active.EntryTime, actualExitTime);
+
+        var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
+
+        if (ownerProfile == null)
+            return Result<ExitParkingLogResponse>.Failure("Owner profile not found.", ErrorCode.NotFound);
+
+        var student = await _studentRepository.GetByUserProfileIdAsync(ownerProfile.Id);
+        var personnel = await _personnelRepository.GetByUserProfileIdAsync(ownerProfile.Id);
+        var admin = await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id);
+
+        var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);
+
+        var response = new ExitParkingLogResponse
+        {
+            FirstName = ownerProfile.FirstName,
+            LastName = ownerProfile.LastName,
+            Role = roleDetails.Role,
+            Status = active.Status.ToString(),
+            IdNumber = roleDetails.IdNumber,
+            Course = roleDetails.Course,
+            YearLevel = roleDetails.YearLevel,
+            Section = roleDetails.Section,
+            Department = roleDetails.Department,
+            PlateNumber = vehicle.PlateNumber,
+            Brand = vehicle.Brand,
+            EntryTime = active.EntryTime,
+            ExitTime = actualExitTime,
+            EntryGracePeriod = entryGracePeriod,
+            ExitGracePeriod = exitGracePeriod,
+            MaximumExitTime = maximumExitTime,
+            PenaltyFee = penaltyFee,
+            TotalParkingHours = totalParkingHours,
+            IsViolation = isViolation,
+            ViolationId = violationId
+        };
+
+        return Result<ExitParkingLogResponse>.Success(response, "Parking exit processed.");
+    }
+}
