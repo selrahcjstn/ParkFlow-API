@@ -25,9 +25,9 @@ public class ParkingLog : BaseEntity
         Status = status;
     }
 
-    public void Exit(DateTime exitTime)
+    public void Exit()
     {
-        ExitTime = exitTime;
+        ExitTime = DateTime.UtcNow;
         Status = ParkingStatus.Exited;
         UpdatedAt = DateTime.UtcNow;
     }
