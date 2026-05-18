@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using ParkFlow.Application.Features.ParkingLogs.Services;
 using System.Reflection;
 
 namespace ParkFlow.Application
@@ -14,6 +15,11 @@ namespace ParkFlow.Application
 
             // Register all validators from the assembly
             services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
+
+            services.AddScoped<IParkingService, ParkingService>();
+            services.AddScoped<IViolationService, ViolationService>();
+            services.AddScoped<IScheduleService, ScheduleService>();
+            services.AddScoped<IParkingLogRoleService, ParkingLogRoleService>();
 
             return services;
         }

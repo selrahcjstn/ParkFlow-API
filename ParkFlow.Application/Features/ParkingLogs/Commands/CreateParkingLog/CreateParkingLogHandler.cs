@@ -1,7 +1,8 @@
-using MediatR;
+﻿using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Application.Features.ParkingLogs.DTOs;
+using ParkFlow.Application.Features.ParkingLogs.Services;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
 
@@ -19,6 +20,10 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     private readonly IPersonnelRepository _personnelRepository;
     private readonly IAdminRepository _adminRepository;
     private readonly IViolationRepository _violationRepository;
+    private readonly IParkingService _parkingService;
+    private readonly IViolationService _violationService;
+    private readonly IScheduleService _scheduleService;
+    private readonly IParkingLogRoleService _parkingLogRoleService;
 
     public CreateParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -30,7 +35,11 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         IStudentRepository studentRepository,
         IPersonnelRepository personnelRepository,
         IAdminRepository adminRepository,
-        IViolationRepository violationRepository)
+        IViolationRepository violationRepository,
+        IParkingService parkingService,
+        IViolationService violationService,
+        IScheduleService scheduleService,
+        IParkingLogRoleService parkingLogRoleService)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
@@ -42,6 +51,10 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         _personnelRepository = personnelRepository;
         _adminRepository = adminRepository;
         _violationRepository = violationRepository;
+        _parkingService = parkingService;
+        _violationService = violationService;
+        _scheduleService = scheduleService;
+        _parkingLogRoleService = parkingLogRoleService;
     }
 
     public async Task<Result<CreateParkingLogResponse>> Handle(CreateParkingLogCommand request, CancellationToken cancellationToken)
@@ -68,12 +81,10 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
 
         if (active != null)
         {
-            // perform exit using server timestamp
             var exitTime = DateTime.UtcNow;
-            active.Exit();
+            _parkingService.MarkExit(active);
             await _parkingLogRepository.UpdateParkingLogAsync(active);
 
-            // check for violation (overstay with 30 min grace period)
             var corSubmissionsForExit = await _corSubmissionRepository.ListCorSubmissionsAsync();
             var verifiedCorForExit = corSubmissionsForExit.FirstOrDefault(c => c.UserAccountId == vehicle.OwnerId && c.VerificationStatus == CorVerificationStatus.Verified);
 
@@ -87,27 +98,25 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
                 var todayScheduleForExit = schedulesForExit.FirstOrDefault(s => s.DayOfWeek == exitTime.DayOfWeek);
                 if (todayScheduleForExit != null)
                 {
-                    // Calculate grace periods (30 minutes)
-                    entryGracePeriodCalc = active.EntryTime.Date.Add(todayScheduleForExit.StartTime).AddMinutes(-30);
-                    exitGracePeriodCalc = exitTime.Date.Add(todayScheduleForExit.EndTime).AddMinutes(30);
+                    entryGracePeriodCalc = _parkingService.CalculateEntryGracePeriod(active.EntryTime, todayScheduleForExit.StartTime);
+                    exitGracePeriodCalc = _parkingService.CalculateMaximumExitTime(active.EntryTime, todayScheduleForExit.EndTime);
 
-                    var exitTimeOfDay = exitTime.TimeOfDay;
-                    var exitGraceTimeOfDay = todayScheduleForExit.EndTime.Add(TimeSpan.FromMinutes(30));
-
-                    if (exitTimeOfDay > exitGraceTimeOfDay)
+                    if (_violationService.IsOverstay(exitTime, todayScheduleForExit.EndTime))
                     {
-                        var over = exitTimeOfDay - exitGraceTimeOfDay;
-                        var hours = Math.Ceiling(over.TotalHours);
-                        penaltyFeeCalc = (decimal)hours * 5m;
+                        var overstayDuration = _violationService.GetOverstayDuration(exitTime, todayScheduleForExit.EndTime);
+                        penaltyFeeCalc = _violationService.CalculatePenalty(overstayDuration);
 
-                        var violation = new Violation(active.Id, ViolationType.Overstay, penaltyFeeCalc);
-                        await _violationRepository.AddAsync(violation);
+                        if (penaltyFeeCalc > 0m)
+                        {
+                            var violation = new Violation(active.Id, ViolationType.Overstay, penaltyFeeCalc);
+                            await _violationRepository.AddAsync(violation);
+                        }
                     }
                 }
             }
 
-            // Calculate total parking hours
-            var totalParkingHours = (exitTime - active.EntryTime).TotalHours;
+            var actualExitTime = active.ExitTime ?? exitTime;
+            var totalParkingHours = _parkingService.CalculateTotalParkingHours(active.EntryTime, actualExitTime);
 
             // Build response for exit
             var ownerProfileExit = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
@@ -119,58 +128,27 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             var personnelExit = await _personnelRepository.GetByUserProfileIdAsync(ownerProfileExit.Id);
             var adminExit = await _adminRepository.GetByUserProfileIdAsync(ownerProfileExit.Id);
 
-            string roleExit;
-            string idNumberExit = string.Empty;
-            string? courseExit = null;
-            int? yearLevelExit = null;
-            string? sectionExit = null;
-            string? departmentExit = null;
-
-            if (studentExit != null)
-            {
-                roleExit = "student";
-                idNumberExit = studentExit.StudentNumber;
-                courseExit = studentExit.Course;
-                yearLevelExit = studentExit.YearLevel;
-                sectionExit = studentExit.Section;
-            }
-            else if (personnelExit != null)
-            {
-                roleExit = "personnel";
-                idNumberExit = personnelExit.IdCardNumber;
-                departmentExit = personnelExit.Department;
-            }
-            else if (adminExit != null)
-            {
-                roleExit = "admin";
-            }
-            else if (ownerProfileExit.Guard != null)
-            {
-                roleExit = "guard";
-            }
-            else
-            {
-                roleExit = "unknown";
-            }
+            var roleExitDetails = _parkingLogRoleService.GetRoleDetails(ownerProfileExit, studentExit, personnelExit, adminExit);
 
             var exitResponse = new CreateParkingLogResponse
             {
                 FirstName = ownerProfileExit.FirstName,
                 LastName = ownerProfileExit.LastName,
-                Role = roleExit,
+                Role = roleExitDetails.Role,
                 Status = active.Status.ToString(),
-                IdNumber = idNumberExit,
-                Course = courseExit,
-                YearLevel = yearLevelExit,
-                Section = sectionExit,
-                Department = departmentExit,
+                IdNumber = roleExitDetails.IdNumber,
+                Course = roleExitDetails.Course,
+                YearLevel = roleExitDetails.YearLevel,
+                Section = roleExitDetails.Section,
+                Department = roleExitDetails.Department,
                 PlateNumber = vehicle.PlateNumber,
                 Brand = vehicle.Brand,
                 EntryTime = active.EntryTime,
                 EntryDate = active.EntryTime.Date,
-                ExitTime = exitTime,
+                ExitTime = actualExitTime,
                 EntryGracePeriod = entryGracePeriodCalc,
                 ExitGracePeriod = exitGracePeriodCalc,
+                MaximumExitTime = exitGracePeriodCalc,
                 PenaltyFee = penaltyFeeCalc,
                 TotalParkingHours = totalParkingHours
             };
@@ -198,22 +176,20 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         if (todaySchedule == null)
             return Result<CreateParkingLogResponse>.Failure("No parking schedule for today.", ErrorCode.Forbidden);
 
-        var entryTimeOfDay = DateTime.UtcNow.TimeOfDay;
+        var currentTime = DateTime.UtcNow;
 
-        var earliestAllowedEntry = todaySchedule.StartTime.Add(TimeSpan.FromMinutes(-30));
-
-        if (entryTimeOfDay < earliestAllowedEntry || entryTimeOfDay > todaySchedule.EndTime)
+        if (!_scheduleService.CanEnter(currentTime, todaySchedule))
             return Result<CreateParkingLogResponse>.Failure("Entry time does not align with parking schedule.", ErrorCode.BadRequest);
 
         // 6. Create parking log
-        var parkingLog = new ParkingLog(vehicle.Id, guard.UserProfileId, ParkingStatus.Parked);
+        var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard.UserProfileId);
 
         await _parkingLogRepository.AddParkingLogAsync(parkingLog);
 
         // Calculate grace periods and estimated times (30 minutes grace period)
-        var entryGracePeriod = parkingLog.EntryTime.Date.Add(todaySchedule.StartTime).AddMinutes(-30);
-        var estimatedExitTime = parkingLog.EntryTime.Date.Add(todaySchedule.EndTime).AddMinutes(30);
-        var maximumExitTime = estimatedExitTime; // Same as estimated with grace period
+        var entryGracePeriod = _parkingService.CalculateEntryGracePeriod(parkingLog.EntryTime, todaySchedule.StartTime);
+        var estimatedExitTime = _parkingService.CalculateEstimatedExitTime(parkingLog.EntryTime, todaySchedule.EndTime);
+        var maximumExitTime = _parkingService.CalculateMaximumExitTime(parkingLog.EntryTime, todaySchedule.EndTime);
 
         // Build response using vehicle owner profile and related subtype
         var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
@@ -225,51 +201,19 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         var personnel = await _personnelRepository.GetByUserProfileIdAsync(ownerProfile.Id);
         var admin = await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id);
 
-        string role;
-        string idNumber = string.Empty;
-        string? course = null;
-        int? yearLevel = null;
-        string? section = null;
-        string? department = null;
-
-        if (student != null)
-        {
-            role = "student";
-            idNumber = student.StudentNumber;
-            course = student.Course;
-            yearLevel = student.YearLevel;
-            section = student.Section;
-        }
-        else if (personnel != null)
-        {
-            role = "personnel";
-            idNumber = personnel.IdCardNumber;
-            department = personnel.Department;
-        }
-        else if (admin != null)
-        {
-            role = "admin";
-        }
-        else if (ownerProfile.Guard != null)
-        {
-            role = "guard";
-        }
-        else
-        {
-            role = "unknown";
-        }
+        var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);
 
         var response = new CreateParkingLogResponse
         {
             FirstName = ownerProfile.FirstName,
             LastName = ownerProfile.LastName,
-            Role = role,
+            Role = roleDetails.Role,
             Status = parkingLog.Status.ToString(),
-            IdNumber = idNumber,
-            Course = course,
-            YearLevel = yearLevel,
-            Section = section,
-            Department = department,
+            IdNumber = roleDetails.IdNumber,
+            Course = roleDetails.Course,
+            YearLevel = roleDetails.YearLevel,
+            Section = roleDetails.Section,
+            Department = roleDetails.Department,
             PlateNumber = vehicle.PlateNumber,
             Brand = vehicle.Brand,
             EntryTime = parkingLog.EntryTime,
