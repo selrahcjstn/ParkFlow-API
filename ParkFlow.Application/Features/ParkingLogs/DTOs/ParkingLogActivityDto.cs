@@ -18,5 +18,6 @@ public record ParkingLogActivityDto(
 public record ParkingLogHistoryDto(
     string PlateNumber,
     string Brand,
-    DateTime EntryTime,
-    DateTime? ExitTime);
+    string VehicleType,
+    string EntryTime,
+    string? ExitTime);

@@ -19,12 +19,16 @@ public class GetRecentParkingHistoryHandler : IRequestHandler<GetRecentParkingHi
         var limit = request.Limit <= 0 ? 20 : request.Limit;
         var logs = await _parkingLogRepository.GetRecentParkingLogsAsync(limit);
 
-        var dtos = logs.Select(parkingLog =>
-            new ParkingLogHistoryDto(
-                parkingLog.Vehicle.PlateNumber,
-                parkingLog.Vehicle.Brand,
-                parkingLog.EntryTime,
-                parkingLog.ExitTime)).ToList();
+        var dtos = logs
+            .Where(p => p.EntryTime != default(DateTime))
+            .Select(parkingLog =>
+                new ParkingLogHistoryDto(
+                    parkingLog.Vehicle.PlateNumber,
+                    parkingLog.Vehicle.Brand,
+                    parkingLog.Vehicle.VehicleType.ToString(),
+                    parkingLog.EntryTime.ToString("O"),
+                    parkingLog.ExitTime.HasValue ? parkingLog.ExitTime.Value.ToString("O") : null))
+            .ToList();
 
         return Result<IEnumerable<ParkingLogHistoryDto>>.Success(dtos, "Recent parking history retrieved.");
     }

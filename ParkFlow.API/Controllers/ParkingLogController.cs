@@ -35,7 +35,7 @@ public class ParkingLogController : ControllerBase
     }
 
     [HttpGet("history")]
-    public async Task<ActionResult<Result<IEnumerable<ParkingLogActivityDto>>>> GetHistory([FromQuery] int limit = 20)
+    public async Task<ActionResult<Result<IEnumerable<ParkFlow.Application.Features.ParkingLogs.DTOs.ParkingLogHistoryDto>>>> GetHistory([FromQuery] int limit = 20)
     {
         var result = await _mediator.Send(new GetRecentParkingHistoryQuery(limit));
         return result.IsSuccess ? Ok(result) : BadRequest(result);
