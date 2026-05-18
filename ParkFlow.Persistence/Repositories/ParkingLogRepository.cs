@@ -22,7 +22,7 @@ public class ParkingLogRepository : IParkingLogRepository
     {
         return await _context.Set<ParkingLog>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.VehicleId == vehicleId && p.Status == ParkingStatus.Parked);
+            .FirstOrDefaultAsync(p => p.VehicleId == vehicleId && p.Status == ParkingStatus.Parked && p.ExitTime == null);
     }
 
     public async Task<(IReadOnlyList<ParkingLog> Items, int TotalCount)> GetTodaysParkingLogsAsync(int limit)
@@ -43,7 +43,7 @@ public class ParkingLogRepository : IParkingLogRepository
                 .ThenInclude(v => v.Owner)
                     .ThenInclude(o => o.UserProfile)
                         .ThenInclude(up => up.Guard)
-            .Where(p => p.EntryTime.Date == today)
+            .Where(p => p.EntryTime.Date == today && p.Status == ParkingStatus.Parked && p.ExitTime == null)
             .OrderByDescending(p => p.CreatedAt);
 
         var totalCount = await query.CountAsync();

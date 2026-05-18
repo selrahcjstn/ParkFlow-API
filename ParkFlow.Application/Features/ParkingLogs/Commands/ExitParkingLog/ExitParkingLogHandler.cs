@@ -11,6 +11,7 @@ namespace ParkFlow.Application.Features.ParkingLogs.Commands.ExitParkingLog;
 
 public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Result<ExitParkingLogResponse>>
 {
+    private const string PhilippinesTimeZoneId = "Singapore Standard Time";
     private readonly IParkingLogRepository _parkingLogRepository;
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IUserProfileRepository _userProfileRepository;
@@ -105,11 +106,12 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         if (verifiedCor != null)
         {
             var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-            var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == exitTime.DayOfWeek);
+            var philippinesNow = ConvertUtcToPhilippinesTime(exitTime);
+            var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == philippinesNow.DayOfWeek);
 
             if (todaySchedule != null)
             {
-                endTime = _parkingService.CalculateEstimatedExitTime(active.EntryTime, todaySchedule.EndTime);
+                endTime = BuildPhilippinesScheduleUtcDateTime(philippinesNow, todaySchedule.EndTime);
                 maximumExitTime = endTime.AddMinutes(30);
 
                 if (_violationService.IsOverstay(exitTime, todaySchedule.EndTime))
@@ -167,5 +169,27 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         };
 
         return Result<ExitParkingLogResponse>.Success(response, "Parking exit processed.");
+    }
+
+    private static DateTime ConvertUtcToPhilippinesTime(DateTime utcDateTime)
+    {
+        var philippinesTimeZone = TimeZoneInfo.FindSystemTimeZoneById(PhilippinesTimeZoneId);
+        return TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, philippinesTimeZone);
+    }
+
+    private static DateTime BuildPhilippinesScheduleUtcDateTime(DateTime philippinesDate, TimeSpan scheduleTime)
+    {
+        var philippinesTimeZone = TimeZoneInfo.FindSystemTimeZoneById(PhilippinesTimeZoneId);
+
+        var localScheduleDateTime = new DateTime(
+            philippinesDate.Year,
+            philippinesDate.Month,
+            philippinesDate.Day,
+            scheduleTime.Hours,
+            scheduleTime.Minutes,
+            scheduleTime.Seconds,
+            DateTimeKind.Unspecified);
+
+        return TimeZoneInfo.ConvertTimeToUtc(localScheduleDateTime, philippinesTimeZone);
     }
 }

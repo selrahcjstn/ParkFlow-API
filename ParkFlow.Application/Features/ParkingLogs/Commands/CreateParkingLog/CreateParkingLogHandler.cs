@@ -9,6 +9,7 @@ namespace ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
 
 public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, Result<CreateParkingLogResponse>>
 {
+    private const string PhilippinesTimeZoneId = "Singapore Standard Time";
     private readonly IParkingLogRepository _parkingLogRepository;
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IUserProfileRepository _userProfileRepository;
@@ -52,7 +53,6 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
 
     public async Task<Result<CreateParkingLogResponse>> Handle(CreateParkingLogCommand request, CancellationToken cancellationToken)
     {
-        // 1. Resolve VEHICLE from QR
         var vehicle = await _vehicleRepository.GetByQrCodeHashAsync(request.QrCodeHash);
 
         if (vehicle == null)
@@ -63,7 +63,6 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         if (activeParkingLog != null)
             return Result<CreateParkingLogResponse>.Failure("Vehicle is already parked.", ErrorCode.Conflict);
 
-        // 2. Resolve the user's profile first, then ensure the guard exists
         var userProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
 
         if (userProfile == null)
@@ -74,7 +73,6 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         if (guard == null)
             return Result<CreateParkingLogResponse>.Failure("Guard not found.", ErrorCode.NotFound);
 
-        // 3. Validate COR submission
         var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
 
         var verifiedCor = corSubmissions.FirstOrDefault(c =>
@@ -84,38 +82,29 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         if (verifiedCor == null)
             return Result<CreateParkingLogResponse>.Failure("User does not have a verified COR submission.", ErrorCode.Forbidden);
 
-        // 4. Validate schedule
         var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
 
-        var localNow = DateTime.Now;
-        var todayDayOfWeek = localNow.DayOfWeek;
+        var utcNow = DateTime.UtcNow;
+        var philippinesNow = ConvertUtcToPhilippinesTime(utcNow);
+        var todayDayOfWeek = philippinesNow.DayOfWeek;
 
         var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == todayDayOfWeek);
 
         if (todaySchedule == null)
             return Result<CreateParkingLogResponse>.Failure("No parking schedule for today.", ErrorCode.Forbidden);
 
-        var currentTime = localNow;
+        var currentTime = philippinesNow;
 
         if (!_scheduleService.CanEnter(currentTime, todaySchedule))
             return Result<CreateParkingLogResponse>.Failure("Entry time does not align with parking schedule.", ErrorCode.BadRequest);
 
-        // 5. Create parking log
         var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard.UserProfileId);
 
         await _parkingLogRepository.AddParkingLogAsync(parkingLog);
 
-        // Calculate grace periods and estimated times (30 minutes grace period)
-        var entryGracePeriod = _parkingService.CalculateEntryGracePeriod(parkingLog.EntryTime, todaySchedule.StartTime);
-        var estimatedExitTime = _parkingService.CalculateEstimatedExitTime(parkingLog.EntryTime, todaySchedule.EndTime);
-        
-        // Retrieve the maximum exit time (which is currently acting as Unspecified/Local)
-        var maximumExitTimeLocal = _parkingService.CalculateMaximumExitTime(parkingLog.EntryTime, todaySchedule.EndTime);
+        var scheduleEndTimeUtc = BuildPhilippinesScheduleUtcDateTime(philippinesNow, todaySchedule.EndTime);
+        var maximumExitTimeUtc = scheduleEndTimeUtc.AddMinutes(30);
 
-        // FIX: Explicitly set the kind to Local, then convert to UTC so it matches EntryTime
-        var maximumExitTimeUtc = DateTime.SpecifyKind(maximumExitTimeLocal, DateTimeKind.Local).ToUniversalTime();
-
-        // Build response using vehicle owner profile and related subtype
         var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
 
         if (ownerProfile == null)
@@ -142,9 +131,31 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             Brand = vehicle.Brand,
             EntryTime = parkingLog.EntryTime,
             EntryDate = parkingLog.EntryTime.Date,
-            MaximumExitTime = maximumExitTimeUtc // Use the corrected UTC time here
+            MaximumExitTime = maximumExitTimeUtc 
         };
 
         return Result<CreateParkingLogResponse>.Success(response, "Parking log created.");
+    }
+
+    private static DateTime ConvertUtcToPhilippinesTime(DateTime utcDateTime)
+    {
+        var philippinesTimeZone = TimeZoneInfo.FindSystemTimeZoneById(PhilippinesTimeZoneId);
+        return TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, philippinesTimeZone);
+    }
+
+    private static DateTime BuildPhilippinesScheduleUtcDateTime(DateTime philippinesDate, TimeSpan scheduleTime)
+    {
+        var philippinesTimeZone = TimeZoneInfo.FindSystemTimeZoneById(PhilippinesTimeZoneId);
+
+        var localScheduleDateTime = new DateTime(
+            philippinesDate.Year,
+            philippinesDate.Month,
+            philippinesDate.Day,
+            scheduleTime.Hours,
+            scheduleTime.Minutes,
+            scheduleTime.Seconds,
+            DateTimeKind.Unspecified);
+
+        return TimeZoneInfo.ConvertTimeToUtc(localScheduleDateTime, philippinesTimeZone);
     }
 }
