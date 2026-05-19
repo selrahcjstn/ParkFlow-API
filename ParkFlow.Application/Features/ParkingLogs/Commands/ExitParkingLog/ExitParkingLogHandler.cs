@@ -162,6 +162,6 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             ViolationId = violationId
         };
 
-        return Result<ExitParkingLogResponse>.Success(response, "Parking exit processed.");
+        return Result<ExitParkingLogResponse>.Success(response, "Exit Confirmed");
     }
 }

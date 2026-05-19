@@ -130,6 +130,6 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             MaximumExitTime = maximumExitTimeUtc 
         };
 
-        return Result<CreateParkingLogResponse>.Success(response, "Parking log created.");
+        return Result<CreateParkingLogResponse>.Success(response, "Entry Confirmed");
     }
 }
