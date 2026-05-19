@@ -128,6 +128,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             Department = roleDetails.Department,
             PlateNumber = vehicle.PlateNumber,
             Brand = vehicle.Brand,
+            VehicleType = vehicle.VehicleType.ToString(),
             EntryTime = parkingLog.EntryTime,
             EntryDate = parkingLog.EntryTime.Date,
             MaximumExitTime = maximumExitTimeUtc 

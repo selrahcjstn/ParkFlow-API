@@ -1,4 +1,5 @@
 namespace ParkFlow.Application.Features.ParkingLogs.DTOs;
+
 public class CreateParkingLogResponse
 {
     public string FirstName { get; set; } = null!;
@@ -14,11 +15,10 @@ public class CreateParkingLogResponse
 
     public string PlateNumber { get; set; } = null!;
     public string Brand { get; set; } = null!;
+    public string VehicleType { get; set; } = null!;
 
     public DateTime EntryTime { get; set; }
     public DateTime EntryDate { get; set; }
-    
-    // Grace periods and time limits
-    public DateTime? MaximumExitTime { get; set; }
 
+    public DateTime? MaximumExitTime { get; set; }
 }

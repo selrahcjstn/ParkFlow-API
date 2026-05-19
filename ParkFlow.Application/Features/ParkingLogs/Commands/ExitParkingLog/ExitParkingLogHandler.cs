@@ -162,7 +162,6 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             EntryTime = active.EntryTime,
             ExitTime = actualExitTime,
             EndTime = endTime,
-            MaximumExitTime = maximumExitTime,
             OverstayTime = overstayTime,
             PenaltyFee = penaltyFee,
             TotalParkingHours = totalParkingHours,
