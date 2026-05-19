@@ -14,7 +14,6 @@ public class ExitParkingLogResponse
     public DateTime EndTime { get; set; }
     public double OverstayTime { get; set; }
     public decimal PenaltyFee { get; set; }
-    public double TotalParkingHours { get; set; }
     public bool IsViolation { get; set; }
     public Guid? ViolationId { get; set; }
 }

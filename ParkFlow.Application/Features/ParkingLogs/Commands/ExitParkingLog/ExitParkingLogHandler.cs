@@ -132,7 +132,6 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         }
 
         var actualExitTime = active.ExitTime ?? exitTime;
-        var totalParkingHours = _parkingService.CalculateTotalParkingHours(active.EntryTime, actualExitTime);
 
         var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
 
@@ -159,7 +158,6 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             EndTime = endTime,
             OverstayTime = overstayTime,
             PenaltyFee = penaltyFee,
-            TotalParkingHours = totalParkingHours,
             IsViolation = isViolation,
             ViolationId = violationId
         };
