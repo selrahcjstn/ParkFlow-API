@@ -98,6 +98,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
 
         var endTime = exitTime;
         DateTime? maximumExitTime = null;
+        double overstayTime = 0;
         decimal penaltyFee = 0m;
         bool isViolation = false;
         Guid? violationId = null;
@@ -116,6 +117,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                 if (_violationService.IsOverstay(exitTime, todaySchedule.EndTime))
                 {
                     var overstayDuration = _violationService.GetOverstayDuration(exitTime, todaySchedule.EndTime);
+                    overstayTime = overstayDuration.TotalHours;
                     penaltyFee = _violationService.CalculatePenalty(overstayDuration);
 
                     if (penaltyFee > 0m)
@@ -161,6 +163,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             ExitTime = actualExitTime,
             EndTime = endTime,
             MaximumExitTime = maximumExitTime,
+            OverstayTime = overstayTime,
             PenaltyFee = penaltyFee,
             TotalParkingHours = totalParkingHours,
             IsViolation = isViolation,

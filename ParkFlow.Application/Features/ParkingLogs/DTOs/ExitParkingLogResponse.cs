@@ -18,6 +18,7 @@ public class ExitParkingLogResponse
     public DateTime ExitTime { get; set; }
     public DateTime EndTime { get; set; }
     public DateTime? MaximumExitTime { get; set; }
+    public double OverstayTime { get; set; }
     public decimal PenaltyFee { get; set; }
     public double TotalParkingHours { get; set; }
     public bool IsViolation { get; set; }
