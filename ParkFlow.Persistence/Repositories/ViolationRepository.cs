@@ -37,7 +37,7 @@ public class ViolationRepository : IViolationRepository
         {
             return await _context.Set<Violation>()
                 .AsNoTracking()
-                .FirstOrDefaultAsync(v => v.LogId == logId);
+                .FirstOrDefaultAsync(v => v.ParkingLogId == logId);
         }
         catch (PostgresException ex) when (ex.SqlState == "42P01")
         {

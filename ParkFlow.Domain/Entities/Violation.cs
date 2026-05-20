@@ -2,7 +2,7 @@ namespace ParkFlow.Domain.Entities;
 
 public class Violation : BaseEntity
 {
-    public Guid LogId { get; private set; }
+    public Guid ParkingLogId { get; private set; }
     public ParkingLog ParkingLog { get; private set; } = null!;
 
     public ViolationType ViolationType { get; private set; }
@@ -10,13 +10,28 @@ public class Violation : BaseEntity
     public decimal PenaltyFee { get; private set; }
 
     public SettlementStatus SettlementStatus { get; private set; }
+
+    public DateTime RecordedEntryTime { get; private set; }
+
+    public DateTime RecordedExitTime { get; private set; }
+
+    public int RecordedOverstayMinutes { get; private set; }
     private Violation() { }
 
-    public Violation(Guid logId, ViolationType violationType, decimal penaltyFee)
+    public Violation(
+        Guid parkingLogId,
+        ViolationType violationType,
+        decimal penaltyFee,
+        DateTime recordedEntryTime,
+        DateTime recordedExitTime,
+        int recordedOverstayMinutes)
     {
-        LogId = logId;
+        ParkingLogId = parkingLogId;
         ViolationType = violationType;
         PenaltyFee = penaltyFee;
         SettlementStatus = SettlementStatus.Pending;
+        RecordedEntryTime = recordedEntryTime;
+        RecordedExitTime = recordedExitTime;
+        RecordedOverstayMinutes = recordedOverstayMinutes;
     }
 }

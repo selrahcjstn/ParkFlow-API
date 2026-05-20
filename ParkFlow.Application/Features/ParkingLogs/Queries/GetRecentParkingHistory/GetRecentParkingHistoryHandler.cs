@@ -40,10 +40,12 @@ public class GetRecentParkingHistoryHandler : IRequestHandler<GetRecentParkingHi
             var ownerProfile = parkingLog.Vehicle.Owner.UserProfile;
             var violation = await _violationRepository.GetByLogIdAsync(parkingLog.Id);
 
-            var endTime = parkingLog.ExitTime ?? DateTime.UtcNow;
-            var totalHours = Math.Max(0, (endTime - parkingLog.EntryTime).TotalHours);
+            var effectiveEntryTime = violation?.RecordedEntryTime ?? parkingLog.EntryTime;
+            var effectiveExitTime = violation?.RecordedExitTime ?? parkingLog.ExitTime;
+            var endTime = effectiveExitTime ?? DateTime.UtcNow;
+            var totalHours = Math.Max(0, (endTime - effectiveEntryTime).TotalHours);
             var parkingLogId = ParkingLogIdHelper.GenerateHistoryId(parkingLog.EntryTime);
-            var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(parkingLog.EntryTime);
+            var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(effectiveEntryTime);
             var cacheKey = (parkingLog.Vehicle.OwnerId, DateOnly.FromDateTime(philippinesEntry));
 
             if (!mustExitByCache.TryGetValue(cacheKey, out var mustExitByUtc))
@@ -61,8 +63,8 @@ public class GetRecentParkingHistoryHandler : IRequestHandler<GetRecentParkingHi
                 parkingLog.Vehicle.PlateNumber,
                 parkingLog.Vehicle.Brand,
                 parkingLog.Vehicle.VehicleType.ToString(),
-                parkingLog.EntryTime.ToString("O"),
-                parkingLog.ExitTime?.ToString("O"),
+                effectiveEntryTime.ToString("O"),
+                effectiveExitTime?.ToString("O"),
                 violation?.SettlementStatus.ToString() ?? "None",
                 violation?.PenaltyFee ?? 0m,
                 mustExitByUtc?.ToString("O") ?? string.Empty,
