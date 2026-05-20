@@ -44,7 +44,7 @@ public class ParkingLogController : ControllerBase
     }
 
     [HttpGet("active-sessions")]
-    public async Task<ActionResult<Result<IEnumerable<GetActiveParkingSessionResponse>>>> GetActiveSessions()
+    public async Task<ActionResult<Result<GetActiveParkingSessionResult>>> GetActiveSessions()
     {
         var result = await _mediator.Send(new GetActiveParkingSessionQuery());
         return this.ToActionResult(result);

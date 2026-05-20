@@ -8,7 +8,7 @@ using ParkFlow.Domain.Enums;
 namespace ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSession;
 
 public class GetActiveParkingSessionHandler
-    : IRequestHandler<GetActiveParkingSessionQuery, Result<IEnumerable<GetActiveParkingSessionResponse>>>
+    : IRequestHandler<GetActiveParkingSessionQuery, Result<GetActiveParkingSessionResult>>
 {
     private readonly IParkingLogRepository _parkingLogRepository;
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
@@ -24,16 +24,16 @@ public class GetActiveParkingSessionHandler
         _corSubmissionRepository = corSubmissionRepository;
     }
 
-    public async Task<Result<IEnumerable<GetActiveParkingSessionResponse>>> Handle(
+    public async Task<Result<GetActiveParkingSessionResult>> Handle(
         GetActiveParkingSessionQuery request,
         CancellationToken cancellationToken)
     {
-        var logs = await _parkingLogRepository.GetRecentParkingLogsAsync(limit: 100);
+        var (logs, totalCount) = await _parkingLogRepository.GetTodaysParkingLogsAsync(request.Limit);
 
         var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
 
         var dtos = logs
-            .Where(x => x.EntryTime != default && x.ExitTime == null)
+            .Where(x => x.EntryTime != default && x.ExitTime == null && x.Status == ParkingStatus.Parked)
             .Select(log =>
             {
                 var nowUtc = DateTime.UtcNow;
@@ -84,7 +84,9 @@ public class GetActiveParkingSessionHandler
             })
             .ToList();
 
-        return Result<IEnumerable<GetActiveParkingSessionResponse>>
-            .Success(dtos, "Active parking sessions retrieved.");
+        var result = new GetActiveParkingSessionResult(dtos, Count: totalCount, Limit: request.Limit);
+
+        return Result<GetActiveParkingSessionResult>
+            .Success(result, "Active parking sessions retrieved.");
     }
 }
