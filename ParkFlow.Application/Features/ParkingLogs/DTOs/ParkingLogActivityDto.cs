@@ -20,6 +20,7 @@ public record ParkingLogHistoryDto(
     string FirstName,
     string LastName,
     string PhoneNumber,
+    string Status,
     string PlateNumber,
     string Brand,
     string VehicleType,
