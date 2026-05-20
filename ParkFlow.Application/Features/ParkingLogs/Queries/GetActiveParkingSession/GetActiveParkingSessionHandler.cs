@@ -28,7 +28,7 @@ public class GetActiveParkingSessionHandler
         GetActiveParkingSessionQuery request,
         CancellationToken cancellationToken)
     {
-        var (logs, totalCount) = await _parkingLogRepository.GetTodaysParkingLogsAsync(request.Limit);
+        var (logs, totalCount) = await _parkingLogRepository.GetTodaysParkingLogsAsync(request.ParkingCapacity);
 
         var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
 
@@ -84,7 +84,7 @@ public class GetActiveParkingSessionHandler
             })
             .ToList();
 
-        var result = new GetActiveParkingSessionResult(dtos, Count: totalCount, Limit: request.Limit);
+        var result = new GetActiveParkingSessionResult(dtos, TotalCount: totalCount, ParkingCapacity: request.ParkingCapacity);
 
         return Result<GetActiveParkingSessionResult>
             .Success(result, "Active parking sessions retrieved.");
