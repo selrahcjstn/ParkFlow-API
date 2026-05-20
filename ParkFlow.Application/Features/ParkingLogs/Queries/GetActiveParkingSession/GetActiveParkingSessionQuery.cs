@@ -1,8 +1,10 @@
-﻿using MediatR;
+﻿// Query
+using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.ParkingLogs.DTOs;
 
-namespace ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSession
-{
-    public record GetActiveParkingSessionQuery(int ParkingCapacity = 100) : IRequest<Result<GetActiveParkingSessionResult>>;
-}
+namespace ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSession;
+
+public record GetActiveParkingSessionQuery(
+    int ParkingCapacity
+) : IRequest<Result<IEnumerable<GetActiveParkingSessionResponse>>>;

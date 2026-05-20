@@ -25,7 +25,7 @@ public class ParkingLogRepository : IParkingLogRepository
             .FirstOrDefaultAsync(p => p.VehicleId == vehicleId && p.Status == ParkingStatus.Parked && p.ExitTime == null);
     }
 
-    public async Task<(IReadOnlyList<ParkingLog> Items, int TotalCount)> GetTodaysParkingLogsAsync(int limit)
+    public async Task<IReadOnlyList<ParkingLog>> GetTodaysParkingLogsAsync(int limit)
     {
         var today = DateTime.UtcNow.Date;
 
@@ -46,10 +46,7 @@ public class ParkingLogRepository : IParkingLogRepository
             .Where(p => p.EntryTime.Date == today && p.Status == ParkingStatus.Parked && p.ExitTime == null)
             .OrderByDescending(p => p.CreatedAt);
 
-        var totalCount = await query.CountAsync();
-        var items = await query.Take(limit).ToListAsync();
-
-        return (items, totalCount);
+        return await query.Take(limit).ToListAsync();
     }
 
     public async Task<IReadOnlyList<ParkingLog>> GetRecentParkingLogsAsync(int limit)

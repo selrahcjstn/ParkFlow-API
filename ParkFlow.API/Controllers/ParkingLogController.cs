@@ -34,11 +34,14 @@ public class ParkingLogController : ControllerBase
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }
-
     [HttpGet("active-sessions")]
-    public async Task<ActionResult<Result<GetActiveParkingSessionResult>>> GetActiveSessions()
+    public async Task<ActionResult<Result<IEnumerable<GetActiveParkingSessionResponse>>>> GetActiveSessions(
+        [FromQuery] int parkingCapacity = 100)
     {
-        var result = await _mediator.Send(new GetActiveParkingSessionQuery());
+        var result = await _mediator.Send(
+            new GetActiveParkingSessionQuery(parkingCapacity)
+        );
+
         return this.ToActionResult(result);
     }
 }
