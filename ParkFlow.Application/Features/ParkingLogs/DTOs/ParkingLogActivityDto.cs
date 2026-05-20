@@ -16,8 +16,17 @@ public record ParkingLogActivityDto(
     string EntryDate);
 
 public record ParkingLogHistoryDto(
+    string ParkingLogId,
+    string FirstName,
+    string LastName,
+    string PhoneNumber,
     string PlateNumber,
     string Brand,
     string VehicleType,
     string EntryTime,
-    string? ExitTime);
+    string? ExitTime,
+    string SettlementStatus,
+    decimal TotalFee,
+    string MustExitBy,
+    string TotalParkingHours
+    );

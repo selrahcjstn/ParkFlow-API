@@ -12,8 +12,8 @@ using ParkFlow.Persistence;
 namespace ParkFlow.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260517024155_AddVehicleTypeEnum")]
-    partial class AddVehicleTypeEnum
+    [Migration("20260520043255_RecoveryAddVehicleTypeAndViolations")]
+    partial class RecoveryAddVehicleTypeAndViolations
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -193,6 +193,40 @@ namespace ParkFlow.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Personnel");
+                });
+
+            modelBuilder.Entity("ParkFlow.Domain.Entities.Violation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("LogId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ParkingLogId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("PenaltyFee")
+                        .HasColumnType("numeric");
+
+                    b.Property<int>("SettlementStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ViolationType")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParkingLogId");
+
+                    b.ToTable("Violations");
                 });
 
             modelBuilder.Entity("Student", b =>
@@ -429,6 +463,17 @@ namespace ParkFlow.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("UserProfile");
+                });
+
+            modelBuilder.Entity("ParkFlow.Domain.Entities.Violation", b =>
+                {
+                    b.HasOne("ParkFlow.Domain.Entities.ParkingLog", "ParkingLog")
+                        .WithMany()
+                        .HasForeignKey("ParkingLogId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ParkingLog");
                 });
 
             modelBuilder.Entity("Student", b =>

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 
@@ -32,18 +33,32 @@ public class ViolationRepository : IViolationRepository
 
     public async Task<Violation?> GetByLogIdAsync(Guid logId)
     {
-        return await _context.Set<Violation>()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(v => v.LogId == logId);
+        try
+        {
+            return await _context.Set<Violation>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(v => v.LogId == logId);
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            return null;
+        }
     }
 
     public async Task<IReadOnlyList<Violation>> GetRecentViolationsAsync(int limit)
     {
-        return await _context.Set<Violation>()
-            .AsNoTracking()
-            .OrderByDescending(v => v.CreatedAt)
-            .Take(limit)
-            .ToListAsync();
+        try
+        {
+            return await _context.Set<Violation>()
+                .AsNoTracking()
+                .OrderByDescending(v => v.CreatedAt)
+                .Take(limit)
+                .ToListAsync();
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            return [];
+        }
     }
 
     public async Task UpdateAsync(Violation violation)
