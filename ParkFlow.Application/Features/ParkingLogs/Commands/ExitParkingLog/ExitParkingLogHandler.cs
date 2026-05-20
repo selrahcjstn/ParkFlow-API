@@ -88,6 +88,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         if (active == null)
             return Result<ExitParkingLogResponse>.Failure("No active parking log found for this vehicle.", ErrorCode.NotFound);
 
+        var statusBeforeExit = active.Status;
         var exitTime = DateTime.UtcNow;
 
         _parkingService.MarkExit(active);
@@ -127,6 +128,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                             active.Id,
                             ViolationType.Overstay,
                             penaltyFee,
+                            statusBeforeExit,
                             active.EntryTime,
                             recordedExitTime,
                             (int)Math.Ceiling(overstayDuration.TotalMinutes));

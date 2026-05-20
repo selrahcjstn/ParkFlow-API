@@ -42,6 +42,7 @@ public class GetRecentParkingHistoryHandler : IRequestHandler<GetRecentParkingHi
 
             var effectiveEntryTime = violation?.RecordedEntryTime ?? parkingLog.EntryTime;
             var effectiveExitTime = violation?.RecordedExitTime ?? parkingLog.ExitTime;
+            var effectiveStatus = violation?.RecordedStatus.ToString() ?? parkingLog.Status.ToString();
             var endTime = effectiveExitTime ?? DateTime.UtcNow;
             var totalHours = Math.Max(0, (endTime - effectiveEntryTime).TotalHours);
             var parkingLogId = ParkingLogIdHelper.GenerateHistoryId(parkingLog.EntryTime);
@@ -59,7 +60,7 @@ public class GetRecentParkingHistoryHandler : IRequestHandler<GetRecentParkingHi
                 ownerProfile.FirstName,
                 ownerProfile.LastName,
                 parkingLog.Vehicle.Owner.PhoneNumber,
-                parkingLog.Status.ToString(),
+                effectiveStatus,
                 parkingLog.Vehicle.PlateNumber,
                 parkingLog.Vehicle.Brand,
                 parkingLog.Vehicle.VehicleType.ToString(),
