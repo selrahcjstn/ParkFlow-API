@@ -40,12 +40,11 @@ public class GetRecentParkingHistoryHandler : IRequestHandler<GetRecentParkingHi
             var ownerProfile = parkingLog.Vehicle.Owner.UserProfile;
             var violation = await _violationRepository.GetByLogIdAsync(parkingLog.Id);
 
-            var effectiveEntryTime = violation?.RecordedEntryTime ?? parkingLog.EntryTime;
-            var effectiveExitTime = violation?.RecordedExitTime ?? parkingLog.ExitTime;
-            var effectiveStatus = violation?.RecordedStatus.ToString() ?? parkingLog.Status.ToString();
+            var effectiveEntryTime =  parkingLog.EntryTime;
+            var effectiveExitTime = parkingLog.ExitTime;
+            var effectiveStatus = parkingLog.Status.ToString();
             var endTime = effectiveExitTime ?? DateTime.UtcNow;
             var totalHours = Math.Max(0, (endTime - effectiveEntryTime).TotalHours);
-            var parkingLogId = ParkingLogIdHelper.GenerateHistoryId(parkingLog.EntryTime);
             var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(effectiveEntryTime);
             var cacheKey = (parkingLog.Vehicle.OwnerId, DateOnly.FromDateTime(philippinesEntry));
 
@@ -56,7 +55,6 @@ public class GetRecentParkingHistoryHandler : IRequestHandler<GetRecentParkingHi
             }
 
             dtos.Add(new ParkingLogHistoryDto(
-                parkingLogId,
                 ownerProfile.FirstName,
                 ownerProfile.LastName,
                 parkingLog.Vehicle.Owner.PhoneNumber,

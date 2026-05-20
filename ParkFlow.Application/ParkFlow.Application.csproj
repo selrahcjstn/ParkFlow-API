@@ -23,8 +23,6 @@
     <Folder Include="Features\Cor\DTOs\" />
     <Folder Include="Features\Cor\Queries\" />
     <Folder Include="Features\ParkingLogs\Commands\CreateParkingLog\" />
-    <Folder Include="Features\ParkingLogs\DTOs\" />
-    <Folder Include="Features\ParkingLogs\Queries\" />
     <Folder Include="Features\Profiles\DTOs\" />
     <Folder Include="Features\Profiles\Mappings\" />
     <Folder Include="Features\Profiles\Queries\" />

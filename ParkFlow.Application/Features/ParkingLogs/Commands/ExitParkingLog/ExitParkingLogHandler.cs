@@ -127,11 +127,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                         var violation = new Violation(
                             active.Id,
                             ViolationType.Overstay,
-                            penaltyFee,
-                            statusBeforeExit,
-                            active.EntryTime,
-                            recordedExitTime,
-                            (int)Math.Ceiling(overstayDuration.TotalMinutes));
+                            penaltyFee);
                         await _violationRepository.AddAsync(violation);
                         isViolation = true;
                         violationId = violation.Id;

@@ -4,8 +4,8 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
 using ParkFlow.Application.Features.ParkingLogs.Commands.ExitParkingLog;
 using ParkFlow.Application.Features.ParkingLogs.DTOs;
+using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSession;
 using ParkFlow.Application.Features.ParkingLogs.Queries.GetRecentParkingHistory;
-using ParkFlow.Application.Features.ParkingLogs.Queries.GetTodayParkingLogs;
 
 namespace ParkFlow.API.Controllers;
 
@@ -36,17 +36,17 @@ public class ParkingLogController : ControllerBase
         return this.ToActionResult(result);
     }
 
-    [HttpGet("today")]
-    public async Task<ActionResult<Result<ParkingLogsTodayResponse>>> GetToday([FromQuery] int limit = 100)
-    {
-        var result = await _mediator.Send(new GetTodayParkingLogsQuery(limit));
-        return this.ToActionResult(result);
-    }
-
     [HttpGet("history")]
     public async Task<ActionResult<Result<IEnumerable<ParkingLogHistoryDto>>>> GetHistory([FromQuery] int limit = 20)
     {
         var result = await _mediator.Send(new GetRecentParkingHistoryQuery(limit));
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("active-sessions")]
+    public async Task<ActionResult<Result<IEnumerable<GetActiveParkingSessionResponse>>>> GetActiveSessions()
+    {
+        var result = await _mediator.Send(new GetActiveParkingSessionQuery());
         return this.ToActionResult(result);
     }
 }

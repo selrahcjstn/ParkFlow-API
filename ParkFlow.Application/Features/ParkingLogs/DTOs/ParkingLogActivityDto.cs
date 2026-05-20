@@ -16,7 +16,6 @@ public record ParkingLogActivityDto(
     string EntryDate);
 
 public record ParkingLogHistoryDto(
-    string ParkingLogId,
     string FirstName,
     string LastName,
     string PhoneNumber,

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ParkFlow.Persistence;
@@ -11,9 +12,11 @@ using ParkFlow.Persistence;
 namespace ParkFlow.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260520073712_RemoveViolationSnapshotFieldsAgain")]
+    partial class RemoveViolationSnapshotFieldsAgain
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -221,42 +224,6 @@ namespace ParkFlow.Persistence.Migrations
                     b.HasIndex("ParkingLogId");
 
                     b.ToTable("Violations");
-                });
-
-            modelBuilder.Entity("ParkingLogHistory", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("EntryTime")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("ExitTime")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("GuardId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ParkingLogId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("VehicleId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ParkingLogId");
-
-                    b.HasIndex("VehicleId");
-
-                    b.ToTable("ParkingLogHistories", (string)null);
                 });
 
             modelBuilder.Entity("Student", b =>
