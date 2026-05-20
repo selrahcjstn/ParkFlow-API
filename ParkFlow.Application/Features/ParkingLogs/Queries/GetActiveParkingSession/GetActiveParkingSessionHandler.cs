@@ -38,7 +38,6 @@ public class GetActiveParkingSessionHandler
             {
                 var nowUtc = DateTime.UtcNow;
 
-                // find verified COR for the vehicle owner (similar to CreateParkingLog)
                 var verifiedCor = corSubmissions.FirstOrDefault(c =>
                     c.UserAccountId == log.Vehicle.OwnerId &&
                     c.VerificationStatus == CorVerificationStatus.Verified);
@@ -51,7 +50,6 @@ public class GetActiveParkingSessionHandler
                         .GetBySubmissionIdAsync(verifiedCor.Id)
                         .Result;
 
-                    // convert entry to Philippines local time to determine schedule day
                     var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
 
                     var todaySchedule = schedules?
