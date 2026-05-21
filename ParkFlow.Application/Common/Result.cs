@@ -34,4 +34,15 @@ public class Result<T>
             ErrorCode = errorCode
         };
     }
+
+    public static Result<T> Failure(T data, string message, ErrorCode errorCode = ErrorCode.None)
+    {
+        return new Result<T>
+        {
+            IsSuccess = false,
+            Data = data,
+            Message = message,
+            ErrorCode = errorCode
+        };
+    }
 }

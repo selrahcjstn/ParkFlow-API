@@ -57,10 +57,30 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         if (vehicle == null)
             return Result<CreateParkingLogResponse>.Failure("Invalid QR code. Vehicle not found.", ErrorCode.NotFound);
 
+        var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
+
+        if (ownerProfile == null)
+            return Result<CreateParkingLogResponse>.Failure("Owner profile not found.", ErrorCode.NotFound);
+
         var activeParkingLog = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id);
 
         if (activeParkingLog != null)
-            return Result<CreateParkingLogResponse>.Failure("Vehicle is already parked.", ErrorCode.Conflict);
+        {
+            var conflictResponse = new CreateParkingLogResponse
+            {
+                FirstName = ownerProfile.FirstName,
+                LastName = ownerProfile.LastName,
+                PlateNumber = vehicle.PlateNumber,
+                Brand = vehicle.Brand,
+                QrCodeHash = vehicle.QrCodeHash,
+                VehicleType = vehicle.VehicleType.ToString()
+            };
+
+            return Result<CreateParkingLogResponse>.Failure(
+                conflictResponse,
+                "Vehicle is already parked.",
+                ErrorCode.Conflict);
+        }
 
         var userProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
 
@@ -104,11 +124,6 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todaySchedule.EndTime);
         var maximumExitTimeUtc = scheduleEndTimeUtc.AddMinutes(30);
 
-        var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
-
-        if (ownerProfile == null)
-            return Result<CreateParkingLogResponse>.Failure("Owner profile not found.", ErrorCode.NotFound);
-
         var student = await _studentRepository.GetByUserProfileIdAsync(ownerProfile.Id);
         var personnel = await _personnelRepository.GetByUserProfileIdAsync(ownerProfile.Id);
         var admin = await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id);
@@ -124,6 +139,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             PhoneNumber = ownerProfile.UserAccount.PhoneNumber,
             PlateNumber = vehicle.PlateNumber,
             Brand = vehicle.Brand,
+            QrCodeHash = vehicle.QrCodeHash,
             VehicleType = vehicle.VehicleType.ToString(),
             EntryTime = parkingLog.EntryTime,
             EntryDate = parkingLog.EntryTime.Date,
