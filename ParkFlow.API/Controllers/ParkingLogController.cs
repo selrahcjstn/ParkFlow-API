@@ -4,6 +4,7 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
 using ParkFlow.Application.Features.ParkingLogs.Commands.ExitParkingLog;
 using ParkFlow.Application.Features.ParkingLogs.DTOs;
+using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSessionCount;
 using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSession;
 
 namespace ParkFlow.API.Controllers;
@@ -40,6 +41,17 @@ public class ParkingLogController : ControllerBase
     {
         var result = await _mediator.Send(
             new GetActiveParkingSessionQuery(parkingCapacity)
+        );
+
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("session-count")]
+    public async Task<ActionResult<Result<SessionCountResponse>>> GetSessionCount(
+        [FromQuery] int parkingCapacity = 100)
+    {
+        var result = await _mediator.Send(
+            new GetSessionCountQuery(parkingCapacity)
         );
 
         return this.ToActionResult(result);
