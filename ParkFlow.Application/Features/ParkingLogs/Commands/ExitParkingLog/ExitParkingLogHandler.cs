@@ -25,6 +25,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
     private readonly IViolationService _violationService;
     private readonly IParkingLogRoleService _parkingLogRoleService;
     private readonly IValidator<ExitParkingLogCommand> _validator;
+    private readonly ISignalRNotificationSender _notificationSender;
 
     public ExitParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -40,7 +41,8 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         IParkingService parkingService,
         IViolationService violationService,
         IParkingLogRoleService parkingLogRoleService,
-        IValidator<ExitParkingLogCommand> validator)
+        IValidator<ExitParkingLogCommand> validator,
+        ISignalRNotificationSender notificationSender)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
@@ -56,6 +58,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         _violationService = violationService;
         _parkingLogRoleService = parkingLogRoleService;
         _validator = validator;
+        _notificationSender = notificationSender;
     }
 
     public async Task<Result<ExitParkingLogResponse>> Handle(ExitParkingLogCommand request, CancellationToken cancellationToken)
@@ -103,6 +106,8 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         decimal penaltyFee = 0m;
         bool isViolation = false;
         Guid? violationId = null;
+        string? violationType = null;
+        string? settlementStatus = null;
 
         if (verifiedCor != null)
         {
@@ -126,13 +131,26 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                         var recordedExitTime = active.ExitTime ?? exitTime;
                         var violation = new Violation(
                             active.Id,
-                            ViolationType.Overstay,
                             penaltyFee);
                         await _violationRepository.AddAsync(violation);
                         isViolation = true;
                         violationId = violation.Id;
+                        violationType = violation.ViolationType.ToString();
+                        settlementStatus = violation.SettlementStatus.ToString();
                     }
                 }
+            }
+        }
+
+        if (!isViolation)
+        {
+            var existingViolation = await _violationRepository.GetByLogIdAsync(active.Id);
+            if (existingViolation != null)
+            {
+                isViolation = true;
+                violationId = existingViolation.Id;
+                violationType = existingViolation.ViolationType.ToString();
+                settlementStatus = existingViolation.SettlementStatus.ToString();
             }
         }
 
@@ -164,8 +182,28 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             OverstayTime = overstayTime,
             PenaltyFee = penaltyFee,
             IsViolation = isViolation,
-            ViolationId = violationId
+            ViolationId = violationId,
+            ViolationType = violationType,
+            SettlementStatus = settlementStatus
         };
+
+        if (isViolation)
+        {
+            var notificationDto = new HasViolationNotificationDto
+            {
+                FullName = $"{ownerProfile.FirstName} {ownerProfile.LastName}",
+                EntryTime = active.EntryTime,
+                ExitTime = actualExitTime,
+                EndTime = endTime,
+                OverstayTime = overstayTime,
+                PenaltyFee = penaltyFee,
+                IsViolation = isViolation,
+                ViolationId = violationId,
+                ViolationType = violationType
+            };
+
+            await _notificationSender.SendEventNotificationAsync(vehicle.OwnerId.ToString(), notificationDto);
+        }
 
         return Result<ExitParkingLogResponse>.Success(response, "Exit Confirmed");
     }

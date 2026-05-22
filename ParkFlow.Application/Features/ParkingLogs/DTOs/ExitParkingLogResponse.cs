@@ -16,4 +16,6 @@ public class ExitParkingLogResponse
     public decimal PenaltyFee { get; set; }
     public bool IsViolation { get; set; }
     public Guid? ViolationId { get; set; }
+    public string? ViolationType { get; set; }
+    public string? SettlementStatus { get; set; }
 }

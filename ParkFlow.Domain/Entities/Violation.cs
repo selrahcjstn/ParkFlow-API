@@ -15,12 +15,11 @@ public class Violation : BaseEntity
 
     public Violation(
         Guid parkingLogId,
-        ViolationType violationType,
         decimal penaltyFee
 )
     {
         ParkingLogId = parkingLogId;
-        ViolationType = violationType;
+        ViolationType = ViolationType.Overstay;
         PenaltyFee = penaltyFee;
         SettlementStatus = SettlementStatus.Pending;
     }
