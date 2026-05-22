@@ -32,8 +32,6 @@ public class GuardController : ControllerBase
         }
 
         await tx.RollbackAsync();
-        return result.ErrorCode == ErrorCode.Conflict
-            ? Conflict(result)
-            : BadRequest(result);
+        return this.ToActionResult(result);
     }
 }

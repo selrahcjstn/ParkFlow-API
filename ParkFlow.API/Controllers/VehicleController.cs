@@ -26,11 +26,7 @@ public class VehicleController : ControllerBase
     public async Task<ActionResult<Result<Guid>>> Create(CreateVehicleCommand command)
     {
         var result = await _mediator.Send(command);
-
-        if (result.IsSuccess)
-            return Ok(result);
-
-        return BadRequest(result);
+        return this.ToActionResult(result);
     }
 
     [Authorize]
@@ -42,10 +38,6 @@ public class VehicleController : ControllerBase
             return Unauthorized(Result<IEnumerable<ParkFlow.Application.Features.Vehicles.Queries.GetVehiclesByOwnerId.VehicleDto>>.Failure("User not identified.", ErrorCode.Unauthorized));
 
         var result = await _mediator.Send(new GetVehiclesByOwnerIdQuery(ownerId));
-
-        if (result.IsSuccess)
-            return Ok(result);
-
-        return BadRequest(result);
+        return this.ToActionResult(result);
     }
 }

@@ -1,4 +1,5 @@
 using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Enums;
 
 public class Vehicle : BaseEntity
 {
@@ -8,6 +9,7 @@ public class Vehicle : BaseEntity
     public string PlateNumber { get; private set; } = null!;
     public string Brand { get; private set; } = null!;
     public string QrCodeHash { get; private set; } = null!;
+    public VehicleType VehicleType { get; private set; }
 
     public ICollection<ParkingLog> ParkingLogs { get; private set; } = [];
 
@@ -17,11 +19,13 @@ public class Vehicle : BaseEntity
         Guid ownerId,
         string plateNumber,
         string brand,
-        string qrCodeHash)
+        string qrCodeHash,
+        VehicleType vehicleType)
     {
         OwnerId = ownerId;
         PlateNumber = plateNumber;
         Brand = brand;
         QrCodeHash = qrCodeHash;
+        VehicleType = vehicleType;
     }
 }

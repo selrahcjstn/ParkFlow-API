@@ -22,7 +22,52 @@ public class ParkingLogRepository : IParkingLogRepository
     {
         return await _context.Set<ParkingLog>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.VehicleId == vehicleId && p.Status == ParkingStatus.Parked);
+            .FirstOrDefaultAsync(p => p.VehicleId == vehicleId && p.Status == ParkingStatus.Parked && p.ExitTime == null);
+    }
+
+    public async Task<IReadOnlyList<ParkingLog>> GetTodaysParkingLogsAsync(int limit)
+    {
+        var today = DateTime.UtcNow.Date;
+
+        var query = _context.Set<ParkingLog>()
+            .AsNoTracking()
+            .Include(p => p.Vehicle)
+                .ThenInclude(v => v.Owner)
+                    .ThenInclude(o => o.UserProfile)
+                        .ThenInclude(up => up.Student)
+            .Include(p => p.Vehicle)
+                .ThenInclude(v => v.Owner)
+                    .ThenInclude(o => o.UserProfile)
+                        .ThenInclude(up => up.Personnel)
+            .Include(p => p.Vehicle)
+                .ThenInclude(v => v.Owner)
+                    .ThenInclude(o => o.UserProfile)
+                        .ThenInclude(up => up.Guard)
+            .Where(p => p.EntryTime.Date == today && p.Status == ParkingStatus.Parked && p.ExitTime == null)
+            .OrderByDescending(p => p.CreatedAt);
+
+        return await query.Take(limit).ToListAsync();
+    }
+
+    public async Task<IReadOnlyList<ParkingLog>> GetRecentParkingLogsAsync(int limit)
+    {
+        return await _context.Set<ParkingLog>()
+            .AsNoTracking()
+            .Include(p => p.Vehicle)
+                .ThenInclude(v => v.Owner)
+                    .ThenInclude(o => o.UserProfile)
+                        .ThenInclude(up => up.Student)
+            .Include(p => p.Vehicle)
+                .ThenInclude(v => v.Owner)
+                    .ThenInclude(o => o.UserProfile)
+                        .ThenInclude(up => up.Personnel)
+            .Include(p => p.Vehicle)
+                .ThenInclude(v => v.Owner)
+                    .ThenInclude(o => o.UserProfile)
+                        .ThenInclude(up => up.Guard)
+            .OrderByDescending(p => p.CreatedAt)
+            .Take(limit)
+            .ToListAsync();
     }
 
     public async Task UpdateParkingLogAsync(ParkingLog parkingLog)

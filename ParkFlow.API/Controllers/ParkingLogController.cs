@@ -2,6 +2,10 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
+using ParkFlow.Application.Features.ParkingLogs.Commands.ExitParkingLog;
+using ParkFlow.Application.Features.ParkingLogs.DTOs;
+using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSessionCount;
+using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSession;
 
 namespace ParkFlow.API.Controllers;
 
@@ -18,9 +22,38 @@ public class ParkingLogController : ControllerBase
 
     // ENTRY
     [HttpPost("entry")]
-    public async Task<ActionResult<Result<ParkFlow.Application.Features.ParkingLogs.DTOs.CreateParkingLogResponse>>> LogEntry([FromBody] CreateParkingLogCommand command)
+    public async Task<ActionResult<Result<CreateParkingLogResponse>>> LogEntry([FromBody] CreateParkingLogCommand command)
     {
         var result = await _mediator.Send(command);
-        return result.IsSuccess ? Ok(result) : BadRequest(result);
+        return this.ToActionResult(result);
+    }
+
+    // EXIT
+    [HttpPatch("exit")]
+    public async Task<ActionResult<Result<ExitParkingLogResponse>>> LogExit([FromBody] ExitParkingLogCommand command)
+    {
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
+    [HttpGet("active-sessions")]
+    public async Task<ActionResult<Result<IEnumerable<GetActiveParkingSessionResponse>>>> GetActiveSessions(
+        [FromQuery] int parkingCapacity = 100)
+    {
+        var result = await _mediator.Send(
+            new GetActiveParkingSessionQuery(parkingCapacity)
+        );
+
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("session-count")]
+    public async Task<ActionResult<Result<SessionCountResponse>>> GetSessionCount(
+        [FromQuery] int parkingCapacity = 100)
+    {
+        var result = await _mediator.Send(
+            new GetSessionCountQuery(parkingCapacity)
+        );
+
+        return this.ToActionResult(result);
     }
 }

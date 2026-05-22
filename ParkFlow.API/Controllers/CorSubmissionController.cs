@@ -4,6 +4,7 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Cor.Commands.CreateCorSubmission;
 using ParkFlow.Application.Features.Cor.Commands.DeleteCorSubmission;
 using ParkFlow.Application.Features.Cor.Commands.UpdateCorSubmission;
+using ParkFlow.Application.Features.Cor.Commands.ValidateCorSubmission;
 using ParkFlow.Application.Features.Cor.DTOs;
 using ParkFlow.Application.Features.Cor.Queries.ListCorSubmissions;
 
@@ -20,28 +21,18 @@ public class CorSubmissionController : ControllerBase
         _mediator = mediator;
     }
 
-    [HttpPost]
+    [HttpPost("create")]
     public async Task<ActionResult<Result<Guid>>> Create(CreateCorSubmissionCommand command)
     {
         var result = await _mediator.Send(command);
-
-        if (result.IsSuccess)
-            return Ok(result);
-
-        return result.ErrorCode == ErrorCode.Conflict
-            ? Conflict(result)
-            : BadRequest(result);
+        return this.ToActionResult(result);
     }
 
     [HttpGet]
     public async Task<ActionResult<Result<IEnumerable<CorSubmissionDto>>>> List()
     {
         var result = await _mediator.Send(new ListCorSubmissionsQuery());
-
-        if (result.IsSuccess)
-            return Ok(result);
-
-        return BadRequest(result);
+        return this.ToActionResult(result);
     }
 
     [HttpPatch("{corSubmissionId:guid}")]
@@ -54,25 +45,22 @@ public class CorSubmissionController : ControllerBase
             request.VerificationStatus);
 
         var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
 
-        if (result.IsSuccess)
-            return Ok(result);
+    [HttpPatch("{corSubmissionId:guid}/validate")]
+    public async Task<ActionResult<Result<Guid>>> Validate(Guid corSubmissionId, [FromBody] ValidateCorSubmissionRequest request)
+    {
+        var command = new ValidateCorSubmissionCommand(corSubmissionId, request.VerificationStatus);
 
-        return result.ErrorCode == ErrorCode.NotFound
-            ? NotFound(result)
-            : BadRequest(result);
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
     }
 
     [HttpDelete("{corSubmissionId:guid}")]
     public async Task<ActionResult<Result<Guid>>> Delete(Guid corSubmissionId)
     {
         var result = await _mediator.Send(new DeleteCorSubmissionCommand(corSubmissionId));
-
-        if (result.IsSuccess)
-            return Ok(result);
-
-        return result.ErrorCode == ErrorCode.NotFound
-            ? NotFound(result)
-            : BadRequest(result);
+        return this.ToActionResult(result);
     }
 }

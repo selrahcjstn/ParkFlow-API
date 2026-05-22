@@ -24,13 +24,7 @@ public class UserProfileController : ControllerBase
     public async Task<ActionResult<Result<Guid>>> Create(CreateUserProfileCommand command)
     {
         var result = await _mediator.Send(command);
-
-        if (result.IsSuccess)
-            return Ok(result);
-
-        return result.ErrorCode == ErrorCode.Conflict
-            ? Conflict(result)
-            : BadRequest(result);
+        return this.ToActionResult(result);
     }
 
     [Authorize]
@@ -38,13 +32,7 @@ public class UserProfileController : ControllerBase
     public async Task<ActionResult<Result<UserProfileDto>>> GetByUserId()
     {
         var result = await _mediator.Send(new GetMyProfileQuery());
-
-        if (result.IsSuccess)
-            return Ok(result);
-
-        return result.ErrorCode == ErrorCode.NotFound
-            ? NotFound(result)
-            : BadRequest(result);
+        return this.ToActionResult(result);
     }
 
     [HttpPatch("{userId:guid}")]
@@ -57,12 +45,6 @@ public class UserProfileController : ControllerBase
             request.ProfilePictureUrl);
 
         var result = await _mediator.Send(command);
-
-        if (result.IsSuccess)
-            return Ok(result);
-
-        return result.ErrorCode == ErrorCode.NotFound
-            ? NotFound(result)
-            : BadRequest(result);
+        return this.ToActionResult(result);
     }
 }

@@ -192,6 +192,73 @@ namespace ParkFlow.Persistence.Migrations
                     b.ToTable("Personnel");
                 });
 
+            modelBuilder.Entity("ParkFlow.Domain.Entities.Violation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ParkingLogId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("PenaltyFee")
+                        .HasColumnType("numeric");
+
+                    b.Property<int>("SettlementStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ViolationType")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParkingLogId");
+
+                    b.ToTable("Violations");
+                });
+
+            modelBuilder.Entity("ParkingLogHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("EntryTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExitTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("GuardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ParkingLogId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VehicleId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParkingLogId");
+
+                    b.HasIndex("VehicleId");
+
+                    b.ToTable("ParkingLogHistories", (string)null);
+                });
+
             modelBuilder.Entity("Student", b =>
                 {
                     b.Property<Guid>("UserProfileId")
@@ -344,6 +411,9 @@ namespace ParkFlow.Persistence.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("VehicleType")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerId");
@@ -376,7 +446,7 @@ namespace ParkFlow.Persistence.Migrations
             modelBuilder.Entity("ParkFlow.Domain.Entities.Guard", b =>
                 {
                     b.HasOne("UserProfile", "UserProfile")
-                        .WithOne()
+                        .WithOne("Guard")
                         .HasForeignKey("ParkFlow.Domain.Entities.Guard", "UserProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -425,6 +495,17 @@ namespace ParkFlow.Persistence.Migrations
                     b.Navigation("UserProfile");
                 });
 
+            modelBuilder.Entity("ParkFlow.Domain.Entities.Violation", b =>
+                {
+                    b.HasOne("ParkFlow.Domain.Entities.ParkingLog", "ParkingLog")
+                        .WithMany()
+                        .HasForeignKey("ParkingLogId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ParkingLog");
+                });
+
             modelBuilder.Entity("Student", b =>
                 {
                     b.HasOne("UserProfile", "UserProfile")
@@ -471,6 +552,8 @@ namespace ParkFlow.Persistence.Migrations
 
             modelBuilder.Entity("UserProfile", b =>
                 {
+                    b.Navigation("Guard");
+
                     b.Navigation("Personnel");
 
                     b.Navigation("Student");

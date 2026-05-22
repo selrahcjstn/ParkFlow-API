@@ -17,18 +17,17 @@ public class ParkingLog : BaseEntity
     public ParkingLog(
         Guid vehicleId,
         Guid guardId,
-        DateTime entryTime,
         ParkingStatus status)
     {
         VehicleId = vehicleId;
         GuardId = guardId;
-        EntryTime = entryTime;
+        EntryTime = DateTime.UtcNow;
         Status = status;
     }
 
-    public void Exit(DateTime exitTime)
+    public void Exit()
     {
-        ExitTime = exitTime;
+        ExitTime = DateTime.UtcNow;
         Status = ParkingStatus.Exited;
         UpdatedAt = DateTime.UtcNow;
     }

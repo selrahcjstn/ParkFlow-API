@@ -1,9 +1,10 @@
-﻿using ParkFlow.Persistence;
-using ParkFlow.Application;
-using ParkFlow.Infrastructure;
-using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using ParkFlow.Infrastructure.Realtime;
+using ParkFlow.Application;
+using ParkFlow.Infrastructure;
+using ParkFlow.Persistence;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,6 +52,8 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy("PersonnelOnly", policy =>
         policy.RequireClaim("profile_type", "personnel"));
 
+builder.Services.AddSignalR();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -67,5 +70,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.Run();
