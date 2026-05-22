@@ -4,6 +4,8 @@ obj/
 
 # Visual Studio files
 .vs/
+.vscode/
+.idea/
 *.user
 *.suo
 *.userosscache
