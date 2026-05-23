@@ -70,6 +70,38 @@ public class ParkingLogRepository : IParkingLogRepository
             .ToListAsync();
     }
 
+    public async Task<IReadOnlyList<ParkingLog>> GetParkingHistoryAsync(Guid? userId = null, int pageNumber = 1, int pageSize = 15)
+    {
+        var query = _context.Set<ParkingLog>()
+            .AsNoTracking()
+            .Include(p => p.Vehicle)
+                .ThenInclude(v => v.Owner)
+                    .ThenInclude(o => o.UserProfile)
+                        .ThenInclude(up => up.Student)
+            .Include(p => p.Vehicle)
+                .ThenInclude(v => v.Owner)
+                    .ThenInclude(o => o.UserProfile)
+                        .ThenInclude(up => up.Personnel)
+            .Include(p => p.Vehicle)
+                .ThenInclude(v => v.Owner)
+                    .ThenInclude(o => o.UserProfile)
+                        .ThenInclude(up => up.Guard)
+            .Include(p => p.Guard)
+                .ThenInclude(g => g.UserProfile)
+            .AsQueryable();
+
+        if (userId.HasValue)
+        {
+            query = query.Where(p => p.Vehicle.OwnerId == userId.Value);
+        }
+
+        return await query
+            .OrderByDescending(p => p.EntryTime)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+    }
+
     public async Task UpdateParkingLogAsync(ParkingLog parkingLog)
     {
         _context.Set<ParkingLog>().Update(parkingLog);
