@@ -21,10 +21,17 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccount>
             .IsRequired();
 
         entity.Property(e => e.PasswordHash)
-            .IsRequired();
+            .IsRequired(false);
 
         entity.Property(e => e.PhoneNumber)
+            .IsRequired(false);
+
+        entity.Property(e => e.AuthProvider)
             .IsRequired();
+
+        entity.Property(e => e.ExternalProviderId)
+            .HasMaxLength(200)
+            .IsRequired(false);
 
         entity.Property(e => e.PasswordResetTokenHash)
             .HasMaxLength(128)
@@ -32,6 +39,10 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccount>
 
         entity.Property(e => e.PasswordResetTokenExpiresAt)
             .IsRequired(false);
+
+        entity.HasIndex(e => new { e.AuthProvider, e.ExternalProviderId })
+            .IsUnique()
+            .HasFilter("\"ExternalProviderId\" IS NOT NULL");
 
     }
 }

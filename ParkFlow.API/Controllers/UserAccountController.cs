@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Users.Commands.ForgotPasswordUserAccount;
 using ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
+using ParkFlow.Application.Features.Users.Commands.MicrosoftAuthUserAccount;
 using ParkFlow.Application.Features.Users.Commands.ResetPasswordUserAccount;
 using ParkFlow.Application.Features.Users.Commands.UpdateUserAccount;
 using ParkFlow.Application.Features.Users.DTOs;
@@ -55,6 +56,25 @@ namespace ParkFlow.API.Controllers
 
             return result.ErrorCode == ErrorCode.Unauthorized
                 ? Unauthorized(result)
+                : BadRequest(result);
+        }
+
+        [HttpPost("login-microsoft")]
+        public async Task<ActionResult<Result<MicrosoftAuthResultDto>>> LoginMicrosoft(MicrosoftAuthRequestDTO request)
+        {
+            var command = new MicrosoftAuthUserAccountCommand(
+                request.ExternalProviderId,
+                request.Email,
+                request.FirstName,
+                request.LastName,
+                request.DisplayName);
+
+            var result = await _mediator.Send(command);
+            if (result.IsSuccess)
+                return Ok(result);
+
+            return result.ErrorCode == ErrorCode.Conflict
+                ? Conflict(result)
                 : BadRequest(result);
         }
 

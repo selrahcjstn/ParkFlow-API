@@ -1,6 +1,7 @@
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 
@@ -25,6 +26,9 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
 
         if (user == null)
             return Result<string>.Failure("Invalid email or password.", ErrorCode.Unauthorized);
+
+        if (user.AuthProvider != AuthProvider.Manual || string.IsNullOrWhiteSpace(user.PasswordHash))
+            return Result<string>.Failure("This account uses Microsoft sign-in.", ErrorCode.Unauthorized);
 
         var isPasswordValid = _passwordHasher.VerifyPassword(user.PasswordHash, request.Password);
 
