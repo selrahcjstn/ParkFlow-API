@@ -24,6 +24,7 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
                 .ThenInclude(p => p.Personnel)
             .Include(u => u.UserProfile)
                 .ThenInclude(p => p.Guard)
+            .Include(u => u.AuthIdentities)
             .FirstOrDefaultAsync(u => u.Email == email);
     }
 
@@ -31,6 +32,7 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
     {
         return await _appDbContext.UserAccounts
             .AsNoTracking()
+            .Include(u => u.AuthIdentities)
             .FirstOrDefaultAsync(u =>
                 u.AuthProvider == authProvider &&
                 u.ExternalProviderId == externalProviderId);

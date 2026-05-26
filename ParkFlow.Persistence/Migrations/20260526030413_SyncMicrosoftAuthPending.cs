@@ -26,26 +26,9 @@ namespace ParkFlow.Persistence.Migrations
                 oldClrType: typeof(string),
                 oldType: "text");
 
-            migrationBuilder.AddColumn<int>(
-                name: "AuthProvider",
-                table: "UserAccounts",
-                type: "integer",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<string>(
-                name: "ExternalProviderId",
-                table: "UserAccounts",
-                type: "character varying(200)",
-                maxLength: 200,
-                nullable: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_UserAccounts_AuthProvider_ExternalProviderId",
-                table: "UserAccounts",
-                columns: new[] { "AuthProvider", "ExternalProviderId" },
-                unique: true,
-                filter: "\"ExternalProviderId\" IS NOT NULL");
+            migrationBuilder.Sql("ALTER TABLE \"UserAccounts\" ADD COLUMN IF NOT EXISTS \"AuthProvider\" integer NOT NULL DEFAULT 0;");
+            migrationBuilder.Sql("ALTER TABLE \"UserAccounts\" ADD COLUMN IF NOT EXISTS \"ExternalProviderId\" character varying(200);");
+            migrationBuilder.Sql("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_UserAccounts_AuthProvider_ExternalProviderId\" ON \"UserAccounts\" (\"AuthProvider\", \"ExternalProviderId\") WHERE \"ExternalProviderId\" IS NOT NULL;");
         }
 
         /// <inheritdoc />

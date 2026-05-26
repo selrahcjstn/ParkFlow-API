@@ -26,6 +26,9 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccount>
         entity.Property(e => e.PhoneNumber)
             .IsRequired(false);
 
+        entity.Property(e => e.OnboardingStep)
+            .IsRequired();
+
         entity.Property(e => e.AuthProvider)
             .IsRequired();
 

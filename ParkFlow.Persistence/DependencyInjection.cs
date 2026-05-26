@@ -14,6 +14,7 @@ namespace ParkFlow.Persistence
                 options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
             services.AddScoped<IUserAccountRepository, UserAccountRepository>();
+            services.AddScoped<IAuthIdentityRepository, AuthIdentityRepository>();
             services.AddScoped<IUserProfileRepository, UserProfileRepository>();
             services.AddScoped<ICorSubmissionRepository, CorSubmissionRepository>();
             services.AddScoped<IParkingScheduleRepository, ParkingScheduleRepository>();

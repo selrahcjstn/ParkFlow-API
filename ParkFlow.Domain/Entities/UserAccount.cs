@@ -10,8 +10,10 @@ public class UserAccount : BaseEntity
     public AuthProvider AuthProvider { get; private set; }
     public string? ExternalProviderId { get; private set; }
     public AccountStatus Status { get; private set; }
+    public OnboardingStep OnboardingStep { get; private set; }
     
     public UserProfile? UserProfile { get; set; }
+    public ICollection<AuthIdentity> AuthIdentities { get; private set; } = [];
 
     public DateTime PasswordLastUpdatedAt { get; private set; }
 
@@ -32,6 +34,7 @@ public class UserAccount : BaseEntity
         ExternalProviderId = null;
 
         Status = AccountStatus.PendingVerification;
+        OnboardingStep = OnboardingStep.Profile;
     }
 
     public static UserAccount CreateMicrosoft(
@@ -46,7 +49,8 @@ public class UserAccount : BaseEntity
             PhoneNumber = phoneNumber,
             AuthProvider = AuthProvider.Microsoft,
             ExternalProviderId = externalProviderId,
-            Status = AccountStatus.PendingVerification
+            Status = AccountStatus.PendingVerification,
+            OnboardingStep = OnboardingStep.Profile
         };
     }
 
@@ -57,6 +61,18 @@ public class UserAccount : BaseEntity
             Email = email;
         if (!string.IsNullOrWhiteSpace(phoneNumber))
             PhoneNumber = phoneNumber;
+    }
+
+    public void UpdatePhoneNumber(string? phoneNumber)
+    {
+        if (!string.IsNullOrWhiteSpace(phoneNumber))
+            PhoneNumber = phoneNumber;
+    }
+
+    public void UpdateOnboardingStep(OnboardingStep step)
+    {
+        if (step > OnboardingStep)
+            OnboardingStep = step;
     }
 
     public void UpdatePassword(string newPasswordHash)
