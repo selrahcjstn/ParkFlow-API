@@ -27,6 +27,17 @@ public class AuthIdentityRepository(AppDbContext appDbContext) : IAuthIdentityRe
     {
         return await _appDbContext.AuthIdentities
             .Include(i => i.UserAccount)
+                .ThenInclude(u => u.UserProfile)
+                    .ThenInclude(p => p.Student)
+
+            .Include(i => i.UserAccount)
+                .ThenInclude(u => u.UserProfile)
+                    .ThenInclude(p => p.Personnel)
+
+            .Include(i => i.UserAccount)
+                .ThenInclude(u => u.UserProfile)
+                    .ThenInclude(p => p.Guard)
+
             .AsNoTracking()
             .FirstOrDefaultAsync(i => i.Email == email);
     }

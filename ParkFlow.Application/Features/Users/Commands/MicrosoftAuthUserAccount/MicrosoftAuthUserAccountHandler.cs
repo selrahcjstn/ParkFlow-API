@@ -60,13 +60,7 @@ public class MicrosoftAuthUserAccountHandler : IRequestHandler<MicrosoftAuthUser
                 isNewAccount = true;
             }
 
-            var identity = new AuthIdentity(
-                user.Id,
-                AuthProvider.Microsoft,
-                request.Email,
-                request.ExternalProviderId,
-                null,
-                true);
+            var identity = AuthIdentity.CreateMicrosoft(user.Id, request.Email, request.ExternalProviderId);
 
             await _authIdentityRepository.AddAsync(identity);
         }

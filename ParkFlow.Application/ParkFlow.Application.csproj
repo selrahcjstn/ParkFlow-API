@@ -30,7 +30,6 @@
     <Folder Include="Features\RegisterGuard\Queries\" />
     <Folder Include="Features\Schedules\Command\" />
     <Folder Include="Features\Schedules\Queries\" />
-    <Folder Include="Features\Users\DTOs\" />
     <Folder Include="Features\Users\Mappings\" />
     <Folder Include="Features\Users\Queries\" />
     <Folder Include="Features\Vehicles\" />

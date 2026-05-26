@@ -42,7 +42,7 @@ public class UpdateOnboardingPersonnelHandler : IRequestHandler<UpdateOnboarding
         var existingPersonnel = await _personnelRepository.GetByUserProfileIdAsync(profile.Id);
         if (existingPersonnel == null)
         {
-            var personnel = new Personnel(profile, request.IdCardNumber, request.Department);
+            var personnel = new Personnel(profile.Id, request.IdCardNumber, request.Department);
             await _personnelRepository.AddAsync(personnel);
             existingPersonnel = personnel;
         }

@@ -42,7 +42,7 @@ public class UpdateOnboardingStudentHandler : IRequestHandler<UpdateOnboardingSt
         var existingStudent = await _studentRepository.GetByUserProfileIdAsync(profile.Id);
         if (existingStudent == null)
         {
-            var student = new Student(profile, request.StudentNumber, request.Course, request.Section, request.YearLevel);
+            var student = new Student(profile.Id, request.StudentNumber, request.Course, request.Section, request.YearLevel);
             await _studentRepository.AddAsync(student);
             existingStudent = student;
         }

@@ -52,9 +52,8 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
         return await query.AnyAsync();
     }
 
-    public Task UpdateAsync(UserAccount user)
+    public async Task UpdateAsync(UserAccount user)
     {
-        _appDbContext.UserAccounts.Update(user);
-        return _appDbContext.SaveChangesAsync();
+        await _appDbContext.SaveChangesAsync();
     }
 }

@@ -44,7 +44,7 @@ public class UpdateOnboardingProfileHandler : IRequestHandler<UpdateOnboardingPr
         if (profile == null)
         {
             profile = new UserProfile(
-                user,
+                user.Id,
                 request.FirstName,
                 request.LastName,
                 request.ProfilePictureUrl);

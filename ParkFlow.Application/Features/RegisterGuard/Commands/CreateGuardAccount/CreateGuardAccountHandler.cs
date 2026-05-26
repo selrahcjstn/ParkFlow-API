@@ -47,7 +47,7 @@ public class CreateGuardAccountHandler : IRequestHandler<CreateGuardAccountComma
 		await _userAccountRepository.AddAsync(user);
 
 		var userProfile = new UserProfile(
-			user,
+			user.Id,
 			request.Profile.FirstName,
 			request.Profile.LastName,
 			request.Profile.ProfilePictureUrl);

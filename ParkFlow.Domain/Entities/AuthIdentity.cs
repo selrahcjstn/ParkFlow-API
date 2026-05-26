@@ -31,6 +31,16 @@ public class AuthIdentity : BaseEntity
         IsVerified = isVerified;
     }
 
+    public static AuthIdentity CreateManual(Guid userAccountId, string email, string passwordHash)
+    {
+        return new AuthIdentity(userAccountId, AuthProvider.Manual, email, null, passwordHash, false);
+    }
+
+    public static AuthIdentity CreateMicrosoft(Guid userAccountId, string email, string providerId)
+    {
+        return new AuthIdentity(userAccountId, AuthProvider.Microsoft, email, providerId, null, true);
+    }
+
     public void UpdatePasswordHash(string passwordHash)
     {
         if (string.IsNullOrWhiteSpace(passwordHash))
