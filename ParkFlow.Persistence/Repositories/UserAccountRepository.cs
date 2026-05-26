@@ -43,6 +43,15 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
         return await _appDbContext.UserAccounts.FindAsync(id);
     }
 
+    public async Task<bool> EmailExistsAsync(string email, Guid? excludeUserId = null)
+    {
+        var query = _appDbContext.UserAccounts.AsNoTracking().Where(u => u.Email == email);
+        if (excludeUserId.HasValue)
+            query = query.Where(u => u.Id != excludeUserId.Value);
+
+        return await query.AnyAsync();
+    }
+
     public Task UpdateAsync(UserAccount user)
     {
         _appDbContext.UserAccounts.Update(user);

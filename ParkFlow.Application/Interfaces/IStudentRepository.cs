@@ -4,4 +4,5 @@ public interface IStudentRepository
 {
     Task<Student?> GetByUserProfileIdAsync(Guid userProfileId);
     Task AddAsync(Student student);
+    Task UpdateAsync(Student student);
 }

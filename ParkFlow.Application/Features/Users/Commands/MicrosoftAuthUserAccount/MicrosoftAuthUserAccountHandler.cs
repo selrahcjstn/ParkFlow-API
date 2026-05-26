@@ -3,21 +3,25 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Enums;
+using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.Application.Features.Users.Commands.MicrosoftAuthUserAccount;
 
 public class MicrosoftAuthUserAccountHandler : IRequestHandler<MicrosoftAuthUserAccountCommand, Result<MicrosoftAuthResultDto>>
 {
     private readonly IUserAccountRepository _userAccountRepository;
+    private readonly IAuthIdentityRepository _authIdentityRepository;
     private readonly IJwtService _jwtService;
     private readonly IValidator<MicrosoftAuthUserAccountCommand> _validator;
 
     public MicrosoftAuthUserAccountHandler(
         IUserAccountRepository userAccountRepository,
+        IAuthIdentityRepository authIdentityRepository,
         IJwtService jwtService,
         IValidator<MicrosoftAuthUserAccountCommand> validator)
     {
         _userAccountRepository = userAccountRepository;
+        _authIdentityRepository = authIdentityRepository;
         _jwtService = jwtService;
         _validator = validator;
     }
@@ -31,34 +35,48 @@ public class MicrosoftAuthUserAccountHandler : IRequestHandler<MicrosoftAuthUser
             return Result<MicrosoftAuthResultDto>.Failure(errors, ErrorCode.BadRequest);
         }
 
-        var existingByProvider = await _userAccountRepository.GetByAuthProviderExternalIdAsync(
+        var existingIdentity = await _authIdentityRepository.GetByProviderIdAsync(
             AuthProvider.Microsoft,
             request.ExternalProviderId);
 
         var isNewAccount = false;
-        var user = existingByProvider;
+        UserAccount? user;
 
-        if (user is null)
+        if (existingIdentity != null)
         {
-            var existingByEmail = await _userAccountRepository.GetByEmailAsync(request.Email);
-            if (existingByEmail is not null)
+            user = existingIdentity.UserAccount;
+        }
+        else
+        {
+            var existingByEmail = await _authIdentityRepository.GetByEmailAsync(request.Email);
+            if (existingByEmail != null)
             {
-                return Result<MicrosoftAuthResultDto>.Failure(
-                    "An account with this email already exists. Please login with your original method.",
-                    ErrorCode.Conflict);
+                user = existingByEmail.UserAccount;
+            }
+            else
+            {
+                user = UserAccount.CreateMicrosoft(request.Email, request.ExternalProviderId);
+                await _userAccountRepository.AddAsync(user);
+                isNewAccount = true;
             }
 
-            user = UserAccount.CreateMicrosoft(request.Email, request.ExternalProviderId);
-            await _userAccountRepository.AddAsync(user);
-            isNewAccount = true;
+            var identity = new AuthIdentity(
+                user.Id,
+                AuthProvider.Microsoft,
+                request.Email,
+                request.ExternalProviderId,
+                null,
+                true);
+
+            await _authIdentityRepository.AddAsync(identity);
         }
 
         var token = _jwtService.GenerateToken(user, "unassigned");
         var response = new MicrosoftAuthResultDto(
             user.Id,
             user.Email,
-            user.AuthProvider.ToString(),
-            user.ExternalProviderId ?? request.ExternalProviderId,
+            AuthProvider.Microsoft.ToString(),
+            request.ExternalProviderId,
             token,
             isNewAccount,
             request.FirstName,

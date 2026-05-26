@@ -8,29 +8,32 @@ namespace ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, Result<string>>
 {
     private readonly IUserAccountRepository _userRepository;
+    private readonly IAuthIdentityRepository _authIdentityRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
 
     public LoginUserAccountHandler(
         IUserAccountRepository userRepository,
+        IAuthIdentityRepository authIdentityRepository,
         IPasswordHasher passwordHasher,
         IJwtService jwtService)
     {
         _userRepository = userRepository;
+        _authIdentityRepository = authIdentityRepository;
         _passwordHasher = passwordHasher;
         _jwtService = jwtService;
     }
     public async Task<Result<string>> Handle(LoginUserAccountCommand request, CancellationToken cancellationToken)
     {
-        var user = await _userRepository.GetByEmailAsync(request.Email);
+        var identity = await _authIdentityRepository.GetByEmailAsync(request.Email);
+        if (identity == null || identity.Provider != AuthProvider.Manual || string.IsNullOrWhiteSpace(identity.PasswordHash))
+            return Result<string>.Failure("Invalid email or password.", ErrorCode.Unauthorized);
 
+        var user = identity.UserAccount;
         if (user == null)
             return Result<string>.Failure("Invalid email or password.", ErrorCode.Unauthorized);
 
-        if (user.AuthProvider != AuthProvider.Manual || string.IsNullOrWhiteSpace(user.PasswordHash))
-            return Result<string>.Failure("This account uses Microsoft sign-in.", ErrorCode.Unauthorized);
-
-        var isPasswordValid = _passwordHasher.VerifyPassword(user.PasswordHash, request.Password);
+        var isPasswordValid = _passwordHasher.VerifyPassword(identity.PasswordHash, request.Password);
 
         if (!isPasswordValid)
             return Result<string>.Failure("Invalid email or password.", ErrorCode.Unauthorized);

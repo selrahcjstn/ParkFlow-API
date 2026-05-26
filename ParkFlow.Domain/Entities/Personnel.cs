@@ -19,4 +19,10 @@ public class Personnel
         IdCardNumber = idCardNumber;
         Department = department;
     }
+
+    public void UpdateDetails(string idCardNumber, string department)
+    {
+        IdCardNumber = idCardNumber;
+        Department = department;
+    }
 }

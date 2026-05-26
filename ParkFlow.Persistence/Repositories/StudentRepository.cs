@@ -19,6 +19,12 @@ public class StudentRepository : IStudentRepository
         await _context.SaveChangesAsync();
     }
 
+    public async Task UpdateAsync(Student student)
+    {
+        _context.Students.Update(student);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task<Student?> GetByUserProfileIdAsync(Guid userProfileId)
     {
         return await _context.Students

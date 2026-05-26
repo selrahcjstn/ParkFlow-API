@@ -6,4 +6,5 @@ public interface IPersonnelRepository
 {
     Task<Personnel?> GetByUserProfileIdAsync(Guid userProfileId);
     Task AddAsync(Personnel personnel);
+    Task UpdateAsync(Personnel personnel);
 }

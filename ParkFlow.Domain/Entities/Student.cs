@@ -20,4 +20,12 @@ public class Student
         Section = section;
         YearLevel = yearLevel;
     }
+
+    public void UpdateDetails(string studentNumber, string course, string section, int yearLevel)
+    {
+        StudentNumber = studentNumber;
+        Course = course;
+        Section = section;
+        YearLevel = yearLevel;
+    }
 }
