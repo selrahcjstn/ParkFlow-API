@@ -35,7 +35,7 @@ public class UpdateOnboardingScheduleHandler : IRequestHandler<UpdateOnboardingS
             return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
         }
 
-        var submission = await _corSubmissionRepository.GetByUserIdAndTermAsync(request.UserId, string.Empty);
+        var submission = await _corSubmissionRepository.GetByUserIdAndTermAsync(request.UserId, "2024-2025");
         if (submission == null)
             return Result<Guid>.Failure("COR submission not found.", ErrorCode.NotFound);
 

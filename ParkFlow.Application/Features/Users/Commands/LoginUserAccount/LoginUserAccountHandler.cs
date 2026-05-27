@@ -50,29 +50,23 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
         }
 
         var profile = user.UserProfile;
+        string profileType = "unassigned";
 
-        if (profile == null)
+        if (profile != null)
         {
-            return Result<AuthResponse>.Failure("Profile missing.", ErrorCode.Unauthorized);
-        }
-
-        string? profileType =
-            profile.Student != null ? "student" :
-            profile.Personnel != null ? "personnel" :
-            profile.Guard != null ? "guard" :
-            null;
-
-        if (profileType == null)
-        {
-            return Result<AuthResponse>.Failure("Invalid profile type.", ErrorCode.Unauthorized);
+            profileType =
+                profile.Student != null ? "student" :
+                profile.Personnel != null ? "personnel" :
+                profile.Guard != null ? "guard" :
+                "unassigned";
         }
 
         var token = _jwtService.GenerateToken(user, profileType);
 
         var isNewAccount = user.OnboardingStep != OnboardingStep.Done;
-
+        var currentOnboardingStep = user.OnboardingStep;
         return Result<AuthResponse>.Success(
-            new AuthResponse(token, isNewAccount),
+            new AuthResponse(token, isNewAccount, currentOnboardingStep),
             "Login successful.");
     }
 }

@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
@@ -43,7 +43,7 @@ namespace ParkFlow.API.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<Result<string>>> Login(LoginRequestDTO request)
+        public async Task<ActionResult<Result<AuthResponse>>> Login(LoginRequestDTO request)
         {
             var command = new LoginUserAccountCommand(
                 request.Email,

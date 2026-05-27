@@ -31,4 +31,11 @@ public class PersonnelRepository : IPersonnelRepository
             .Include(p => p.UserProfile)
             .FirstOrDefaultAsync(x => x.UserProfileId == userProfileId);
     }
+
+    public async Task<Personnel?> GetByIdCardNumberAsync(string idCardNumber)
+    {
+        return await _context.Personnel
+            .Include(p => p.UserProfile)
+            .FirstOrDefaultAsync(x => x.IdCardNumber == idCardNumber);
+    }
 }

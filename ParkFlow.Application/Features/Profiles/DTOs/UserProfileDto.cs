@@ -1,3 +1,5 @@
+using ParkFlow.Domain.Enums;
+
 namespace ParkFlow.Application.Features.Profiles.DTOs;
 
 public record UserProfileDto(
@@ -6,5 +8,6 @@ public record UserProfileDto(
     string PhoneNumber,
     string FirstName,
     string LastName,
-    string? ProfilePictureUrl
+    string? ProfilePictureUrl,
+    OnboardingStep OnboardingStep
 );

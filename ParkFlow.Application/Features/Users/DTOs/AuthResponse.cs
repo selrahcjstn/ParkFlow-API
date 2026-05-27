@@ -1,6 +1,9 @@
-﻿namespace ParkFlow.Application.Features.Users.DTOs
+﻿using ParkFlow.Domain.Enums;
+
+namespace ParkFlow.Application.Features.Users.DTOs
 {
     public sealed record AuthResponse(
         string Token,
-        bool IsNewAccount);
+        bool IsNewAccount,
+        OnboardingStep CurrentOnboardingStep);
 }

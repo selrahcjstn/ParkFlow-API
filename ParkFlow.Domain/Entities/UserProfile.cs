@@ -4,7 +4,7 @@ public class UserProfile : BaseEntity
 {
     // FK
     public Guid UserAccountId { get; private set; }
-    public UserAccount UserAccount { get; private set; } = null!;
+    public UserAccount UserAccount { get; set; } = null!;
 
     // Profile Data
     public string FirstName { get; private set; } = null!;

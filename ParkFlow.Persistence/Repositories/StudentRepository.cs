@@ -31,4 +31,11 @@ public class StudentRepository : IStudentRepository
             .Include(s => s.UserProfile)
             .FirstOrDefaultAsync(x => x.UserProfileId == userProfileId);
     }
+
+    public async Task<Student?> GetByStudentNumberAsync(string studentNumber)
+    {
+        return await _context.Students
+            .Include(s => s.UserProfile)
+            .FirstOrDefaultAsync(x => x.StudentNumber == studentNumber);
+    }
 }

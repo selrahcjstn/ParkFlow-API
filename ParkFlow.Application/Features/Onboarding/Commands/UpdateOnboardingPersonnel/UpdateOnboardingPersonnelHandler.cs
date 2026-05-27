@@ -39,6 +39,12 @@ public class UpdateOnboardingPersonnelHandler : IRequestHandler<UpdateOnboarding
         if (profile == null)
             return Result<Guid>.Failure("User profile not found.", ErrorCode.NotFound);
 
+        var existingPersonnelByNumber = await _personnelRepository.GetByIdCardNumberAsync(request.IdCardNumber);
+        if (existingPersonnelByNumber != null && existingPersonnelByNumber.UserProfileId != profile.Id)
+        {
+            return Result<Guid>.Failure("ID Card number already exists.", ErrorCode.Conflict);
+        }
+
         var existingPersonnel = await _personnelRepository.GetByUserProfileIdAsync(profile.Id);
         if (existingPersonnel == null)
         {

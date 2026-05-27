@@ -36,6 +36,7 @@ public class UserProfileRepository : IUserProfileRepository
 
     public async Task UpdateAsync(UserProfile profile)
     {
+        profile.UserAccount = null!;
         _appDbContext.UserProfiles.Update(profile);
         await _appDbContext.SaveChangesAsync();
     }

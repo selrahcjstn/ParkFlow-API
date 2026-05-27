@@ -1,5 +1,6 @@
 using MediatR;
 using ParkFlow.Application.Common;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Users.Commands.MicrosoftAuthUserAccount;
 
@@ -18,6 +19,7 @@ public record MicrosoftAuthResultDto(
     string ExternalProviderId,
     string Token,
     bool IsNewAccount,
+    OnboardingStep CurrentOnboardingStep,
     string? FirstName,
     string? LastName,
     string? DisplayName
