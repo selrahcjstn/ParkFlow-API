@@ -2,38 +2,27 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Users.Commands.RegisterUserAggregate;
-using ParkFlow.Persistence;
 
-namespace ParkFlow.API.Controllers
+namespace ParkFlow.API.Controllers;
+
+[Route("api/register")]
+[ApiController]
+public class RegisterController : ControllerBase
 {
-    [Route("api/new-user")]
-    [ApiController]
-    public class RegisterController : ControllerBase
+    private readonly IMediator _mediator;
+
+    public RegisterController(IMediator mediator)
     {
-        private readonly IMediator _mediator;
-        private readonly AppDbContext _dbContext;
+        _mediator = mediator;
+    }
 
-        public RegisterController(IMediator mediator, AppDbContext dbContext)
-        {
-            _mediator = mediator;
-            _dbContext = dbContext;
-        }
-
-        [HttpPost("register")]
-        public async Task<ActionResult<Result<RegisterResultDto>>> Register(RegisterUserAggregateCommand command)
-        {
-            await using var tx = await _dbContext.Database.BeginTransactionAsync();
-
-            var result = await _mediator.Send(command);
-
-            if (result.IsSuccess)
-            {
-                await tx.CommitAsync();
-                return Ok(result);
-            }
-
-            await tx.RollbackAsync();
-            return this.ToActionResult(result);
-        }
+    /// <summary>
+    /// Registers a new user with profile, student/personnel info, vehicle, and COR submission in a single request.
+    /// </summary>
+    [HttpPost]
+    public async Task<ActionResult<Result<RegisterResultDto>>> Register([FromBody] RegisterUserAggregateCommand command)
+    {
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
     }
 }

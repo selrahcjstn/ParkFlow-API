@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ParkFlow.Application.Interfaces;
@@ -25,7 +25,6 @@ namespace ParkFlow.Persistence
             services.AddScoped<IAdminRepository, AdminRepository>();
             services.AddScoped<IParkingLogRepository, ParkingLogRepository>();
             services.AddScoped<IViolationRepository, ViolationRepository>();
-            services.AddScoped<IParkingLogHistoryRepository, ParkingLogHistoryRepository>();
             return services;
         }
     }

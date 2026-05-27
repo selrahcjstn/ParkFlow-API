@@ -3,12 +3,14 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.RegisterGuard.Commands.CreateGuardAccount;
 
 public class CreateGuardAccountHandler : IRequestHandler<CreateGuardAccountCommand, Result<Guid>>
 {
 	private readonly IUserAccountRepository _userAccountRepository;
+	private readonly IAuthIdentityRepository _authIdentityRepository;
 	private readonly IUserProfileRepository _userProfileRepository;
 	private readonly IGuardRepository _guardRepository;
 	private readonly IPasswordHasher _passwordHasher;
@@ -16,12 +18,14 @@ public class CreateGuardAccountHandler : IRequestHandler<CreateGuardAccountComma
 
 	public CreateGuardAccountHandler(
 		IUserAccountRepository userAccountRepository,
+		IAuthIdentityRepository authIdentityRepository,
 		IUserProfileRepository userProfileRepository,
 		IGuardRepository guardRepository,
 		IPasswordHasher passwordHasher,
 		IValidator<CreateGuardAccountCommand> validator)
 	{
 		_userAccountRepository = userAccountRepository;
+		_authIdentityRepository = authIdentityRepository;
 		_userProfileRepository = userProfileRepository;
 		_guardRepository = guardRepository;
 		_passwordHasher = passwordHasher;
@@ -44,7 +48,11 @@ public class CreateGuardAccountHandler : IRequestHandler<CreateGuardAccountComma
 
 		var hashedPassword = _passwordHasher.HashPassword(request.Account.Password);
 		var user = new UserAccount(request.Account.Email, hashedPassword, request.Account.PhoneNumber);
+		user.UpdateOnboardingStep(OnboardingStep.Done); // Guards bypass onboarding steps
 		await _userAccountRepository.AddAsync(user);
+
+		var identity = AuthIdentity.CreateManual(user.Id, request.Account.Email, hashedPassword);
+		await _authIdentityRepository.AddAsync(identity);
 
 		var userProfile = new UserProfile(
 			user.Id,

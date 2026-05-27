@@ -45,6 +45,20 @@ public class ViolationRepository : IViolationRepository
         }
     }
 
+    public async Task<Violation?> GetByReferenceNumberAsync(string referenceNumber)
+    {
+        try
+        {
+            return await _context.Set<Violation>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(v => v.ReferenceNumber == referenceNumber);
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            return null;
+        }
+    }
+
     public async Task<IReadOnlyList<Violation>> GetRecentViolationsAsync(int limit)
     {
         try
@@ -53,6 +67,47 @@ public class ViolationRepository : IViolationRepository
                 .AsNoTracking()
                 .OrderByDescending(v => v.CreatedAt)
                 .Take(limit)
+                .ToListAsync();
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyList<Violation>> GetViolationHistoryAsync(
+        Guid? userId = null,
+        int pageNumber = 1,
+        int pageSize = 15)
+    {
+        try
+        {
+            var query = _context.Set<Violation>()
+                .AsNoTracking()
+                .Include(v => v.ParkingLog)
+                    .ThenInclude(pl => pl.Vehicle)
+                        .ThenInclude(ve => ve.Owner)
+                            .ThenInclude(ua => ua.UserProfile)
+                                .ThenInclude(up => up.Student)
+                .Include(v => v.ParkingLog)
+                    .ThenInclude(pl => pl.Vehicle)
+                        .ThenInclude(ve => ve.Owner)
+                            .ThenInclude(ua => ua.UserProfile)
+                                .ThenInclude(up => up.Personnel)
+                .Include(v => v.ParkingLog)
+                    .ThenInclude(pl => pl.Vehicle)
+                        .ThenInclude(ve => ve.Owner)
+                            .ThenInclude(ua => ua.UserProfile)
+                                .ThenInclude(up => up.Guard)
+                .AsQueryable();
+
+            if (userId.HasValue)
+                query = query.Where(v => v.ParkingLog.Vehicle.OwnerId == userId.Value);
+
+            return await query
+                .OrderByDescending(v => v.CreatedAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
         }
         catch (PostgresException ex) when (ex.SqlState == "42P01")
