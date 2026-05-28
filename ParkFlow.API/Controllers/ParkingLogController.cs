@@ -6,6 +6,7 @@ using ParkFlow.Application.Features.ParkingLogs.Commands.ExitParkingLog;
 using ParkFlow.Application.Features.ParkingLogs.DTOs;
 using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSessionCount;
 using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSession;
+using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveSessionByVehicleId;
 
 namespace ParkFlow.API.Controllers;
 
@@ -54,6 +55,13 @@ public class ParkingLogController : ControllerBase
             new GetSessionCountQuery(parkingCapacity)
         );
 
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("active/vehicle/{vehicleId:guid}")]
+    public async Task<ActionResult<Result<ActiveParkingSessionResponse>>> GetActiveSessionByVehicleId(Guid vehicleId)
+    {
+        var result = await _mediator.Send(new GetActiveSessionByVehicleIdQuery(vehicleId));
         return this.ToActionResult(result);
     }
 }

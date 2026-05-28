@@ -2,7 +2,6 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
-using ParkFlow.Application.Features.Users.Commands.RegisterUserAggregate;
 using ParkFlow.Application.Features.Vehicles.Command;
 using ParkFlow.Application.Features.Vehicles.Queries.GetVehiclesByOwnerId;
 using ParkFlow.Application.Interfaces;

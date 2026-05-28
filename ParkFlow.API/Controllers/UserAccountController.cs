@@ -6,8 +6,9 @@ using ParkFlow.Application.Features.Users.Commands.ForgotPasswordUserAccount;
 using ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 using ParkFlow.Application.Features.Users.Commands.MicrosoftAuthUserAccount;
 using ParkFlow.Application.Features.Users.Commands.ResetPasswordUserAccount;
-using ParkFlow.Application.Features.Users.Commands.UpdateUserAccount;
+using ParkFlow.Application.Features.Users.Commands.UpdatePhoneNumber;
 using ParkFlow.Application.Features.Users.DTOs;
+using ParkFlow.Application.Interfaces;
 
 namespace ParkFlow.API.Controllers
 {
@@ -16,24 +17,25 @@ namespace ParkFlow.API.Controllers
     public class UserAccountController : ControllerBase
     {
         private readonly IMediator _mediator;
+        private readonly IUserContext _userContext;
 
-        public UserAccountController(IMediator mediator)
+        public UserAccountController(IMediator mediator, IUserContext userContext)
         {
             _mediator = mediator;
+            _userContext = userContext;
         }
 
         [Authorize]
-        [HttpPatch("{id}")]
-        public async Task<ActionResult<Result<Guid>>> Update(Guid id, UpdateUserAccountRequest request)
+        [HttpPatch("phone-number")]
+        public async Task<ActionResult<Result<Guid>>> UpdatePhoneNumber([FromBody] UpdatePhoneNumberRequest request)
         {
-            var command = new UpdateUserAccountCommand(
-                id,
-                request.Email,
-                request.PhoneNumber,
-                request.Role
-            );
+            var userId = _userContext.GetUserId();
+            if (userId == Guid.Empty)
+                return Unauthorized(Result<Guid>.Failure("User not identified.", ErrorCode.Unauthorized));
 
+            var command = new UpdatePhoneNumberCommand(userId, request.PhoneNumber);
             var result = await _mediator.Send(command);
+
             if (result.IsSuccess)
                 return Ok(result);
 
