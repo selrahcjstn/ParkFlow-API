@@ -11,11 +11,7 @@ public class ExitParkingLogResponse
     public string VehicleType { get; set; } = null!;
     public DateTime EntryTime { get; set; }
     public DateTime ExitTime { get; set; }
-    public DateTime EndTime { get; set; }
     public double OverstayTime { get; set; }
     public decimal PenaltyFee { get; set; }
-    public bool IsViolation { get; set; }
-    public Guid? ViolationId { get; set; }
-    public string? ViolationType { get; set; }
-    public string? SettlementStatus { get; set; }
+    public string? ReferenceNumber { get; set; }
 }

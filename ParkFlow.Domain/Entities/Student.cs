@@ -10,11 +10,18 @@ public class Student
 
     private Student() { } // For EF Core
 
-    public Student(UserProfile userProfile, string studentNumber, string course, string section, int yearLevel)
+    public Student(Guid profileId, string studentNumber, string course, string section, int yearLevel)
     {
-        UserProfile = userProfile;
-        UserProfileId = userProfile.Id;
+        UserProfileId = profileId;
 
+        StudentNumber = studentNumber;
+        Course = course;
+        Section = section;
+        YearLevel = yearLevel;
+    }
+
+    public void UpdateDetails(string studentNumber, string course, string section, int yearLevel)
+    {
         StudentNumber = studentNumber;
         Course = course;
         Section = section;

@@ -5,11 +5,15 @@ public class UserAccount : BaseEntity
 {
     // Core Account Details: 
     public string Email { get; private set; } = null!;
-    public string PasswordHash { get; private set; } = null!;
-    public string PhoneNumber { get; private set; } = null!;
+    public string? PasswordHash { get; private set; }
+    public string? PhoneNumber { get; private set; }
+    public AuthProvider AuthProvider { get; private set; }
+    public string? ExternalProviderId { get; private set; }
     public AccountStatus Status { get; private set; }
+    public OnboardingStep OnboardingStep { get; private set; }
     
-        public UserProfile UserProfile { get; set; } = null!;
+    public UserProfile? UserProfile { get; set; }
+    public ICollection<AuthIdentity> AuthIdentities { get; private set; } = [];
 
     public DateTime PasswordLastUpdatedAt { get; private set; }
 
@@ -21,13 +25,33 @@ public class UserAccount : BaseEntity
     public UserAccount(
         string email,
         string passwordHash,
-        string phoneNumber)
+        string? phoneNumber)
     {
         Email = email;
         PasswordHash = passwordHash;
         PhoneNumber = phoneNumber;
+        AuthProvider = AuthProvider.Manual;
+        ExternalProviderId = null;
 
         Status = AccountStatus.PendingVerification;
+        OnboardingStep = OnboardingStep.Profile;
+    }
+
+    public static UserAccount CreateMicrosoft(
+        string email,
+        string externalProviderId,
+        string? phoneNumber = null)
+    {
+        return new UserAccount
+        {
+            Email = email,
+            PasswordHash = null,
+            PhoneNumber = phoneNumber,
+            AuthProvider = AuthProvider.Microsoft,
+            ExternalProviderId = externalProviderId,
+            Status = AccountStatus.PendingVerification,
+            OnboardingStep = OnboardingStep.Profile
+        };
     }
 
     // Domain Methods
@@ -39,12 +63,25 @@ public class UserAccount : BaseEntity
             PhoneNumber = phoneNumber;
     }
 
+    public void UpdatePhoneNumber(string? phoneNumber)
+    {
+        if (!string.IsNullOrWhiteSpace(phoneNumber))
+            PhoneNumber = phoneNumber;
+    }
+
+    public void UpdateOnboardingStep(OnboardingStep step)
+    {
+        if (step > OnboardingStep)
+            OnboardingStep = step;
+    }
+
     public void UpdatePassword(string newPasswordHash)
     {
         if (string.IsNullOrWhiteSpace(newPasswordHash))
             throw new ArgumentException("Password hash cannot be empty.");
 
         PasswordHash = newPasswordHash;
+        AuthProvider = AuthProvider.Manual;
         PasswordLastUpdatedAt = DateTime.UtcNow;
     }
 

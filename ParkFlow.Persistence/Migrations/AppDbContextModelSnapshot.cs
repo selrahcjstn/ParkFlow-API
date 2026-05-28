@@ -77,6 +77,59 @@ namespace ParkFlow.Persistence.Migrations
                     b.ToTable("Admins");
                 });
 
+            modelBuilder.Entity("ParkFlow.Domain.Entities.AuthIdentity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<bool>("IsVerified")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<int>("Provider")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProviderId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserAccountId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasFilter("\"Email\" IS NOT NULL");
+
+                    b.HasIndex("UserAccountId");
+
+                    b.HasIndex("Provider", "ProviderId")
+                        .IsUnique()
+                        .HasFilter("\"ProviderId\" IS NOT NULL");
+
+                    b.ToTable("AuthIdentities");
+                });
+
             modelBuilder.Entity("ParkFlow.Domain.Entities.Guard", b =>
                 {
                     b.Property<Guid>("UserProfileId")
@@ -207,6 +260,10 @@ namespace ParkFlow.Persistence.Migrations
                     b.Property<decimal>("PenaltyFee")
                         .HasColumnType("numeric");
 
+                    b.Property<string>("ReferenceNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<int>("SettlementStatus")
                         .HasColumnType("integer");
 
@@ -300,6 +357,9 @@ namespace ParkFlow.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
 
+                    b.Property<int>("AuthProvider")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -309,8 +369,14 @@ namespace ParkFlow.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("ExternalProviderId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("OnboardingStep")
+                        .HasColumnType("integer");
+
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("PasswordLastUpdatedAt")
@@ -324,7 +390,6 @@ namespace ParkFlow.Persistence.Migrations
                         .HasColumnType("character varying(128)");
 
                     b.Property<string>("PhoneNumber")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int>("Status")
@@ -334,6 +399,10 @@ namespace ParkFlow.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AuthProvider", "ExternalProviderId")
+                        .IsUnique()
+                        .HasFilter("\"ExternalProviderId\" IS NOT NULL");
 
                     b.ToTable("UserAccounts");
                 });
@@ -443,6 +512,17 @@ namespace ParkFlow.Persistence.Migrations
                     b.Navigation("UserProfile");
                 });
 
+            modelBuilder.Entity("ParkFlow.Domain.Entities.AuthIdentity", b =>
+                {
+                    b.HasOne("UserAccount", "UserAccount")
+                        .WithMany("AuthIdentities")
+                        .HasForeignKey("UserAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("UserAccount");
+                });
+
             modelBuilder.Entity("ParkFlow.Domain.Entities.Guard", b =>
                 {
                     b.HasOne("UserProfile", "UserProfile")
@@ -546,8 +626,9 @@ namespace ParkFlow.Persistence.Migrations
 
             modelBuilder.Entity("UserAccount", b =>
                 {
-                    b.Navigation("UserProfile")
-                        .IsRequired();
+                    b.Navigation("AuthIdentities");
+
+                    b.Navigation("UserProfile");
                 });
 
             modelBuilder.Entity("UserProfile", b =>

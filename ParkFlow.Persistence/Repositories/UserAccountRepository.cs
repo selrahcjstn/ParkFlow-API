@@ -1,63 +1,59 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Enums;
 
-namespace ParkFlow.Persistence.Repositories
+namespace ParkFlow.Persistence.Repositories;
+
+public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepository
 {
-    public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepository
+    private readonly AppDbContext _appDbContext = appDbContext;
+
+    public async Task AddAsync(UserAccount user)
     {
-        private readonly AppDbContext _appDbContext = appDbContext;
+        await _appDbContext.UserAccounts.AddAsync(user);
+        await _appDbContext.SaveChangesAsync();
+    }
 
-        public async Task AddAsync(UserAccount user)
-        {
-            await _appDbContext.UserAccounts.AddAsync(user);
-            await _appDbContext.SaveChangesAsync();
-        }
+    public async Task<UserAccount?> GetByEmailAsync(string email)
+    {
+        return await _appDbContext.UserAccounts
+            .AsNoTracking()
+            .Include(u => u.UserProfile)
+                .ThenInclude(p => p.Student)
+            .Include(u => u.UserProfile)
+                .ThenInclude(p => p.Personnel)
+            .Include(u => u.UserProfile)
+                .ThenInclude(p => p.Guard)
+            .Include(u => u.AuthIdentities)
+            .FirstOrDefaultAsync(u => u.Email == email);
+    }
 
-        public async Task<UserAccount?> GetByEmailAsync(string email)
-        {
-            return await _appDbContext.UserAccounts
-                .AsNoTracking()
-                .Include(u => u.UserProfile)
-                    .ThenInclude(p => p.Student)
-                .Include(u => u.UserProfile)
-                    .ThenInclude(p => p.Personnel)
-                .Include(u => u.UserProfile)
-                    .ThenInclude(p => p.Guard)
-                .FirstOrDefaultAsync(u => u.Email == email);
-        }
+    public async Task<UserAccount?> GetByAuthProviderExternalIdAsync(AuthProvider authProvider, string externalProviderId)
+    {
+        return await _appDbContext.UserAccounts
+            .AsNoTracking()
+            .Include(u => u.AuthIdentities)
+            .FirstOrDefaultAsync(u =>
+                u.AuthProvider == authProvider &&
+                u.ExternalProviderId == externalProviderId);
+    }
 
-        public async Task<UserAccount?> GetByIdAsync(Guid id)
-        {
-            return await _appDbContext.UserAccounts.FindAsync(id);
-        }
+    public async Task<UserAccount?> GetByIdAsync(Guid id)
+    {
+        return await _appDbContext.UserAccounts.FindAsync(id);
+    }
 
-        public async Task<string> GetProfileTypeByUserId(Guid userId)
-        {
-            var user = await _appDbContext.UserAccounts
-                .Include(u => u.UserProfile)
-                    .ThenInclude(p => p.Student)
-                .Include(u => u.UserProfile)
-                    .ThenInclude(p => p.Personnel)
-                .Include(u => u.UserProfile)
-                    .ThenInclude(p => p.Guard)
-                .FirstOrDefaultAsync(u => u.Id == userId);
+    public async Task<bool> EmailExistsAsync(string email, Guid? excludeUserId = null)
+    {
+        var query = _appDbContext.UserAccounts.AsNoTracking().Where(u => u.Email == email);
+        if (excludeUserId.HasValue)
+            query = query.Where(u => u.Id != excludeUserId.Value);
 
-            if (user?.UserProfile?.Student != null)
-                return "student";
+        return await query.AnyAsync();
+    }
 
-            if (user?.UserProfile?.Personnel != null)
-                return "personnel";
-
-            if (user?.UserProfile?.Guard != null)
-                return "guard";
-
-            throw new Exception("Invalid profile type");
-        }
-
-        public Task UpdateAsync(UserAccount user)
-        {
-            _appDbContext.UserAccounts.Update(user);
-            return _appDbContext.SaveChangesAsync();
-        }
+    public async Task UpdateAsync(UserAccount user)
+    {
+        await _appDbContext.SaveChangesAsync();
     }
 }

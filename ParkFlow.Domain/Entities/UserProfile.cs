@@ -4,8 +4,7 @@ public class UserProfile : BaseEntity
 {
     // FK
     public Guid UserAccountId { get; private set; }
-    public UserAccount UserAccount { get; private set; } = null!;
-
+    public UserAccount UserAccount { get; set; } = null!;
 
     // Profile Data
     public string FirstName { get; private set; } = null!;
@@ -19,13 +18,12 @@ public class UserProfile : BaseEntity
     private UserProfile() { }
 
     public UserProfile(
-        UserAccount userAccount,
+        Guid userAccountId,
         string firstName,
         string lastName,
         string? profilePictureUrl)
     {
-        UserAccount = userAccount;
-        UserAccountId = userAccount.Id;
+        UserAccountId = userAccountId;
         FirstName = firstName;
         LastName = lastName;
         ProfilePictureUrl = profilePictureUrl;
@@ -34,13 +32,14 @@ public class UserProfile : BaseEntity
     public void UpdateProfile(
         string? firstName,
         string? lastName,
-        string? profilePictureUrl
-        )
+        string? profilePictureUrl)
     {
         if (!string.IsNullOrWhiteSpace(firstName))
             FirstName = firstName;
+
         if (!string.IsNullOrWhiteSpace(lastName))
             LastName = lastName;
+
         if (!string.IsNullOrWhiteSpace(profilePictureUrl))
             ProfilePictureUrl = profilePictureUrl;
     }

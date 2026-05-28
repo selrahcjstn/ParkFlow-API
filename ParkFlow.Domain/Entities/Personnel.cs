@@ -10,12 +10,17 @@ public class Personnel
     private Personnel() { }
 
     public Personnel(
-        UserProfile userProfile,
+        Guid profileId,
         string idCardNumber,
         string department)
+    {                                                   
+        UserProfileId = profileId;
+        IdCardNumber = idCardNumber;
+        Department = department;
+    }
+
+    public void UpdateDetails(string idCardNumber, string department)
     {
-        UserProfile = userProfile;
-        UserProfileId = userProfile.Id;
         IdCardNumber = idCardNumber;
         Department = department;
     }

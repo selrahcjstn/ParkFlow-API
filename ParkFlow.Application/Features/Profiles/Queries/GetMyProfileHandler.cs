@@ -36,7 +36,8 @@ public class GetMyProfileHandler
             profile.UserAccount.PhoneNumber,
             profile.FirstName,
             profile.LastName,
-            profile.ProfilePictureUrl);
+            profile.ProfilePictureUrl,
+            profile.UserAccount.OnboardingStep);
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");
     }

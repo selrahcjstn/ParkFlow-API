@@ -45,7 +45,7 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
         }
 
         var userProfile = new UserProfile(
-            user,
+            user.Id,
             request.FirstName,
             request.LastName,
             request.ProfilePictureUrl

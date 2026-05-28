@@ -108,11 +108,13 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         Guid? violationId = null;
         string? violationType = null;
         string? settlementStatus = null;
+        string? referenceNumber = null;
+
+        var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(exitTime);
 
         if (verifiedCor != null)
         {
             var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-            var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(exitTime);
             var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == philippinesNow.DayOfWeek);
 
             if (todaySchedule != null)
@@ -120,9 +122,9 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                 endTime = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todaySchedule.EndTime);
                 maximumExitTime = endTime.AddMinutes(30);
 
-                if (_violationService.IsOverstay(exitTime, todaySchedule.EndTime))
+                if (_violationService.IsOverstay(philippinesNow, todaySchedule.EndTime))
                 {
-                    var overstayDuration = _violationService.GetOverstayDuration(exitTime, todaySchedule.EndTime);
+                    var overstayDuration = _violationService.GetOverstayDuration(philippinesNow, todaySchedule.EndTime);
                     overstayTime = overstayDuration.TotalHours;
                     penaltyFee = _violationService.CalculatePenalty(overstayDuration);
 
@@ -137,11 +139,11 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                         violationId = violation.Id;
                         violationType = violation.ViolationType.ToString();
                         settlementStatus = violation.SettlementStatus.ToString();
+                        referenceNumber = violation.ReferenceNumber;
                     }
                 }
             }
         }
-
         if (!isViolation)
         {
             var existingViolation = await _violationRepository.GetByLogIdAsync(active.Id);
@@ -151,8 +153,26 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                 violationId = existingViolation.Id;
                 violationType = existingViolation.ViolationType.ToString();
                 settlementStatus = existingViolation.SettlementStatus.ToString();
+                referenceNumber = existingViolation.ReferenceNumber ?? $"VIO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
             }
         }
+
+        #region FAKE VIOLATION FOR TESTING ONLY (DEVELOPMENT ONLY)
+        var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+        if (isDevelopment && !isViolation)
+        {
+            var violation = new Violation(active.Id, 15.00m);
+            await _violationRepository.AddAsync(violation);
+
+            isViolation = true;
+            violationId = violation.Id;
+            violationType = violation.ViolationType.ToString();
+            settlementStatus = violation.SettlementStatus.ToString();
+            overstayTime = 2.5;
+            penaltyFee = violation.PenaltyFee;
+            referenceNumber = violation.ReferenceNumber;
+        }
+        #endregion
 
         var actualExitTime = active.ExitTime ?? exitTime;
 
@@ -178,28 +198,27 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             VehicleType = vehicle.VehicleType.ToString(),
             EntryTime = active.EntryTime,
             ExitTime = actualExitTime,
-            EndTime = endTime,
             OverstayTime = overstayTime,
             PenaltyFee = penaltyFee,
-            IsViolation = isViolation,
-            ViolationId = violationId,
-            ViolationType = violationType,
-            SettlementStatus = settlementStatus
+            ReferenceNumber = referenceNumber
         };
 
         if (isViolation)
         {
+            var guardName = $"{userProfile.FirstName} {userProfile.LastName}";
+
             var notificationDto = new HasViolationNotificationDto
             {
-                FullName = $"{ownerProfile.FirstName} {ownerProfile.LastName}",
-                EntryTime = active.EntryTime,
-                ExitTime = actualExitTime,
-                EndTime = endTime,
-                OverstayTime = overstayTime,
-                PenaltyFee = penaltyFee,
-                IsViolation = isViolation,
-                ViolationId = violationId,
-                ViolationType = violationType
+                ReferenceNumber = referenceNumber!,
+                RefNumber = referenceNumber!,
+                IssuedDate = exitTime,
+                IssuedTime = exitTime,
+                IssuedBy = guardName,
+                OverstayHours = overstayTime,
+                PlateNumber = vehicle.PlateNumber,
+                Amount = penaltyFee,
+                ViolationType = violationType ?? "Overstay",
+                IsViolation = isViolation
             };
 
             await _notificationSender.SendEventNotificationAsync(vehicle.OwnerId.ToString(), notificationDto);

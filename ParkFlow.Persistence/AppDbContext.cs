@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.Persistence
@@ -11,6 +11,7 @@ namespace ParkFlow.Persistence
         }
 
         public DbSet<UserAccount> UserAccounts { get; set; }
+    public DbSet<AuthIdentity> AuthIdentities { get; set; }
         public DbSet<UserProfile> UserProfiles { get; set; }
         public DbSet<CorSubmission> CorSubmissions { get; set; }
         public DbSet<ParkingSchedule> ParkingSchedules { get; set; }
@@ -21,7 +22,6 @@ namespace ParkFlow.Persistence
         public DbSet<Student> Students { get; set; }
         public DbSet<Personnel> Personnel { get; set; }
         public DbSet<ParkingLog> ParkingLogs { get; set; }
-        public DbSet<ParkingLogHistory> ParkingLogHistories { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

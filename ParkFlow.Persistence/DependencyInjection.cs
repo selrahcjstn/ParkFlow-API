@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ParkFlow.Application.Interfaces;
@@ -14,6 +14,7 @@ namespace ParkFlow.Persistence
                 options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
             services.AddScoped<IUserAccountRepository, UserAccountRepository>();
+            services.AddScoped<IAuthIdentityRepository, AuthIdentityRepository>();
             services.AddScoped<IUserProfileRepository, UserProfileRepository>();
             services.AddScoped<ICorSubmissionRepository, CorSubmissionRepository>();
             services.AddScoped<IParkingScheduleRepository, ParkingScheduleRepository>();
@@ -24,7 +25,6 @@ namespace ParkFlow.Persistence
             services.AddScoped<IAdminRepository, AdminRepository>();
             services.AddScoped<IParkingLogRepository, ParkingLogRepository>();
             services.AddScoped<IViolationRepository, ViolationRepository>();
-            services.AddScoped<IParkingLogHistoryRepository, ParkingLogHistoryRepository>();
             return services;
         }
     }

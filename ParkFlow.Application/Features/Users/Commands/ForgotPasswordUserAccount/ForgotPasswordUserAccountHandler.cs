@@ -4,6 +4,7 @@ using FluentValidation;
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Users.Commands.ForgotPasswordUserAccount;
 
@@ -35,6 +36,9 @@ public class ForgotPasswordUserAccountHandler
 
         if (user is null)
             return Result<string>.Failure("User account not found.", ErrorCode.NotFound);
+
+        if (user.AuthProvider != AuthProvider.Manual || string.IsNullOrWhiteSpace(user.PasswordHash))
+            return Result<string>.Failure("Password reset is only available for manual accounts.", ErrorCode.BadRequest);
 
         var resetToken = GenerateResetToken();
         var resetTokenHash = Sha256Base64(resetToken);

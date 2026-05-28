@@ -19,10 +19,23 @@ public class PersonnelRepository : IPersonnelRepository
         await _context.SaveChangesAsync();
     }
 
+    public async Task UpdateAsync(Personnel personnel)
+    {
+        _context.Personnel.Update(personnel);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task<Personnel?> GetByUserProfileIdAsync(Guid userProfileId)
     {
         return await _context.Personnel
             .Include(p => p.UserProfile)
             .FirstOrDefaultAsync(x => x.UserProfileId == userProfileId);
+    }
+
+    public async Task<Personnel?> GetByIdCardNumberAsync(string idCardNumber)
+    {
+        return await _context.Personnel
+            .Include(p => p.UserProfile)
+            .FirstOrDefaultAsync(x => x.IdCardNumber == idCardNumber);
     }
 }

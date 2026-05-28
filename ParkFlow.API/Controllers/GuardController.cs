@@ -10,28 +10,19 @@ namespace ParkFlow.API.Controllers;
 public class GuardController : ControllerBase
 {
     private readonly IMediator _mediator;
-    private readonly ParkFlow.Persistence.AppDbContext _dbContext;
 
-    public GuardController(IMediator mediator, ParkFlow.Persistence.AppDbContext dbContext)
+    public GuardController(IMediator mediator)
     {
         _mediator = mediator;
-        _dbContext = dbContext;
     }
 
+    /// <summary>
+    /// Creates a new guard account with login credentials.
+    /// </summary>
     [HttpPost("create")]
-    public async Task<ActionResult<Result<Guid>>> Create(CreateGuardAccountCommand command)
+    public async Task<ActionResult<Result<Guid>>> Create([FromBody] CreateGuardAccountCommand command)
     {
-        await using var tx = await _dbContext.Database.BeginTransactionAsync();
-
         var result = await _mediator.Send(command);
-
-        if (result.IsSuccess)
-        {
-            await tx.CommitAsync();
-            return Ok(result);
-        }
-
-        await tx.RollbackAsync();
         return this.ToActionResult(result);
     }
 }

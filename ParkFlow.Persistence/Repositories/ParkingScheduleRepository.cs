@@ -35,8 +35,43 @@ public class ParkingScheduleRepository : IParkingScheduleRepository
     public async Task<IEnumerable<ParkingSchedule>> GetBySubmissionIdAsync(Guid submissionId)
     {
         return await _appDbContext.ParkingSchedules
+            .Include(x => x.CorSubmission)
             .AsNoTracking()
             .Where(x => x.SubmissionId == submissionId)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<ParkingSchedule>> GetByUserIdAsync(Guid userId)
+    {
+        // 1. Resolve UserAccountId: check if the passed ID matches a UserProfile.Id first
+        var targetUserAccountId = userId;
+        var profile = await _appDbContext.UserProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == userId);
+        
+        if (profile != null)
+        {
+            targetUserAccountId = profile.UserAccountId;
+        }
+
+        // 2. Fetch all COR submissions for this user account
+        var submissions = await _appDbContext.CorSubmissions
+            .AsNoTracking()
+            .Where(c => c.UserAccountId == targetUserAccountId)
+            .ToListAsync();
+
+        if (!submissions.Any())
+        {
+            return Enumerable.Empty<ParkingSchedule>();
+        }
+
+        // 3. Fetch all schedules linked to those submissions
+        var submissionIds = submissions.Select(c => c.Id).ToList();
+
+        return await _appDbContext.ParkingSchedules
+            .Include(x => x.CorSubmission)
+            .AsNoTracking()
+            .Where(x => submissionIds.Contains(x.SubmissionId))
             .ToListAsync();
     }
 
