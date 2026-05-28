@@ -50,7 +50,21 @@ public class ViolationRepository : IViolationRepository
         try
         {
             return await _context.Set<Violation>()
-                .AsNoTracking()
+                .Include(v => v.ParkingLog)
+                    .ThenInclude(pl => pl.Vehicle)
+                        .ThenInclude(ve => ve.Owner)
+                            .ThenInclude(ua => ua.UserProfile)
+                                .ThenInclude(up => up.Student)
+                .Include(v => v.ParkingLog)
+                    .ThenInclude(pl => pl.Vehicle)
+                        .ThenInclude(ve => ve.Owner)
+                            .ThenInclude(ua => ua.UserProfile)
+                                .ThenInclude(up => up.Personnel)
+                .Include(v => v.ParkingLog)
+                    .ThenInclude(pl => pl.Vehicle)
+                        .ThenInclude(ve => ve.Owner)
+                            .ThenInclude(ua => ua.UserProfile)
+                                .ThenInclude(up => up.Guard)
                 .FirstOrDefaultAsync(v => v.ReferenceNumber == referenceNumber);
         }
         catch (PostgresException ex) when (ex.SqlState == "42P01")

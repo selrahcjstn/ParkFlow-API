@@ -144,20 +144,6 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                 }
             }
         }
-        #region FAKE VIOLATION FOR TESTING ONLY (DEVELOPMENT ONLY)
-        var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-        if (isDevelopment && !isViolation)
-        {
-            isViolation = true;
-            violationId = Guid.NewGuid();
-            violationType = "Overstay";
-            settlementStatus = "Pending";
-            overstayTime = 2.5;
-            penaltyFee = 15.00m;
-            referenceNumber = $"VIO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
-        }
-        #endregion
-
         if (!isViolation)
         {
             var existingViolation = await _violationRepository.GetByLogIdAsync(active.Id);
@@ -170,6 +156,23 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                 referenceNumber = existingViolation.ReferenceNumber ?? $"VIO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
             }
         }
+
+        #region FAKE VIOLATION FOR TESTING ONLY (DEVELOPMENT ONLY)
+        var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+        if (isDevelopment && !isViolation)
+        {
+            var violation = new Violation(active.Id, 15.00m);
+            await _violationRepository.AddAsync(violation);
+
+            isViolation = true;
+            violationId = violation.Id;
+            violationType = violation.ViolationType.ToString();
+            settlementStatus = violation.SettlementStatus.ToString();
+            overstayTime = 2.5;
+            penaltyFee = violation.PenaltyFee;
+            referenceNumber = violation.ReferenceNumber;
+        }
+        #endregion
 
         var actualExitTime = active.ExitTime ?? exitTime;
 
@@ -196,7 +199,8 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             EntryTime = active.EntryTime,
             ExitTime = actualExitTime,
             OverstayTime = overstayTime,
-            PenaltyFee = penaltyFee
+            PenaltyFee = penaltyFee,
+            ReferenceNumber = referenceNumber
         };
 
         if (isViolation)

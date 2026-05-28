@@ -13,4 +13,5 @@ public class ExitParkingLogResponse
     public DateTime ExitTime { get; set; }
     public double OverstayTime { get; set; }
     public decimal PenaltyFee { get; set; }
+    public string? ReferenceNumber { get; set; }
 }

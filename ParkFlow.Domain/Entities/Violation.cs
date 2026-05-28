@@ -26,4 +26,9 @@ public class Violation : BaseEntity
         SettlementStatus = SettlementStatus.Pending;
         ReferenceNumber = $"VIO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
     }
+
+    public void MarkAsPaid()
+    {
+        SettlementStatus = SettlementStatus.Settled;
+    }
 }

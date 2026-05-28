@@ -3,11 +3,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Violations.DTOs;
+using ParkFlow.Application.Features.Violations.Commands.ProcessViolationPayment;
 using ParkFlow.Application.Features.Violations.Queries.CheckViolationPayment;
 using ParkFlow.Application.Features.Violations.Queries.GetViolationHistory;
 using ParkFlow.Application.Interfaces;
 
 namespace ParkFlow.API.Controllers;
+
+public record ProcessViolationPaymentRequest(string ReferenceNumber);
 
 [Route("api/violations")]
 [ApiController]
@@ -59,6 +62,24 @@ public class ViolationController : ControllerBase
         if (result.IsSuccess)
             return Ok(result);
 
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>
+    /// Verifies and processes payment for a violation, marking it as settled.
+    /// Only guards are allowed to perform this action.
+    /// </summary>
+    [HttpPost("process-payment")]
+    [Authorize]
+    public async Task<ActionResult<Result<ViolationPaymentReceiptDto>>> ProcessPayment(
+        [FromBody] ProcessViolationPaymentRequest request)
+    {
+        var userId = _userContext.GetUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized(Result<ViolationPaymentReceiptDto>.Failure(
+                "User not identified.", ErrorCode.Unauthorized));
+
+        var result = await _mediator.Send(new ProcessViolationPaymentCommand(request.ReferenceNumber, userId));
         return this.ToActionResult(result);
     }
 }
