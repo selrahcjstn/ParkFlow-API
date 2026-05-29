@@ -7,10 +7,12 @@ namespace ParkFlow.Application.Features.Vehicles.Command;
 public class DeleteVehicleHandler : IRequestHandler<DeleteVehicleCommand, Result<Guid>>
 {
     private readonly IVehicleRepository _vehicleRepository;
+    private readonly IParkingLogRepository _parkingLogRepository;
 
-    public DeleteVehicleHandler(IVehicleRepository vehicleRepository)
+    public DeleteVehicleHandler(IVehicleRepository vehicleRepository, IParkingLogRepository parkingLogRepository)
     {
         _vehicleRepository = vehicleRepository;
+        _parkingLogRepository = parkingLogRepository;
     }
 
     public async Task<Result<Guid>> Handle(DeleteVehicleCommand request, CancellationToken cancellationToken)
@@ -26,25 +28,18 @@ public class DeleteVehicleHandler : IRequestHandler<DeleteVehicleCommand, Result
             return Result<Guid>.Failure("Access Denied: You do not own this vehicle.", ErrorCode.Forbidden);
         }
 
-        var wasPrimary = vehicle.IsPrimary;
+        if (vehicle.IsPrimary)
+        {
+            return Result<Guid>.Failure("Cannot delete the primary vehicle. Please set another vehicle as primary first.", ErrorCode.BadRequest);
+        }
+
+        var activeParking = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id);
+        if (activeParking != null)
+        {
+            return Result<Guid>.Failure("Cannot delete a vehicle with an active parking session.", ErrorCode.BadRequest);
+        }
 
         await _vehicleRepository.DeleteAsync(vehicle);
-
-        // Promote another vehicle to primary if we deleted the primary one and they have others remaining
-        if (wasPrimary)
-        {
-            var remainingVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.OwnerId);
-            var firstRemaining = remainingVehicles.FirstOrDefault();
-            if (firstRemaining != null)
-            {
-                var trackedVehicle = await _vehicleRepository.GetByIdAsync(firstRemaining.Id);
-                if (trackedVehicle != null)
-                {
-                    trackedVehicle.SetPrimary(true);
-                    await _vehicleRepository.UpdateAsync(trackedVehicle);
-                }
-            }
-        }
 
         return Result<Guid>.Success(request.VehicleId, "Vehicle successfully deleted.");
     }

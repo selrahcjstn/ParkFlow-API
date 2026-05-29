@@ -96,6 +96,7 @@ public class ParkingLogRepository : IParkingLogRepository
     {
         var query = _context.Set<ParkingLog>()
             .AsNoTracking()
+            .Where(p => p.Status == ParkingStatus.Exited)
             .Include(p => p.Vehicle)
                 .ThenInclude(v => v.Owner)
                     .ThenInclude(o => o.UserProfile!)

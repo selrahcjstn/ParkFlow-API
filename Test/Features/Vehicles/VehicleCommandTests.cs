@@ -18,8 +18,9 @@ public class FakeQrCodeService : IQrCodeService
 
 public class FakeParkingLogRepository : IParkingLogRepository
 {
+    public ParkingLog? ActiveParkingLog { get; set; }
     public Task AddParkingLogAsync(ParkingLog parkingLog) => Task.CompletedTask;
-    public Task<ParkingLog?> GetActiveParkingLogByVehicleIdAsync(Guid vehicleId) => Task.FromResult<ParkingLog?>(null);
+    public Task<ParkingLog?> GetActiveParkingLogByVehicleIdAsync(Guid vehicleId) => Task.FromResult<ParkingLog?>(ActiveParkingLog);
     public Task<IReadOnlyList<ParkingLog>> GetActiveParkingLogsAsync(int limit) => Task.FromResult<IReadOnlyList<ParkingLog>>(new List<ParkingLog>());
     public Task<IReadOnlyList<ParkingLog>> GetTodaysParkingLogsAsync(int limit) => Task.FromResult<IReadOnlyList<ParkingLog>>(new List<ParkingLog>());
     public Task<IReadOnlyList<ParkingLog>> GetRecentParkingLogsAsync(int limit) => Task.FromResult<IReadOnlyList<ParkingLog>>(new List<ParkingLog>());
@@ -204,7 +205,7 @@ public class VehicleCommandTests
         var vehicle = new Vehicle(ownerId, "ABC-123", "Toyota", "hash", VehicleType.Car);
         await _repository.AddAsync(vehicle);
 
-        var handler = new DeleteVehicleHandler(_repository);
+        var handler = new DeleteVehicleHandler(_repository, new FakeParkingLogRepository());
         var command = new DeleteVehicleCommand(vehicle.Id, ownerId);
 
         // Act
@@ -217,30 +218,53 @@ public class VehicleCommandTests
     }
 
     [Fact]
-    public async Task DeleteVehicleHandler_ShouldAutoPromoteAnotherVehicleIfDeletedVehicleWasPrimary()
+    public async Task DeleteVehicleHandler_ShouldReturnBadRequestIfVehicleIsPrimary()
     {
         // Arrange
         var ownerId = Guid.NewGuid();
-        var vehicle1 = new Vehicle(ownerId, "ABC-123", "Toyota", "hash1", VehicleType.Car);
-        vehicle1.SetPrimary(true);
-        var vehicle2 = new Vehicle(ownerId, "XYZ-789", "Honda", "hash2", VehicleType.Car);
-        vehicle2.SetPrimary(false);
-        await _repository.AddAsync(vehicle1);
-        await _repository.AddAsync(vehicle2);
+        var vehicle = new Vehicle(ownerId, "ABC-123", "Toyota", "hash1", VehicleType.Car);
+        vehicle.SetPrimary(true);
+        await _repository.AddAsync(vehicle);
 
-        var handler = new DeleteVehicleHandler(_repository);
-        var command = new DeleteVehicleCommand(vehicle1.Id, ownerId);
+        var handler = new DeleteVehicleHandler(_repository, new FakeParkingLogRepository());
+        var command = new DeleteVehicleCommand(vehicle.Id, ownerId);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assert
-        Assert.True(result.IsSuccess);
-        var v1 = await _repository.GetByIdAsync(vehicle1.Id);
-        var v2 = await _repository.GetByIdAsync(vehicle2.Id);
-        Assert.Null(v1);
-        Assert.NotNull(v2);
-        Assert.True(v2.IsPrimary);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.BadRequest, result.ErrorCode);
+        Assert.Contains("Cannot delete the primary vehicle", result.Message);
+        
+        var notDeleted = await _repository.GetByIdAsync(vehicle.Id);
+        Assert.NotNull(notDeleted);
+    }
+
+    [Fact]
+    public async Task DeleteVehicleHandler_ShouldReturnBadRequestIfVehicleHasActiveParkingSession()
+    {
+        // Arrange
+        var ownerId = Guid.NewGuid();
+        var vehicle = new Vehicle(ownerId, "ABC-123", "Toyota", "hash1", VehicleType.Car);
+        await _repository.AddAsync(vehicle);
+
+        var fakeParkingLogRepo = new FakeParkingLogRepository();
+        fakeParkingLogRepo.ActiveParkingLog = new ParkingLog(vehicle.Id, Guid.NewGuid(), ParkingStatus.Parked);
+
+        var handler = new DeleteVehicleHandler(_repository, fakeParkingLogRepo);
+        var command = new DeleteVehicleCommand(vehicle.Id, ownerId);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.BadRequest, result.ErrorCode);
+        Assert.Contains("Cannot delete a vehicle with an active parking session", result.Message);
+
+        var notDeleted = await _repository.GetByIdAsync(vehicle.Id);
+        Assert.NotNull(notDeleted);
     }
 
     [Fact]
@@ -336,6 +360,27 @@ public class VehicleCommandTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Forbidden, result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task SetPrimaryVehicleHandler_ShouldReturnBadRequestIfVehicleIsAlreadyPrimary()
+    {
+        // Arrange
+        var ownerId = Guid.NewGuid();
+        var vehicle = new Vehicle(ownerId, "ABC-123", "Toyota", "hash", VehicleType.Car);
+        vehicle.SetPrimary(true);
+        await _repository.AddAsync(vehicle);
+
+        var handler = new SetPrimaryVehicleHandler(_repository);
+        var command = new SetPrimaryVehicleCommand(vehicle.Id, ownerId);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.BadRequest, result.ErrorCode);
+        Assert.Contains("Vehicle is already the primary vehicle", result.Message);
     }
 }
 

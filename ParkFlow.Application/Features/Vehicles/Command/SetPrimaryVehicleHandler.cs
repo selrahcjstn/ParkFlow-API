@@ -28,7 +28,7 @@ public class SetPrimaryVehicleHandler : IRequestHandler<SetPrimaryVehicleCommand
 
         if (vehicle.IsPrimary)
         {
-            return Result<Guid>.Success(vehicle.Id, "Vehicle is already primary.");
+            return Result<Guid>.Failure("Vehicle is already the primary vehicle.", ErrorCode.BadRequest);
         }
 
         // Call domain method to set primary
