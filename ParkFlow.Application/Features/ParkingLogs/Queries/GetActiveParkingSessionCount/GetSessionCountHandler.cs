@@ -30,7 +30,7 @@ public class GetSessionCountHandler
 	{
 		var logs = await _parkingLogRepository.GetActiveParkingLogsAsync(request.ParkingCapacity);
 		var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
-		var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
+		var nowUtc = DateTime.UtcNow;
 
 		var activeLogs = logs
 			.Where(x => x.EntryTime != default)
@@ -48,12 +48,18 @@ public class GetSessionCountHandler
 				continue;
 
 			var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-			var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == philippinesNow.DayOfWeek);
+			var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
+			var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == philippinesEntry.DayOfWeek);
 
 			if (todaySchedule == null)
 				continue;
 
-			if (philippinesNow.TimeOfDay > todaySchedule.EndTime)
+			var scheduleEndUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
+				philippinesEntry,
+				todaySchedule.EndTime);
+			var maximumExitTimeUtc = scheduleEndUtc.AddMinutes(30);
+
+			if (nowUtc > maximumExitTimeUtc)
 				overstayCount++;
 		}
 
