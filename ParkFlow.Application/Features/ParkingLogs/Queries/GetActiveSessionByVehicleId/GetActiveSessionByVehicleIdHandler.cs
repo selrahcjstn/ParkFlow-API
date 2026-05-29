@@ -58,8 +58,13 @@ public class GetActiveSessionByVehicleIdHandler
             c.UserAccountId == vehicle.OwnerId &&
             c.VerificationStatus == CorVerificationStatus.Verified);
 
-        DateTime? maximumExitTimeUtc = null;
+        var nowUtc = DateTime.UtcNow;
+        decimal accruedCharge = 0m;
 
+        // scheduleDeadlineUtc = the raw schedule end time (shown to user as ExitBy)
+        // maximumExitTimeUtc  = schedule end + 30 min grace (overtime starts after this)
+        DateTime? scheduleDeadlineUtc = null;
+        DateTime? maximumExitTimeUtc = null;
         if (verifiedCor != null)
         {
             var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
@@ -68,16 +73,13 @@ public class GetActiveSessionByVehicleIdHandler
 
             if (todaySchedule != null)
             {
-                var scheduleEndUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
+                scheduleDeadlineUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
                     philippinesEntry,
                     todaySchedule.EndTime);
 
-                maximumExitTimeUtc = scheduleEndUtc.AddMinutes(30);
+                maximumExitTimeUtc = scheduleDeadlineUtc.Value.AddMinutes(30);
             }
         }
-
-        var nowUtc = DateTime.UtcNow;
-        decimal accruedCharge = 0m;
 
         if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
         {
@@ -85,6 +87,7 @@ public class GetActiveSessionByVehicleIdHandler
             accruedCharge = _violationService.CalculatePenalty(overstayDuration);
         }
 
+        // ElapsedMinutes: always from actual DB entry time to now
         var elapsedMinutes = (int)(nowUtc - activeLog.EntryTime).TotalMinutes;
 
         var response = new ActiveParkingSessionResponse
@@ -93,7 +96,7 @@ public class GetActiveSessionByVehicleIdHandler
             StartedAt = activeLog.EntryTime.ToString("yyyy-MM-ddTHH:mm:ssZ"),
             ElapsedMinutes = Math.Max(0, elapsedMinutes),
             AccruedCharge = accruedCharge,
-            ExitBy = maximumExitTimeUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ") ?? "N/A"
+            ExitBy = scheduleDeadlineUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ") ?? "N/A"
         };
 
         return Result<ActiveParkingSessionResponse>.Success(response, "Active parking session retrieved successfully.");

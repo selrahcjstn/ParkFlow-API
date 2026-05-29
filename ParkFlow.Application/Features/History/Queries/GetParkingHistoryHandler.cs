@@ -87,8 +87,11 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 }
             }
 
-            var exitTimeVal = log.ExitTime ?? DateTime.UtcNow;
-            var duration = (exitTimeVal - log.EntryTime).TotalHours;
+            // Use the actual exit time from DB — null means the session is still active
+            var exitTimeVal = log.ExitTime;
+            var duration = exitTimeVal.HasValue
+                ? (exitTimeVal.Value - log.EntryTime).TotalHours
+                : (double?)null;
 
             var hasViolation = false;
             var existingViolation = await _violationRepository.GetByLogIdAsync(log.Id);

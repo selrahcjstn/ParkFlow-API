@@ -16,7 +16,7 @@ public class ParkingHistoryResponse
 
     // Session Information
     public DateTime EntryTime { get; set; }
-    public DateTime ExitTime { get; set; }
-    public double ParkingDuration { get; set; }
+    public DateTime? ExitTime { get; set; }
+    public double? ParkingDuration { get; set; }
     public bool HasViolation { get; set; }
 }
