@@ -15,5 +15,7 @@
     // Session Details
     DateTime EntryTime,
     DateTime MaximumExitTime,
+    double OverstayHours,
+    decimal Amount,
     string TotalParkingHours);
 }

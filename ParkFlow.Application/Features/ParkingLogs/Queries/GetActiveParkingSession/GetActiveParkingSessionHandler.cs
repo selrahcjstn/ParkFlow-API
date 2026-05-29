@@ -16,15 +16,18 @@ public class GetActiveParkingSessionHandler
     private readonly IParkingLogRepository _parkingLogRepository;
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
     private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IViolationService _violationService;
 
     public GetActiveParkingSessionHandler(
         IParkingLogRepository parkingLogRepository,
         IParkingScheduleRepository parkingScheduleRepository,
-        ICorSubmissionRepository corSubmissionRepository)
+        ICorSubmissionRepository corSubmissionRepository,
+        IViolationService violationService)
     {
         _parkingLogRepository = parkingLogRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
         _corSubmissionRepository = corSubmissionRepository;
+        _violationService = violationService;
     }
 
     public async Task<Result<IEnumerable<GetActiveParkingSessionResponse>>> Handle(
@@ -32,16 +35,13 @@ public class GetActiveParkingSessionHandler
         CancellationToken cancellationToken)
     {
         var logs = await _parkingLogRepository
-            .GetTodaysParkingLogsAsync(request.ParkingCapacity);
+            .GetActiveParkingLogsAsync(request.ParkingCapacity);
 
         var corSubmissions = await _corSubmissionRepository
             .ListCorSubmissionsAsync();
 
         var activeLogs = logs
-            .Where(x =>
-                x.EntryTime != default &&
-                x.ExitTime == null &&
-                x.Status == ParkingStatus.Parked)
+            .Where(x => x.EntryTime != default)
             .ToList();
 
         var dtos = new List<GetActiveParkingSessionResponse>();
@@ -49,6 +49,8 @@ public class GetActiveParkingSessionHandler
         foreach (var log in activeLogs)
         {
             var nowUtc = DateTime.UtcNow;
+            var overstayHours = 0d;
+            var amount = 0m;
 
             var verifiedCor = corSubmissions.FirstOrDefault(c =>
                 c.UserAccountId == log.Vehicle.OwnerId &&
@@ -79,14 +81,27 @@ public class GetActiveParkingSessionHandler
                 }
             }
 
-            var totalHours = Math.Max(
-                0,
-                (nowUtc - log.EntryTime).TotalHours);
+            if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
+            {
+                var overstayDuration = nowUtc - maximumExitTimeUtc.Value;
+                overstayHours = overstayDuration.TotalHours;
+                amount = _violationService.CalculatePenalty(overstayDuration);
+            }
+
+            var ownerProfile = log.Vehicle.Owner?.UserProfile;
+            var ownerPhoneNumber = ownerProfile?.UserAccount?.PhoneNumber;
+
+            if (ownerProfile == null || string.IsNullOrWhiteSpace(ownerPhoneNumber))
+            {
+                continue;
+            }
+
+            var totalHours = Math.Max(0, (nowUtc - log.EntryTime).TotalHours);
 
             dtos.Add(new GetActiveParkingSessionResponse(
-                FirstName: log.Vehicle.Owner.UserProfile.FirstName,
-                LastName: log.Vehicle.Owner.UserProfile.LastName,
-                PhoneNumber: log.Vehicle.Owner.UserProfile.UserAccount.PhoneNumber,
+                FirstName: ownerProfile.FirstName,
+                LastName: ownerProfile.LastName,
+                PhoneNumber: ownerPhoneNumber,
 
                 Status: log.Status.ToString(),
                 PlateNumber: log.Vehicle.PlateNumber,
@@ -95,6 +110,8 @@ public class GetActiveParkingSessionHandler
 
                 EntryTime: log.EntryTime,
                 MaximumExitTime: maximumExitTimeUtc ?? default,
+                OverstayHours: overstayHours,
+                Amount: amount,
 
                 TotalParkingHours: $"{totalHours:F2} hours"
             ));

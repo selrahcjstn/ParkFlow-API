@@ -60,6 +60,7 @@ public class GetActiveSessionByVehicleIdHandler
 
         var nowUtc = DateTime.UtcNow;
         decimal accruedCharge = 0m;
+        var overstayHours = 0d;
 
         // scheduleDeadlineUtc = the raw schedule end time (shown to user as ExitBy)
         // maximumExitTimeUtc  = schedule end + 30 min grace (overtime starts after this)
@@ -84,6 +85,7 @@ public class GetActiveSessionByVehicleIdHandler
         if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
         {
             var overstayDuration = nowUtc - maximumExitTimeUtc.Value;
+            overstayHours = overstayDuration.TotalHours;
             accruedCharge = _violationService.CalculatePenalty(overstayDuration);
         }
 
@@ -95,8 +97,11 @@ public class GetActiveSessionByVehicleIdHandler
             SessionId = activeLog.Id.ToString(),
             StartedAt = activeLog.EntryTime.ToString("yyyy-MM-ddTHH:mm:ssZ"),
             ElapsedMinutes = Math.Max(0, elapsedMinutes),
+            OverstayHours = overstayHours,
             AccruedCharge = accruedCharge,
-            ExitBy = scheduleDeadlineUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ") ?? "N/A"
+            ExitBy = maximumExitTimeUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                ?? scheduleDeadlineUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                ?? "N/A"
         };
 
         return Result<ActiveParkingSessionResponse>.Success(response, "Active parking session retrieved successfully.");

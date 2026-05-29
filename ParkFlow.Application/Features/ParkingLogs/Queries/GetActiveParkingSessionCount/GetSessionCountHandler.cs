@@ -28,12 +28,12 @@ public class GetSessionCountHandler
 		GetSessionCountQuery request,
 		CancellationToken cancellationToken)
 	{
-		var logs = await _parkingLogRepository.GetTodaysParkingLogsAsync(request.ParkingCapacity);
+		var logs = await _parkingLogRepository.GetActiveParkingLogsAsync(request.ParkingCapacity);
 		var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
 		var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
 
 		var activeLogs = logs
-			.Where(x => x.EntryTime != default && x.ExitTime == null && x.Status == ParkingStatus.Parked)
+			.Where(x => x.EntryTime != default)
 			.ToList();
 
 		var overstayCount = 0;
