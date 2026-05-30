@@ -7,6 +7,7 @@ using ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 using ParkFlow.Application.Features.Users.Commands.MicrosoftAuthUserAccount;
 using ParkFlow.Application.Features.Users.Commands.ResetPasswordUserAccount;
 using ParkFlow.Application.Features.Users.Commands.UpdatePhoneNumber;
+using ParkFlow.Application.Features.Users.Queries.GetUserCredentials;
 using ParkFlow.Application.Features.Users.DTOs;
 using ParkFlow.Application.Interfaces;
 
@@ -23,6 +24,18 @@ namespace ParkFlow.API.Controllers
         {
             _mediator = mediator;
             _userContext = userContext;
+        }
+
+        [Authorize]
+        [HttpGet("credentials")]
+        public async Task<ActionResult<Result<UserCredentialsDto>>> GetCredentials()
+        {
+            var userId = _userContext.GetUserId();
+            if (userId == Guid.Empty)
+                return Unauthorized(Result<UserCredentialsDto>.Failure("User not identified.", ErrorCode.Unauthorized));
+
+            var result = await _mediator.Send(new GetUserCredentialsQuery(userId));
+            return this.ToActionResult(result);
         }
 
         [Authorize]

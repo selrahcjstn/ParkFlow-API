@@ -31,7 +31,13 @@ public class GetUserProfileByUserIdHandler : IRequestHandler<GetUserProfileByUse
             profile.FirstName,
             profile.LastName,
             profile.ProfilePictureUrl,
-            profile.UserAccount.OnboardingStep
+            profile.UserAccount.OnboardingStep,
+            StudentNumber: profile.Student?.StudentNumber,
+            EmployeeIdNumber: profile.Personnel?.IdCardNumber,
+            Course: profile.Student?.Course,
+            YearLevel: profile.Student?.YearLevel,
+            Section: profile.Student?.Section,
+            Department: profile.Personnel?.Department
             );
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");

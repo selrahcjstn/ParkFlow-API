@@ -9,5 +9,11 @@ public record UserProfileDto(
     string FirstName,
     string LastName,
     string? ProfilePictureUrl,
-    OnboardingStep OnboardingStep
+    OnboardingStep OnboardingStep,
+    string? StudentNumber = null,
+    string? EmployeeIdNumber = null,
+    string? Course = null,
+    int? YearLevel = null,
+    string? Section = null,
+    string? Department = null
 );

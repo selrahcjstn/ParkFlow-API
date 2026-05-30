@@ -22,6 +22,8 @@ public class UserProfileRepository : IUserProfileRepository
     {
         return _appDbContext.UserProfiles
             .Include(p => p.UserAccount)
+            .Include(p => p.Student)
+            .Include(p => p.Personnel)
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == id);
     }
@@ -30,6 +32,8 @@ public class UserProfileRepository : IUserProfileRepository
     {
         return await _appDbContext.UserProfiles
             .Include(p => p.UserAccount)
+            .Include(p => p.Student)
+            .Include(p => p.Personnel)
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.UserAccountId == userId);
     }

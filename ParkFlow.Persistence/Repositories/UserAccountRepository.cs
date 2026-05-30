@@ -40,7 +40,9 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
 
     public async Task<UserAccount?> GetByIdAsync(Guid id)
     {
-        return await _appDbContext.UserAccounts.FindAsync(id);
+        return await _appDbContext.UserAccounts
+            .Include(u => u.AuthIdentities)
+            .FirstOrDefaultAsync(u => u.Id == id);
     }
 
     public async Task<bool> EmailExistsAsync(string email, Guid? excludeUserId = null)
