@@ -1,4 +1,4 @@
-﻿using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
 
 public class UserAccount : BaseEntity
@@ -61,6 +61,22 @@ public class UserAccount : BaseEntity
             Email = email;
         if (!string.IsNullOrWhiteSpace(phoneNumber))
             PhoneNumber = phoneNumber;
+    }
+
+    public void UpdateEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            throw new ArgumentException("Email cannot be empty.");
+
+        Email = email;
+    }
+
+    public void UpdateExternalProviderId(string providerId)
+    {
+        if (string.IsNullOrWhiteSpace(providerId))
+            throw new ArgumentException("External provider ID cannot be empty.");
+
+        ExternalProviderId = providerId;
     }
 
     public void UpdatePhoneNumber(string? phoneNumber)

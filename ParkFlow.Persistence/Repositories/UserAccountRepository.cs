@@ -25,7 +25,7 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
             .Include(u => u.UserProfile)
                 .ThenInclude(p => p.Guard)
             .Include(u => u.AuthIdentities)
-            .FirstOrDefaultAsync(u => u.Email == email);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
     }
 
     public async Task<UserAccount?> GetByAuthProviderExternalIdAsync(AuthProvider authProvider, string externalProviderId)

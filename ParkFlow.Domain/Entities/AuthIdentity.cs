@@ -53,4 +53,20 @@ public class AuthIdentity : BaseEntity
     {
         IsVerified = true;
     }
+
+    public void UpdateEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            throw new ArgumentException("Email cannot be empty.");
+
+        Email = email;
+    }
+
+    public void UpdateProviderId(string providerId)
+    {
+        if (string.IsNullOrWhiteSpace(providerId))
+            throw new ArgumentException("Provider ID cannot be empty.");
+
+        ProviderId = providerId;
+    }
 }

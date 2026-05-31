@@ -47,7 +47,7 @@ public class AuthIdentityRepository(AppDbContext appDbContext) : IAuthIdentityRe
                     .ThenInclude(p => p.Guard)
 
             .AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Email == email);
+            .FirstOrDefaultAsync(i => i.Email != null && i.Email.ToLower() == email.ToLower());
     }
 
     public async Task<IEnumerable<AuthIdentity>> GetByAccountIdAsync(Guid accountId)
@@ -61,6 +61,12 @@ public class AuthIdentityRepository(AppDbContext appDbContext) : IAuthIdentityRe
     public Task UpdateAsync(AuthIdentity identity)
     {
         _appDbContext.AuthIdentities.Update(identity);
+        return _appDbContext.SaveChangesAsync();
+    }
+
+    public Task DeleteAsync(AuthIdentity identity)
+    {
+        _appDbContext.AuthIdentities.Remove(identity);
         return _appDbContext.SaveChangesAsync();
     }
 }

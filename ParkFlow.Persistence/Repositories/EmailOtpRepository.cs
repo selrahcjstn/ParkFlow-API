@@ -24,7 +24,7 @@ public class EmailOtpRepository : IEmailOtpRepository
     public async Task<EmailOtp?> GetLatestOtpByEmailAsync(string email)
     {
         return await _appDbContext.EmailOtps
-            .Where(e => e.Email == email)
+            .Where(e => e.Email.ToLower() == email.ToLower())
             .OrderByDescending(e => e.CreatedAt)
             .FirstOrDefaultAsync();
     }

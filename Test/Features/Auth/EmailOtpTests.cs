@@ -78,6 +78,16 @@ public class FakeAuthIdentityRepository : IAuthIdentityRepository
         }
         return Task.CompletedTask;
     }
+
+    public Task DeleteAsync(AuthIdentity identity)
+    {
+        var existing = Identities.FirstOrDefault(i => i.Id == identity.Id);
+        if (existing != null)
+        {
+            Identities.Remove(existing);
+        }
+        return Task.CompletedTask;
+    }
 }
 
 public class FakeEmailService : IEmailService
