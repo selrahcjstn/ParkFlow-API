@@ -91,7 +91,7 @@ public class SetPrimaryEmailTests
         await _userAccountRepository.AddAsync(user);
 
         var command = new SetPrimaryEmailCommand(userId, newEmail);
-        var handler = new SetPrimaryEmailCommandHandler(_userAccountRepository, _authIdentityRepository, _validator);
+        var handler = new SetPrimaryEmailCommandHandler(_userAccountRepository, _validator);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -122,7 +122,7 @@ public class SetPrimaryEmailTests
         await _authIdentityRepository.AddAsync(AuthIdentity.CreateManual(userId, email, "hash", isPrimary: true));
 
         var command = new SetPrimaryEmailCommand(userId, unlinkedEmail);
-        var handler = new SetPrimaryEmailCommandHandler(_userAccountRepository, _authIdentityRepository, _validator);
+        var handler = new SetPrimaryEmailCommandHandler(_userAccountRepository, _validator);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -138,7 +138,7 @@ public class SetPrimaryEmailTests
     {
         // Arrange
         var command = new SetPrimaryEmailCommand(Guid.NewGuid(), "new@parkflow.com");
-        var handler = new SetPrimaryEmailCommandHandler(_userAccountRepository, _authIdentityRepository, _validator);
+        var handler = new SetPrimaryEmailCommandHandler(_userAccountRepository, _validator);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);

@@ -12,16 +12,13 @@ namespace ParkFlow.Application.Features.Users.Commands.SetPrimaryEmail;
 public class SetPrimaryEmailCommandHandler : IRequestHandler<SetPrimaryEmailCommand, Result<bool>>
 {
     private readonly IUserAccountRepository _userAccountRepository;
-    private readonly IAuthIdentityRepository _authIdentityRepository;
     private readonly IValidator<SetPrimaryEmailCommand> _validator;
 
     public SetPrimaryEmailCommandHandler(
         IUserAccountRepository userAccountRepository,
-        IAuthIdentityRepository authIdentityRepository,
         IValidator<SetPrimaryEmailCommand> validator)
     {
         _userAccountRepository = userAccountRepository;
-        _authIdentityRepository = authIdentityRepository;
         _validator = validator;
     }
 
@@ -40,7 +37,7 @@ public class SetPrimaryEmailCommandHandler : IRequestHandler<SetPrimaryEmailComm
             return Result<bool>.Failure(false, "User account not found.", ErrorCode.NotFound);
         }
 
-        var identities = (await _authIdentityRepository.GetByAccountIdAsync(user.Id)).ToList();
+        var identities = user.AuthIdentities.ToList();
 
         var targetIdentity = identities.FirstOrDefault(i =>
             i.Email != null && i.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
@@ -60,10 +57,9 @@ public class SetPrimaryEmailCommandHandler : IRequestHandler<SetPrimaryEmailComm
         foreach (var other in identities.Where(i => i.Id != targetIdentity.Id && i.IsPrimary))
         {
             other.SetPrimary(false);
-            await _authIdentityRepository.UpdateAsync(other);
         }
 
-        await _authIdentityRepository.UpdateAsync(targetIdentity);
+        await _userAccountRepository.UpdateAsync(user);
 
         return Result<bool>.Success(true, "Primary email updated successfully.");
     }
