@@ -5,4 +5,5 @@ namespace ParkFlow.Application.Features.Auth.Commands.VerifyEmailOtp;
 
 public record VerifyEmailOtpCommand(
     string Email,
-    string OtpCode) : IRequest<Result<bool>>;
+    string OtpCode,
+    string? Purpose = null) : IRequest<Result<bool>>;

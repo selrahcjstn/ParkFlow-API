@@ -105,6 +105,7 @@ public class EmailOtpTests
 {
     private readonly FakeEmailOtpRepository _emailOtpRepository;
     private readonly FakeAuthIdentityRepository _authIdentityRepository;
+    private readonly FakeUserAccountRepository _userAccountRepository;
     private readonly FakeEmailService _emailService;
     private readonly SendEmailOtpCommandValidator _sendValidator;
     private readonly VerifyEmailOtpCommandValidator _verifyValidator;
@@ -113,6 +114,7 @@ public class EmailOtpTests
     {
         _emailOtpRepository = new FakeEmailOtpRepository();
         _authIdentityRepository = new FakeAuthIdentityRepository();
+        _userAccountRepository = new FakeUserAccountRepository();
         _emailService = new FakeEmailService();
         _sendValidator = new SendEmailOtpCommandValidator();
         _verifyValidator = new VerifyEmailOtpCommandValidator();
@@ -174,13 +176,15 @@ public class EmailOtpTests
         var emailOtp = new EmailOtp(email, code, expiresAt);
         await _emailOtpRepository.AddAsync(emailOtp);
 
-        // Create an unverified AuthIdentity matching the email
-        var userId = Guid.NewGuid();
-        var identity = AuthIdentity.CreateManual(userId, email, "hashedPassword");
+        // Create a user account and an unverified AuthIdentity matching the email
+        var user = new UserAccount(email, "hashedPassword", "09171234567");
+        await _userAccountRepository.AddAsync(user);
+
+        var identity = AuthIdentity.CreateManual(user.Id, email, "hashedPassword");
         await _authIdentityRepository.AddAsync(identity);
 
         var command = new VerifyEmailOtpCommand(email, code);
-        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _verifyValidator);
+        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _userAccountRepository, _verifyValidator);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -195,6 +199,10 @@ public class EmailOtpTests
         // Check that identity got flipped to verified
         var updatedIdentity = Assert.Single(_authIdentityRepository.Identities);
         Assert.True(updatedIdentity.IsVerified);
+
+        // Check that user status got flipped to verified
+        var updatedUser = Assert.Single(_userAccountRepository.Users);
+        Assert.Equal(AccountStatus.Verified, updatedUser.Status);
     }
 
     [Fact]
@@ -202,7 +210,7 @@ public class EmailOtpTests
     {
         // Arrange
         var command = new VerifyEmailOtpCommand("no-otp@parkflow.com", "111111");
-        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _verifyValidator);
+        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _userAccountRepository, _verifyValidator);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -223,7 +231,7 @@ public class EmailOtpTests
         await _emailOtpRepository.AddAsync(emailOtp);
 
         var command = new VerifyEmailOtpCommand(email, wrongCode);
-        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _verifyValidator);
+        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _userAccountRepository, _verifyValidator);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -245,7 +253,7 @@ public class EmailOtpTests
         await _emailOtpRepository.AddAsync(emailOtp);
 
         var command = new VerifyEmailOtpCommand(email, code);
-        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _verifyValidator);
+        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _userAccountRepository, _verifyValidator);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -269,7 +277,7 @@ public class EmailOtpTests
         await _emailOtpRepository.AddAsync(emailOtp);
 
         var command = new VerifyEmailOtpCommand(email, code);
-        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _verifyValidator);
+        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _userAccountRepository, _verifyValidator);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -278,5 +286,44 @@ public class EmailOtpTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Gone, result.ErrorCode);
         Assert.False(emailOtp.IsUsed);
+    }
+
+    [Fact]
+    public async Task VerifyEmailOtpHandler_ShouldNotFlipStatusToVerifiedWhenPurposeIsChangePassword()
+    {
+        // Arrange
+        var email = "changepassword@parkflow.com";
+        var code = "123456";
+        var expiresAt = DateTime.UtcNow.AddMinutes(5);
+        var emailOtp = new EmailOtp(email, code, expiresAt);
+        await _emailOtpRepository.AddAsync(emailOtp);
+
+        // Create an unverified user account and AuthIdentity
+        var user = new UserAccount(email, "hashedPassword", "09171234567");
+        await _userAccountRepository.AddAsync(user);
+
+        var identity = AuthIdentity.CreateManual(user.Id, email, "hashedPassword");
+        await _authIdentityRepository.AddAsync(identity);
+
+        // Command with non-verification purpose
+        var command = new VerifyEmailOtpCommand(email, code, "ChangePassword");
+        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _userAccountRepository, _verifyValidator);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Data);
+
+        var updatedOtp = Assert.Single(_emailOtpRepository.Otps);
+        Assert.True(updatedOtp.IsUsed);
+
+        // Check that identity and user account did NOT flip to verified
+        var updatedIdentity = Assert.Single(_authIdentityRepository.Identities);
+        Assert.False(updatedIdentity.IsVerified);
+
+        var updatedUser = Assert.Single(_userAccountRepository.Users);
+        Assert.Equal(AccountStatus.PendingVerification, updatedUser.Status);
     }
 }

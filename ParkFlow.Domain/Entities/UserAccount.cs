@@ -79,6 +79,11 @@ public class UserAccount : BaseEntity
         ExternalProviderId = providerId;
     }
 
+    public void Verify()
+    {
+        Status = AccountStatus.Verified;
+    }
+
     public void UpdatePhoneNumber(string? phoneNumber)
     {
         if (!string.IsNullOrWhiteSpace(phoneNumber))

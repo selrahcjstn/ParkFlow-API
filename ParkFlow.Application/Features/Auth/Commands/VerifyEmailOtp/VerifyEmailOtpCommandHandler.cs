@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Enums;
 using System;
 using System.Linq;
 using System.Threading;
@@ -13,15 +14,18 @@ public class VerifyEmailOtpCommandHandler : IRequestHandler<VerifyEmailOtpComman
 {
     private readonly IEmailOtpRepository _emailOtpRepository;
     private readonly IAuthIdentityRepository _authIdentityRepository;
+    private readonly IUserAccountRepository _userAccountRepository;
     private readonly IValidator<VerifyEmailOtpCommand> _validator;
 
     public VerifyEmailOtpCommandHandler(
         IEmailOtpRepository emailOtpRepository,
         IAuthIdentityRepository authIdentityRepository,
+        IUserAccountRepository userAccountRepository,
         IValidator<VerifyEmailOtpCommand> validator)
     {
         _emailOtpRepository = emailOtpRepository;
         _authIdentityRepository = authIdentityRepository;
+        _userAccountRepository = userAccountRepository;
         _validator = validator;
     }
 
@@ -56,23 +60,42 @@ public class VerifyEmailOtpCommandHandler : IRequestHandler<VerifyEmailOtpComman
             return Result<bool>.Failure(false, "Verification code has expired.", ErrorCode.Gone);
         }
 
-        // On success, mark IsUsed = true.
         emailOtp.MarkAsUsed();
         await _emailOtpRepository.UpdateAsync(emailOtp);
 
-        // Also flip any matching unverified AuthIdentities for this account to verified
-        var authIdentity = await _authIdentityRepository.GetByEmailAsync(request.Email);
-        if (authIdentity != null)
+        if (string.IsNullOrWhiteSpace(request.Purpose) || 
+            request.Purpose.Equals("Verification", StringComparison.OrdinalIgnoreCase))
         {
-            var allIdentities = await _authIdentityRepository.GetByAccountIdAsync(authIdentity.UserAccountId);
-            foreach (var identity in allIdentities)
+            var authIdentity = await _authIdentityRepository.GetByEmailAsync(request.Email);
+            if (authIdentity != null)
             {
-                if (identity.Email != null && 
-                    identity.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase) && 
-                    !identity.IsVerified)
+                var allIdentities = await _authIdentityRepository.GetByAccountIdAsync(authIdentity.UserAccountId);
+                foreach (var identity in allIdentities)
                 {
-                    identity.MarkVerified();
-                    await _authIdentityRepository.UpdateAsync(identity);
+                    if (identity.Email != null && 
+                        identity.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase) && 
+                        !identity.IsVerified)
+                    {
+                        identity.MarkVerified();
+                        await _authIdentityRepository.UpdateAsync(identity);
+                    }
+                }
+
+                // Also flip core UserAccount status to Verified
+                var user = await _userAccountRepository.GetByIdAsync(authIdentity.UserAccountId);
+                if (user != null && user.Status != AccountStatus.Verified)
+                {
+                    user.Verify();
+                    await _userAccountRepository.UpdateAsync(user);
+                }
+            }
+            else
+            {
+                var user = await _userAccountRepository.GetByEmailAsync(request.Email);
+                if (user != null && user.Status != AccountStatus.Verified)
+                {
+                    user.Verify();
+                    await _userAccountRepository.UpdateAsync(user);
                 }
             }
         }
