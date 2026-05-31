@@ -69,16 +69,10 @@ public class VerifyEmailOtpCommandHandler : IRequestHandler<VerifyEmailOtpComman
             var authIdentity = await _authIdentityRepository.GetByEmailAsync(request.Email);
             if (authIdentity != null)
             {
-                var allIdentities = await _authIdentityRepository.GetByAccountIdAsync(authIdentity.UserAccountId);
-                foreach (var identity in allIdentities)
+                if (!authIdentity.IsVerified)
                 {
-                    if (identity.Email != null && 
-                        identity.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase) && 
-                        !identity.IsVerified)
-                    {
-                        identity.MarkVerified();
-                        await _authIdentityRepository.UpdateAsync(identity);
-                    }
+                    authIdentity.MarkVerified();
+                    await _authIdentityRepository.UpdateAsync(authIdentity);
                 }
 
                 // Also flip core UserAccount status to Verified

@@ -1,4 +1,5 @@
 using ParkFlow.Application.Common;
+using ParkFlow.Application.Features.Auth.Commands.LinkManualIdentity;
 using ParkFlow.Application.Features.Auth.Commands.UnlinkIdentity;
 using ParkFlow.Application.Features.Auth.Commands.UpdateManualIdentity;
 using ParkFlow.Application.Features.Auth.Commands.UpdateMicrosoftIdentity;
@@ -41,10 +42,21 @@ public class FakeUserAccountRepository : IUserAccountRepository
     }
 }
 
+public class FakePasswordHasher : IPasswordHasher
+{
+    public string HashPassword(string password) => $"hashed:{password}";
+
+    public bool VerifyPassword(string hashedPassword, string providedPassword) =>
+        hashedPassword == HashPassword(providedPassword);
+}
+
 public class AccountLinkingTests
 {
     private readonly FakeAuthIdentityRepository _authIdentityRepository;
     private readonly FakeUserAccountRepository _userAccountRepository;
+    private readonly FakeEmailOtpRepository _emailOtpRepository;
+    private readonly FakePasswordHasher _passwordHasher;
+    private readonly LinkManualIdentityValidator _linkManualValidator;
     private readonly UnlinkIdentityCommandValidator _unlinkValidator;
     private readonly UpdateManualIdentityCommandValidator _updateManualValidator;
     private readonly UpdateMicrosoftIdentityCommandValidator _updateMicrosoftValidator;
@@ -53,9 +65,49 @@ public class AccountLinkingTests
     {
         _authIdentityRepository = new FakeAuthIdentityRepository();
         _userAccountRepository = new FakeUserAccountRepository();
+        _emailOtpRepository = new FakeEmailOtpRepository();
+        _passwordHasher = new FakePasswordHasher();
+        _linkManualValidator = new LinkManualIdentityValidator();
         _unlinkValidator = new UnlinkIdentityCommandValidator();
         _updateManualValidator = new UpdateManualIdentityCommandValidator();
         _updateMicrosoftValidator = new UpdateMicrosoftIdentityCommandValidator();
+    }
+
+    [Fact]
+    public async Task LinkManualIdentityHandler_ShouldMarkIdentityVerified_WhenOtpWasAlreadyVerified()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var email = "verified-link@parkflow.com";
+        var user = UserAccount.CreateMicrosoft("ms-id-verified-link");
+
+        var idField = typeof(BaseEntity).GetProperty("Id");
+        idField?.SetValue(user, userId);
+        await _userAccountRepository.AddAsync(user);
+
+        var emailOtp = new EmailOtp(email, "123456", DateTime.UtcNow.AddMinutes(5));
+        emailOtp.MarkAsUsed();
+        await _emailOtpRepository.AddAsync(emailOtp);
+
+        var command = new LinkManualIdentityCommand(userId, email, "Password123!");
+        var handler = new LinkManualIdentityHandler(
+            _userAccountRepository,
+            _authIdentityRepository,
+            _emailOtpRepository,
+            _passwordHasher,
+            _linkManualValidator);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+
+        var linkedIdentity = Assert.Single(_authIdentityRepository.Identities);
+        Assert.True(linkedIdentity.IsVerified);
+
+        var updatedUser = Assert.Single(_userAccountRepository.Users);
+        Assert.Equal(AccountStatus.Verified, updatedUser.Status);
     }
 
     [Fact]

@@ -10,17 +10,20 @@ public class LinkManualIdentityHandler : IRequestHandler<LinkManualIdentityComma
 {
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IAuthIdentityRepository _authIdentityRepository;
+    private readonly IEmailOtpRepository _emailOtpRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IValidator<LinkManualIdentityCommand> _validator;
 
     public LinkManualIdentityHandler(
         IUserAccountRepository userAccountRepository,
         IAuthIdentityRepository authIdentityRepository,
+        IEmailOtpRepository emailOtpRepository,
         IPasswordHasher passwordHasher,
         IValidator<LinkManualIdentityCommand> validator)
     {
         _userAccountRepository = userAccountRepository;
         _authIdentityRepository = authIdentityRepository;
+        _emailOtpRepository = emailOtpRepository;
         _passwordHasher = passwordHasher;
         _validator = validator;
     }
@@ -50,6 +53,17 @@ public class LinkManualIdentityHandler : IRequestHandler<LinkManualIdentityComma
 
         var hashedPassword = _passwordHasher.HashPassword(request.Password);
         var identity = AuthIdentity.CreateManual(user.Id, request.Email, hashedPassword, isPrimary: !user.AuthIdentities.Any());
+        var latestOtp = await _emailOtpRepository.GetLatestOtpByEmailAsync(request.Email);
+        if (latestOtp?.IsUsed == true)
+        {
+            identity.MarkVerified();
+            if (user.Status != ParkFlow.Domain.Enums.AccountStatus.Verified)
+            {
+                user.Verify();
+                await _userAccountRepository.UpdateAsync(user);
+            }
+        }
+
         await _authIdentityRepository.AddAsync(identity);
 
         return Result<Guid>.Success(identity.Id, "Manual login linked successfully.");
