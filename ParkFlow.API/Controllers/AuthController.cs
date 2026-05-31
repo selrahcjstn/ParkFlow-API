@@ -5,6 +5,8 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Auth.Commands.LinkManualIdentity;
 using ParkFlow.Application.Features.Auth.Commands.LinkMicrosoftIdentity;
 using ParkFlow.Application.Features.Auth.Commands.RegisterManualAccount;
+using ParkFlow.Application.Features.Auth.Commands.SendEmailOtp;
+using ParkFlow.Application.Features.Auth.Commands.VerifyEmailOtp;
 using ParkFlow.Application.Features.Auth.DTOs;
 using ParkFlow.Application.Features.Users.Commands.MicrosoftAuthUserAccount;
 using ParkFlow.Application.Features.Users.DTOs;
@@ -76,6 +78,22 @@ public class AuthController : ControllerBase
             request.LastName,
             request.DisplayName);
 
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+     }
+
+    [HttpPost("send-email-otp")]
+    public async Task<ActionResult<Result<bool>>> SendEmailOtp(SendEmailOtpRequest request)
+    {
+        var command = new SendEmailOtpCommand(request.Email);
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("verify-email-otp")]
+    public async Task<ActionResult<Result<bool>>> VerifyEmailOtp(VerifyEmailOtpRequest request)
+    {
+        var command = new VerifyEmailOtpCommand(request.Email, request.OtpCode);
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }
