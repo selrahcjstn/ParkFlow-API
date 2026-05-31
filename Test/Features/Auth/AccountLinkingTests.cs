@@ -18,13 +18,13 @@ public class FakeUserAccountRepository : IUserAccountRepository
 {
     public List<UserAccount> Users { get; } = new();
 
-    public Task<UserAccount?> GetByEmailAsync(string email) => Task.FromResult(Users.FirstOrDefault(u => u.Email.ToLower() == email.ToLower()));
+    public Task<UserAccount?> GetByEmailAsync(string email) => Task.FromResult(Users.FirstOrDefault(u => u.AuthIdentities.Any(i => i.Email != null && i.Email.Equals(email, StringComparison.OrdinalIgnoreCase))));
     public Task<UserAccount?> GetByAuthProviderExternalIdAsync(AuthProvider authProvider, string externalProviderId) =>
         Task.FromResult(Users.FirstOrDefault(u => u.AuthProvider == authProvider && u.ExternalProviderId == externalProviderId));
     public Task<UserAccount?> GetByIdAsync(Guid id) => Task.FromResult(Users.FirstOrDefault(u => u.Id == id));
     public Task<bool> EmailExistsAsync(string email, Guid? excludeUserId = null)
     {
-        var q = Users.Where(u => u.Email.ToLower() == email.ToLower());
+        var q = Users.Where(u => u.AuthIdentities.Any(i => i.Email != null && i.Email.Equals(email, StringComparison.OrdinalIgnoreCase)));
         if (excludeUserId.HasValue) q = q.Where(u => u.Id != excludeUserId.Value);
         return Task.FromResult(q.Any());
     }
@@ -128,7 +128,7 @@ public class AccountLinkingTests
     }
 
     [Fact]
-    public async Task UpdateManualIdentityHandler_ShouldSuccessfullyUpdateEmailAndSyncUserAccount()
+    public async Task UpdateManualIdentityHandler_ShouldSuccessfullyUpdateIdentityEmail()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -138,14 +138,13 @@ public class AccountLinkingTests
         var manualIdentity = AuthIdentity.CreateManual(userId, oldEmail, "passhash");
         await _authIdentityRepository.AddAsync(manualIdentity);
 
-        var user = new UserAccount(oldEmail, "passhash", null);
+        var user = new UserAccount("passhash", null);
         var idField = typeof(BaseEntity).GetProperty("Id");
         idField?.SetValue(user, userId);
         await _userAccountRepository.AddAsync(user);
 
         var command = new UpdateManualIdentityCommand(userId, newEmail);
         var handler = new UpdateManualIdentityCommandHandler(
-            _userAccountRepository,
             _authIdentityRepository,
             _updateManualValidator);
 
@@ -159,8 +158,7 @@ public class AccountLinkingTests
         var updatedIdentity = Assert.Single(_authIdentityRepository.Identities);
         Assert.Equal(newEmail, updatedIdentity.Email);
 
-        var updatedUser = Assert.Single(_userAccountRepository.Users);
-        Assert.Equal(newEmail, updatedUser.Email);
+        Assert.Equal(newEmail, updatedIdentity.Email);
     }
 
     [Fact]
@@ -179,7 +177,6 @@ public class AccountLinkingTests
 
         var command = new UpdateManualIdentityCommand(userId1, email2);
         var handler = new UpdateManualIdentityCommandHandler(
-            _userAccountRepository,
             _authIdentityRepository,
             _updateManualValidator);
 
@@ -192,7 +189,7 @@ public class AccountLinkingTests
     }
 
     [Fact]
-    public async Task UpdateMicrosoftIdentityHandler_ShouldSuccessfullyUpdateMicrosoftDetailsAndSyncUserAccount()
+    public async Task UpdateMicrosoftIdentityHandler_ShouldSuccessfullyUpdateMicrosoftIdentity()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -204,14 +201,13 @@ public class AccountLinkingTests
         var msIdentity = AuthIdentity.CreateMicrosoft(userId, oldEmail, oldExternalId);
         await _authIdentityRepository.AddAsync(msIdentity);
 
-        var user = UserAccount.CreateMicrosoft(oldEmail, oldExternalId, null);
+        var user = UserAccount.CreateMicrosoft(oldExternalId, null);
         var idField = typeof(BaseEntity).GetProperty("Id");
         idField?.SetValue(user, userId);
         await _userAccountRepository.AddAsync(user);
 
         var command = new UpdateMicrosoftIdentityCommand(userId, newEmail, newExternalId);
         var handler = new UpdateMicrosoftIdentityCommandHandler(
-            _userAccountRepository,
             _authIdentityRepository,
             _updateMicrosoftValidator);
 
@@ -226,9 +222,7 @@ public class AccountLinkingTests
         Assert.Equal(newEmail, updatedIdentity.Email);
         Assert.Equal(newExternalId, updatedIdentity.ProviderId);
 
-        var updatedUser = Assert.Single(_userAccountRepository.Users);
-        Assert.Equal(newEmail, updatedUser.Email);
-        Assert.Equal(newExternalId, updatedUser.ExternalProviderId);
+        Assert.Equal(newExternalId, updatedIdentity.ProviderId);
     }
 
     [Fact]
@@ -249,7 +243,6 @@ public class AccountLinkingTests
 
         var command = new UpdateMicrosoftIdentityCommand(userId1, "new_email@parkflow.com", providerId2);
         var handler = new UpdateMicrosoftIdentityCommandHandler(
-            _userAccountRepository,
             _authIdentityRepository,
             _updateMicrosoftValidator);
 

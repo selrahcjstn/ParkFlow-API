@@ -17,13 +17,13 @@ public class FakeUserAccountRepository : IUserAccountRepository
 {
     public List<UserAccount> Users { get; } = new();
 
-    public Task<UserAccount?> GetByEmailAsync(string email) => Task.FromResult(Users.FirstOrDefault(u => u.Email == email));
+    public Task<UserAccount?> GetByEmailAsync(string email) => Task.FromResult(Users.FirstOrDefault(u => u.AuthIdentities.Any(i => i.Email == email)));
     public Task<UserAccount?> GetByAuthProviderExternalIdAsync(AuthProvider authProvider, string externalProviderId) =>
         Task.FromResult(Users.FirstOrDefault(u => u.AuthProvider == authProvider && u.ExternalProviderId == externalProviderId));
     public Task<UserAccount?> GetByIdAsync(Guid id) => Task.FromResult(Users.FirstOrDefault(u => u.Id == id));
     public Task<bool> EmailExistsAsync(string email, Guid? excludeUserId = null)
     {
-        var q = Users.Where(u => u.Email == email);
+        var q = Users.Where(u => u.AuthIdentities.Any(i => i.Email == email));
         if (excludeUserId.HasValue) q = q.Where(u => u.Id != excludeUserId.Value);
         return Task.FromResult(q.Any());
     }
@@ -55,15 +55,15 @@ public class GetUserCredentialsHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var email = "john.doe@test.com";
-        var user = new UserAccount(email, "passhash", "+639123456789");
+        var user = new UserAccount("passhash", "+639123456789");
         
         // Force the ID since BaseEntity generates Guid
         var idField = typeof(BaseEntity).GetProperty("Id");
         idField?.SetValue(user, userId);
 
         // Add linked auth identities
-        user.AuthIdentities.Add(new AuthIdentity(userId, AuthProvider.Manual, email, null, "passhash", true));
-        user.AuthIdentities.Add(new AuthIdentity(userId, AuthProvider.Microsoft, email, "ms-oauth-id-123", null, true));
+        user.AuthIdentities.Add(new AuthIdentity(userId, AuthProvider.Manual, email, null, "passhash", true, true));
+        user.AuthIdentities.Add(new AuthIdentity(userId, AuthProvider.Microsoft, email, "ms-oauth-id-123", null, true, false));
 
         await _userAccountRepository.AddAsync(user);
 
@@ -83,11 +83,13 @@ public class GetUserCredentialsHandlerTests
         var manualIdentity = result.Data.LinkedIdentities.First(i => i.Provider == AuthProvider.Manual.ToString());
         Assert.Equal(email, manualIdentity.Email);
         Assert.True(manualIdentity.IsVerified);
+        Assert.True(manualIdentity.IsPrimary);
 
         var microsoftIdentity = result.Data.LinkedIdentities.First(i => i.Provider == AuthProvider.Microsoft.ToString());
         Assert.Equal(email, microsoftIdentity.Email);
         Assert.Equal("ms-oauth-id-123", microsoftIdentity.ProviderId);
         Assert.True(microsoftIdentity.IsVerified);
+        Assert.False(microsoftIdentity.IsPrimary);
     }
 
     [Fact]

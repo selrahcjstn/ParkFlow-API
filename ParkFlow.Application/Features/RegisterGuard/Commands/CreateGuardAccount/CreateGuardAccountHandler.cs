@@ -47,11 +47,11 @@ public class CreateGuardAccountHandler : IRequestHandler<CreateGuardAccountComma
 			return Result<Guid>.Failure("User account with this email already exists.", ErrorCode.Conflict);
 
 		var hashedPassword = _passwordHasher.HashPassword(request.Account.Password);
-		var user = new UserAccount(request.Account.Email, hashedPassword, request.Account.PhoneNumber);
+		var user = new UserAccount(hashedPassword, request.Account.PhoneNumber);
 		user.UpdateOnboardingStep(OnboardingStep.Done); // Guards bypass onboarding steps
 		await _userAccountRepository.AddAsync(user);
 
-		var identity = AuthIdentity.CreateManual(user.Id, request.Account.Email, hashedPassword);
+		var identity = AuthIdentity.CreateManual(user.Id, request.Account.Email, hashedPassword, isPrimary: true);
 		await _authIdentityRepository.AddAsync(identity);
 
 		var userProfile = new UserProfile(

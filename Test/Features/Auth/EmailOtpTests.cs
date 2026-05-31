@@ -177,7 +177,7 @@ public class EmailOtpTests
         await _emailOtpRepository.AddAsync(emailOtp);
 
         // Create a user account and an unverified AuthIdentity matching the email
-        var user = new UserAccount(email, "hashedPassword", "09171234567");
+        var user = new UserAccount("hashedPassword", "09171234567");
         await _userAccountRepository.AddAsync(user);
 
         var identity = AuthIdentity.CreateManual(user.Id, email, "hashedPassword");
@@ -299,7 +299,7 @@ public class EmailOtpTests
         await _emailOtpRepository.AddAsync(emailOtp);
 
         // Create an unverified user account and AuthIdentity
-        var user = new UserAccount(email, "hashedPassword", "09171234567");
+        var user = new UserAccount("hashedPassword", "09171234567");
         await _userAccountRepository.AddAsync(user);
 
         var identity = AuthIdentity.CreateManual(user.Id, email, "hashedPassword");

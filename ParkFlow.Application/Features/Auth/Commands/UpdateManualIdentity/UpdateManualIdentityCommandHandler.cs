@@ -11,16 +11,13 @@ namespace ParkFlow.Application.Features.Auth.Commands.UpdateManualIdentity;
 
 public class UpdateManualIdentityCommandHandler : IRequestHandler<UpdateManualIdentityCommand, Result<bool>>
 {
-    private readonly IUserAccountRepository _userAccountRepository;
     private readonly IAuthIdentityRepository _authIdentityRepository;
     private readonly IValidator<UpdateManualIdentityCommand> _validator;
 
     public UpdateManualIdentityCommandHandler(
-        IUserAccountRepository userAccountRepository,
         IAuthIdentityRepository authIdentityRepository,
         IValidator<UpdateManualIdentityCommand> validator)
     {
-        _userAccountRepository = userAccountRepository;
         _authIdentityRepository = authIdentityRepository;
         _validator = validator;
     }
@@ -44,22 +41,18 @@ public class UpdateManualIdentityCommandHandler : IRequestHandler<UpdateManualId
 
         // Check if new email is already linked to another account
         var existingIdentity = await _authIdentityRepository.GetByEmailAsync(request.NewEmail);
-        if (existingIdentity != null && existingIdentity.UserAccountId != request.UserId)
+        if (existingIdentity != null && existingIdentity.Id != manualIdentity.Id)
         {
-            return Result<bool>.Failure(false, "Email is already linked to another account.", ErrorCode.Conflict);
+            var message = existingIdentity.UserAccountId == request.UserId
+                ? "Email is already linked to this account."
+                : "Email is already linked to another account.";
+
+            return Result<bool>.Failure(false, message, ErrorCode.Conflict);
         }
 
         // Update email on Manual Identity
         manualIdentity.UpdateEmail(request.NewEmail);
         await _authIdentityRepository.UpdateAsync(manualIdentity);
-
-        // Also sync email on core UserAccount
-        var user = await _userAccountRepository.GetByIdAsync(request.UserId);
-        if (user != null)
-        {
-            user.UpdateEmail(request.NewEmail);
-            await _userAccountRepository.UpdateAsync(user);
-        }
 
         return Result<bool>.Success(true, "Manual link email updated successfully.");
     }

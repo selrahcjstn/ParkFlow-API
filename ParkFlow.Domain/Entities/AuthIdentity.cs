@@ -12,6 +12,7 @@ public class AuthIdentity : BaseEntity
     public string? ProviderId { get; private set; }
     public string? PasswordHash { get; private set; }
     public bool IsVerified { get; private set; }
+    public bool IsPrimary { get; private set; }
 
     private AuthIdentity() { }
 
@@ -21,7 +22,8 @@ public class AuthIdentity : BaseEntity
         string? email,
         string? providerId,
         string? passwordHash,
-        bool isVerified)
+        bool isVerified,
+        bool isPrimary)
     {
         UserAccountId = userAccountId;
         Provider = provider;
@@ -29,16 +31,17 @@ public class AuthIdentity : BaseEntity
         ProviderId = providerId;
         PasswordHash = passwordHash;
         IsVerified = isVerified;
+        IsPrimary = isPrimary;
     }
 
-    public static AuthIdentity CreateManual(Guid userAccountId, string email, string passwordHash)
+    public static AuthIdentity CreateManual(Guid userAccountId, string email, string passwordHash, bool isPrimary = false)
     {
-        return new AuthIdentity(userAccountId, AuthProvider.Manual, email, null, passwordHash, false);
+        return new AuthIdentity(userAccountId, AuthProvider.Manual, email, null, passwordHash, false, isPrimary);
     }
 
-    public static AuthIdentity CreateMicrosoft(Guid userAccountId, string email, string providerId)
+    public static AuthIdentity CreateMicrosoft(Guid userAccountId, string? email, string providerId, bool isPrimary = false)
     {
-        return new AuthIdentity(userAccountId, AuthProvider.Microsoft, email, providerId, null, true);
+        return new AuthIdentity(userAccountId, AuthProvider.Microsoft, email, providerId, null, true, isPrimary);
     }
 
     public void UpdatePasswordHash(string passwordHash)
@@ -52,6 +55,16 @@ public class AuthIdentity : BaseEntity
     public void MarkVerified()
     {
         IsVerified = true;
+    }
+
+    public void SetPrimary(bool isPrimary)
+    {
+        IsPrimary = isPrimary;
+    }
+
+    public void MarkAsPrimary()
+    {
+        IsPrimary = true;
     }
 
     public void UpdateEmail(string email)

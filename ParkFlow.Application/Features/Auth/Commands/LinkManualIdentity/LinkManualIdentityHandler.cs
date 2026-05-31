@@ -39,11 +39,17 @@ public class LinkManualIdentityHandler : IRequestHandler<LinkManualIdentityComma
             return Result<Guid>.Failure("User account not found.", ErrorCode.NotFound);
 
         var existingIdentity = await _authIdentityRepository.GetByEmailAsync(request.Email);
-        if (existingIdentity != null && existingIdentity.UserAccountId != request.UserId)
-            return Result<Guid>.Failure("Email is already linked to another account.", ErrorCode.Conflict);
+        if (existingIdentity != null)
+        {
+            var message = existingIdentity.UserAccountId == request.UserId
+                ? "Email is already linked to this account."
+                : "Email is already linked to another account.";
+
+            return Result<Guid>.Failure(message, ErrorCode.Conflict);
+        }
 
         var hashedPassword = _passwordHasher.HashPassword(request.Password);
-        var identity = AuthIdentity.CreateManual(user.Id, request.Email, hashedPassword);
+        var identity = AuthIdentity.CreateManual(user.Id, request.Email, hashedPassword, isPrimary: !user.AuthIdentities.Any());
         await _authIdentityRepository.AddAsync(identity);
 
         return Result<Guid>.Success(identity.Id, "Manual login linked successfully.");

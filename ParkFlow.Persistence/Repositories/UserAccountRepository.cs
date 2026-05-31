@@ -17,7 +17,6 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
     public async Task<UserAccount?> GetByEmailAsync(string email)
     {
         return await _appDbContext.UserAccounts
-            .AsNoTracking()
             .Include(u => u.UserProfile)
                 .ThenInclude(p => p.Student)
             .Include(u => u.UserProfile)
@@ -25,7 +24,7 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
             .Include(u => u.UserProfile)
                 .ThenInclude(p => p.Guard)
             .Include(u => u.AuthIdentities)
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+            .FirstOrDefaultAsync(u => u.AuthIdentities.Any(i => i.Email != null && i.Email.ToLower() == email.ToLower()));
     }
 
     public async Task<UserAccount?> GetByAuthProviderExternalIdAsync(AuthProvider authProvider, string externalProviderId)
@@ -47,9 +46,12 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
 
     public async Task<bool> EmailExistsAsync(string email, Guid? excludeUserId = null)
     {
-        var query = _appDbContext.UserAccounts.AsNoTracking().Where(u => u.Email == email);
+        var query = _appDbContext.AuthIdentities
+            .AsNoTracking()
+            .Where(i => i.Email != null && i.Email.ToLower() == email.ToLower());
+
         if (excludeUserId.HasValue)
-            query = query.Where(u => u.Id != excludeUserId.Value);
+            query = query.Where(i => i.UserAccountId != excludeUserId.Value);
 
         return await query.AnyAsync();
     }

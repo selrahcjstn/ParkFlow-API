@@ -29,11 +29,12 @@ public class GetUserCredentialsHandler : IRequestHandler<GetUserCredentialsQuery
             identity.Provider.ToString(),
             identity.Email,
             identity.ProviderId,
-            identity.IsVerified
+            identity.IsVerified,
+            identity.IsPrimary
         )).ToList();
 
         var dto = new UserCredentialsDto(
-            user.Email,
+            user.PrimaryEmail ?? string.Empty,
             user.AuthProvider.ToString(),
             user.ExternalProviderId,
             linkedIdentities

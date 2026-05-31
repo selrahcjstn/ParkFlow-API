@@ -44,7 +44,8 @@ public class LinkMicrosoftIdentityHandler : IRequestHandler<LinkMicrosoftIdentit
         if (existingEmail != null && existingEmail.UserAccountId != request.UserId)
             return Result<Guid>.Failure("Email is already linked to another account.", ErrorCode.Conflict);
 
-        var identity = AuthIdentity.CreateMicrosoft(user.Id, request.Email, request.ExternalProviderId);
+        var identityEmail = existingEmail == null ? request.Email : null;
+        var identity = AuthIdentity.CreateMicrosoft(user.Id, identityEmail, request.ExternalProviderId, isPrimary: !user.AuthIdentities.Any());
         await _authIdentityRepository.AddAsync(identity);
 
         return Result<Guid>.Success(identity.Id, "Microsoft login linked successfully.");

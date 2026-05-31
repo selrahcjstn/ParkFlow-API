@@ -17,9 +17,6 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccount>
         entity.Property(e => e.CreatedAt)
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-        entity.Property(e => e.Email)
-            .IsRequired();
-
         entity.Property(e => e.PasswordHash)
             .IsRequired(false);
 
@@ -41,6 +38,9 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccount>
             .IsRequired(false);
 
         entity.Property(e => e.PasswordResetTokenExpiresAt)
+            .IsRequired(false);
+
+        entity.Property(e => e.PasswordLastUpdatedAt)
             .IsRequired(false);
 
         entity.HasIndex(e => new { e.AuthProvider, e.ExternalProviderId })

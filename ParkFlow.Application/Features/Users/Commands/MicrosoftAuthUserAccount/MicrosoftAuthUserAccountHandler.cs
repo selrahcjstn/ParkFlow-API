@@ -51,19 +51,22 @@ public class MicrosoftAuthUserAccountHandler : IRequestHandler<MicrosoftAuthUser
         else
         {
             var existingByEmail = await _authIdentityRepository.GetByEmailAsync(request.Email);
+            string? identityEmail = request.Email;
             if (existingByEmail != null)
             {
                 user = existingByEmail.UserAccount;
+                identityEmail = null;
             }
             else
             {
-                user = UserAccount.CreateMicrosoft(request.Email, request.ExternalProviderId);
+                user = UserAccount.CreateMicrosoft(request.ExternalProviderId);
                 await _userAccountRepository.AddAsync(user);
             }
 
-            var identity = AuthIdentity.CreateMicrosoft(user.Id, request.Email, request.ExternalProviderId);
+            var identity = AuthIdentity.CreateMicrosoft(user.Id, identityEmail, request.ExternalProviderId, isPrimary: !user.AuthIdentities.Any());
 
             await _authIdentityRepository.AddAsync(identity);
+            user.AuthIdentities.Add(identity);
         }
 
         string? resolvedFirstName = request.FirstName;
@@ -111,7 +114,7 @@ public class MicrosoftAuthUserAccountHandler : IRequestHandler<MicrosoftAuthUser
 
         var response = new MicrosoftAuthResultDto(
             user.Id,
-            user.Email,
+            user.PrimaryEmail ?? request.Email,
             AuthProvider.Microsoft.ToString(),
             request.ExternalProviderId,
             token,

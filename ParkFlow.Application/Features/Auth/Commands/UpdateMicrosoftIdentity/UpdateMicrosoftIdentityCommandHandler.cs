@@ -11,16 +11,13 @@ namespace ParkFlow.Application.Features.Auth.Commands.UpdateMicrosoftIdentity;
 
 public class UpdateMicrosoftIdentityCommandHandler : IRequestHandler<UpdateMicrosoftIdentityCommand, Result<bool>>
 {
-    private readonly IUserAccountRepository _userAccountRepository;
     private readonly IAuthIdentityRepository _authIdentityRepository;
     private readonly IValidator<UpdateMicrosoftIdentityCommand> _validator;
 
     public UpdateMicrosoftIdentityCommandHandler(
-        IUserAccountRepository userAccountRepository,
         IAuthIdentityRepository authIdentityRepository,
         IValidator<UpdateMicrosoftIdentityCommand> validator)
     {
-        _userAccountRepository = userAccountRepository;
         _authIdentityRepository = authIdentityRepository;
         _validator = validator;
     }
@@ -51,27 +48,19 @@ public class UpdateMicrosoftIdentityCommandHandler : IRequestHandler<UpdateMicro
 
         // Check if new email is already linked to another account
         var existingEmail = await _authIdentityRepository.GetByEmailAsync(request.NewEmail);
-        if (existingEmail != null && existingEmail.UserAccountId != request.UserId)
+        if (existingEmail != null && existingEmail.Id != microsoftIdentity.Id)
         {
-            return Result<bool>.Failure(false, "Email is already linked to another account.", ErrorCode.Conflict);
+            var message = existingEmail.UserAccountId == request.UserId
+                ? "Email is already linked to this account."
+                : "Email is already linked to another account.";
+
+            return Result<bool>.Failure(false, message, ErrorCode.Conflict);
         }
 
         // Update email and provider ID on Microsoft Identity
         microsoftIdentity.UpdateEmail(request.NewEmail);
         microsoftIdentity.UpdateProviderId(request.NewExternalProviderId);
         await _authIdentityRepository.UpdateAsync(microsoftIdentity);
-
-        // Also sync on core UserAccount
-        var user = await _userAccountRepository.GetByIdAsync(request.UserId);
-        if (user != null)
-        {
-            user.UpdateEmail(request.NewEmail);
-            if (user.AuthProvider == AuthProvider.Microsoft)
-            {
-                user.UpdateExternalProviderId(request.NewExternalProviderId);
-            }
-            await _userAccountRepository.UpdateAsync(user);
-        }
 
         return Result<bool>.Success(true, "Microsoft link updated successfully.");
     }

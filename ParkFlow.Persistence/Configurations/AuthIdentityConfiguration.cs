@@ -31,6 +31,9 @@ public class AuthIdentityConfiguration : IEntityTypeConfiguration<AuthIdentity>
         entity.Property(e => e.IsVerified)
             .HasDefaultValue(false);
 
+        entity.Property(e => e.IsPrimary)
+            .HasDefaultValue(false);
+
         entity.HasOne(e => e.UserAccount)
             .WithMany(u => u.AuthIdentities)
             .HasForeignKey(e => e.UserAccountId)
@@ -43,5 +46,9 @@ public class AuthIdentityConfiguration : IEntityTypeConfiguration<AuthIdentity>
         entity.HasIndex(e => e.Email)
             .IsUnique()
             .HasFilter("\"Email\" IS NOT NULL");
+
+        entity.HasIndex(e => e.UserAccountId)
+            .IsUnique()
+            .HasFilter("\"IsPrimary\" = true");
     }
 }

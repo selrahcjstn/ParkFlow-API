@@ -26,14 +26,16 @@ public class LinkedIdentityDto
     public string? Email { get; set; }
     public string? ProviderId { get; set; }
     public bool IsVerified { get; set; }
+    public bool IsPrimary { get; set; }
 
     public LinkedIdentityDto() { }
 
-    public LinkedIdentityDto(string provider, string? email, string? providerId, bool isVerified)
+    public LinkedIdentityDto(string provider, string? email, string? providerId, bool isVerified, bool isPrimary)
     {
         Provider = provider;
         Email = email;
         ProviderId = providerId;
         IsVerified = isVerified;
+        IsPrimary = isPrimary;
     }
 }

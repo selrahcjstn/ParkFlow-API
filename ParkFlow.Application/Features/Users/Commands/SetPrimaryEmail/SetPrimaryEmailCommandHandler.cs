@@ -40,25 +40,30 @@ public class SetPrimaryEmailCommandHandler : IRequestHandler<SetPrimaryEmailComm
             return Result<bool>.Failure(false, "User account not found.", ErrorCode.NotFound);
         }
 
-        // Check if email is already taken by another user account
-        var isEmailTaken = await _userAccountRepository.EmailExistsAsync(request.Email, user.Id);
-        if (isEmailTaken)
-        {
-            return Result<bool>.Failure(false, "Email is already taken by another account.", ErrorCode.Conflict);
-        }
-
-        // Update email on Manual AuthIdentity if it exists
         var identities = (await _authIdentityRepository.GetByAccountIdAsync(user.Id)).ToList();
-        var manualIdentity = identities.FirstOrDefault(i => i.Provider == AuthProvider.Manual);
-        if (manualIdentity != null)
+
+        var targetIdentity = identities.FirstOrDefault(i =>
+            i.Email != null && i.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
+
+        if (targetIdentity == null)
         {
-            manualIdentity.UpdateEmail(request.Email);
-            await _authIdentityRepository.UpdateAsync(manualIdentity);
+            return Result<bool>.Failure(false, "Email is not linked to this account.", ErrorCode.NotFound);
         }
 
-        // Update primary email on core UserAccount
-        user.UpdateEmail(request.Email);
-        await _userAccountRepository.UpdateAsync(user);
+        if (targetIdentity.IsPrimary)
+        {
+            return Result<bool>.Failure(false, "Email is already the primary email.", ErrorCode.BadRequest);
+        }
+
+        targetIdentity.MarkAsPrimary();
+
+        foreach (var other in identities.Where(i => i.Id != targetIdentity.Id && i.IsPrimary))
+        {
+            other.SetPrimary(false);
+            await _authIdentityRepository.UpdateAsync(other);
+        }
+
+        await _authIdentityRepository.UpdateAsync(targetIdentity);
 
         return Result<bool>.Success(true, "Primary email updated successfully.");
     }

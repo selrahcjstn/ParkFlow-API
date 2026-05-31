@@ -73,19 +73,21 @@ public class SetPrimaryEmailTests
     }
 
     [Fact]
-    public async Task SetPrimaryEmailHandler_ShouldSuccessfullyUpdatePrimaryAndManualEmail()
+    public async Task SetPrimaryEmailHandler_ShouldSuccessfullyUpdatePrimaryIdentity()
     {
         // Arrange
         var userId = Guid.NewGuid();
         var oldEmail = "old@parkflow.com";
         var newEmail = "new@parkflow.com";
-        var user = new UserAccount(oldEmail, "hash", "+639000000000");
+        var user = new UserAccount("hash", "+639000000000");
 
         var idProperty = typeof(BaseEntity).GetProperty("Id");
         idProperty?.SetValue(user, userId);
 
-        var manualIdentity = AuthIdentity.CreateManual(userId, oldEmail, "hash");
+        var manualIdentity = AuthIdentity.CreateManual(userId, oldEmail, "hash", isPrimary: true);
+        var microsoftIdentity = AuthIdentity.CreateMicrosoft(userId, newEmail, "ms-id");
         await _authIdentityRepository.AddAsync(manualIdentity);
+        await _authIdentityRepository.AddAsync(microsoftIdentity);
         await _userAccountRepository.AddAsync(user);
 
         var command = new SetPrimaryEmailCommand(userId, newEmail);
@@ -98,34 +100,28 @@ public class SetPrimaryEmailTests
         Assert.True(result.IsSuccess);
         Assert.True(result.Data);
 
-        var updatedUser = Assert.Single(_userAccountRepository.Users);
-        Assert.Equal(newEmail, updatedUser.Email);
-
-        var updatedIdentity = Assert.Single(_authIdentityRepository.Identities);
-        Assert.Equal(newEmail, updatedIdentity.Email);
+        Assert.Equal(newEmail, _authIdentityRepository.Identities.Single(i => i.Email == newEmail).Email);
+        Assert.True(_authIdentityRepository.Identities.Single(i => i.Email == newEmail).IsPrimary);
+        Assert.False(_authIdentityRepository.Identities.Single(i => i.Email == oldEmail).IsPrimary);
     }
 
     [Fact]
-    public async Task SetPrimaryEmailHandler_ShouldReturnConflictIfEmailIsAlreadyTaken()
+    public async Task SetPrimaryEmailHandler_ShouldReturnNotFoundIfEmailIsNotLinked()
     {
         // Arrange
-        var userId1 = Guid.NewGuid();
-        var userId2 = Guid.NewGuid();
-        var email1 = "user1@parkflow.com";
-        var email2 = "user2@parkflow.com";
+        var userId = Guid.NewGuid();
+        var email = "user@parkflow.com";
+        var unlinkedEmail = "unlinked@parkflow.com";
 
-        var user1 = new UserAccount(email1, "hash", "+639000000000");
-        var user2 = new UserAccount(email2, "hash", "+639000000001");
+        var user = new UserAccount("hash", "+639000000000");
 
         var idProperty = typeof(BaseEntity).GetProperty("Id");
-        idProperty?.SetValue(user1, userId1);
-        idProperty?.SetValue(user2, userId2);
+        idProperty?.SetValue(user, userId);
 
-        await _userAccountRepository.AddAsync(user1);
-        await _userAccountRepository.AddAsync(user2);
+        await _userAccountRepository.AddAsync(user);
+        await _authIdentityRepository.AddAsync(AuthIdentity.CreateManual(userId, email, "hash", isPrimary: true));
 
-        // Try to update user2's email to user1's email (taken)
-        var command = new SetPrimaryEmailCommand(userId2, email1);
+        var command = new SetPrimaryEmailCommand(userId, unlinkedEmail);
         var handler = new SetPrimaryEmailCommandHandler(_userAccountRepository, _authIdentityRepository, _validator);
 
         // Act
@@ -133,8 +129,8 @@ public class SetPrimaryEmailTests
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorCode.Conflict, result.ErrorCode);
-        Assert.Equal("Email is already taken by another account.", result.Message);
+        Assert.Equal(ErrorCode.NotFound, result.ErrorCode);
+        Assert.Equal("Email is not linked to this account.", result.Message);
     }
 
     [Fact]

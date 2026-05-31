@@ -46,6 +46,16 @@ public class UnlinkIdentityCommandHandler : IRequestHandler<UnlinkIdentityComman
 
         await _authIdentityRepository.DeleteAsync(targetIdentity);
 
+        if (targetIdentity.IsPrimary)
+        {
+            var nextPrimary = identitiesList.FirstOrDefault(i => i.Id != targetIdentity.Id);
+            if (nextPrimary != null)
+            {
+                nextPrimary.MarkAsPrimary();
+                await _authIdentityRepository.UpdateAsync(nextPrimary);
+            }
+        }
+
         return Result<bool>.Success(true, $"{request.Provider} identity unlinked successfully.");
     }
 }
