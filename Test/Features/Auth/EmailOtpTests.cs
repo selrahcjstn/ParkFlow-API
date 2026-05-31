@@ -3,6 +3,7 @@ using ParkFlow.Application.Features.Auth.Commands.SendEmailOtp;
 using ParkFlow.Application.Features.Auth.Commands.VerifyEmailOtp;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,6 +43,43 @@ public class FakeEmailOtpRepository : IEmailOtpRepository
     }
 }
 
+public class FakeAuthIdentityRepository : IAuthIdentityRepository
+{
+    public List<AuthIdentity> Identities { get; } = new();
+
+    public Task<AuthIdentity?> GetByProviderIdAsync(AuthProvider provider, string providerId)
+    {
+        return Task.FromResult(Identities.FirstOrDefault(i => i.Provider == provider && i.ProviderId == providerId));
+    }
+
+    public Task<AuthIdentity?> GetByEmailAsync(string email)
+    {
+        return Task.FromResult(Identities.FirstOrDefault(i => i.Email == email));
+    }
+
+    public Task<IEnumerable<AuthIdentity>> GetByAccountIdAsync(Guid accountId)
+    {
+        return Task.FromResult<IEnumerable<AuthIdentity>>(Identities.Where(i => i.UserAccountId == accountId).ToList());
+    }
+
+    public Task AddAsync(AuthIdentity identity)
+    {
+        Identities.Add(identity);
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateAsync(AuthIdentity identity)
+    {
+        var existing = Identities.FirstOrDefault(i => i.Id == identity.Id);
+        if (existing != null)
+        {
+            Identities.Remove(existing);
+            Identities.Add(identity);
+        }
+        return Task.CompletedTask;
+    }
+}
+
 public class FakeEmailService : IEmailService
 {
     public List<(string To, string Subject, string HtmlBody)> SentEmails { get; } = new();
@@ -56,6 +94,7 @@ public class FakeEmailService : IEmailService
 public class EmailOtpTests
 {
     private readonly FakeEmailOtpRepository _emailOtpRepository;
+    private readonly FakeAuthIdentityRepository _authIdentityRepository;
     private readonly FakeEmailService _emailService;
     private readonly SendEmailOtpCommandValidator _sendValidator;
     private readonly VerifyEmailOtpCommandValidator _verifyValidator;
@@ -63,6 +102,7 @@ public class EmailOtpTests
     public EmailOtpTests()
     {
         _emailOtpRepository = new FakeEmailOtpRepository();
+        _authIdentityRepository = new FakeAuthIdentityRepository();
         _emailService = new FakeEmailService();
         _sendValidator = new SendEmailOtpCommandValidator();
         _verifyValidator = new VerifyEmailOtpCommandValidator();
@@ -115,7 +155,7 @@ public class EmailOtpTests
     }
 
     [Fact]
-    public async Task VerifyEmailOtpHandler_ShouldSuccessfullyVerifyValidOtp()
+    public async Task VerifyEmailOtpHandler_ShouldSuccessfullyVerifyValidOtpAndFlipAuthIdentityToVerified()
     {
         // Arrange
         var email = "verify@parkflow.com";
@@ -124,8 +164,13 @@ public class EmailOtpTests
         var emailOtp = new EmailOtp(email, code, expiresAt);
         await _emailOtpRepository.AddAsync(emailOtp);
 
+        // Create an unverified AuthIdentity matching the email
+        var userId = Guid.NewGuid();
+        var identity = AuthIdentity.CreateManual(userId, email, "hashedPassword");
+        await _authIdentityRepository.AddAsync(identity);
+
         var command = new VerifyEmailOtpCommand(email, code);
-        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _verifyValidator);
+        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _verifyValidator);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -136,6 +181,10 @@ public class EmailOtpTests
 
         var updatedOtp = Assert.Single(_emailOtpRepository.Otps);
         Assert.True(updatedOtp.IsUsed);
+
+        // Check that identity got flipped to verified
+        var updatedIdentity = Assert.Single(_authIdentityRepository.Identities);
+        Assert.True(updatedIdentity.IsVerified);
     }
 
     [Fact]
@@ -143,7 +192,7 @@ public class EmailOtpTests
     {
         // Arrange
         var command = new VerifyEmailOtpCommand("no-otp@parkflow.com", "111111");
-        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _verifyValidator);
+        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _verifyValidator);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -164,7 +213,7 @@ public class EmailOtpTests
         await _emailOtpRepository.AddAsync(emailOtp);
 
         var command = new VerifyEmailOtpCommand(email, wrongCode);
-        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _verifyValidator);
+        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _verifyValidator);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -186,7 +235,7 @@ public class EmailOtpTests
         await _emailOtpRepository.AddAsync(emailOtp);
 
         var command = new VerifyEmailOtpCommand(email, code);
-        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _verifyValidator);
+        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _verifyValidator);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -210,7 +259,7 @@ public class EmailOtpTests
         await _emailOtpRepository.AddAsync(emailOtp);
 
         var command = new VerifyEmailOtpCommand(email, code);
-        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _verifyValidator);
+        var handler = new VerifyEmailOtpCommandHandler(_emailOtpRepository, _authIdentityRepository, _verifyValidator);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);

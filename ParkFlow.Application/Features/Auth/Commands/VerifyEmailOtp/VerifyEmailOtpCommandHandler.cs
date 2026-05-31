@@ -12,13 +12,16 @@ namespace ParkFlow.Application.Features.Auth.Commands.VerifyEmailOtp;
 public class VerifyEmailOtpCommandHandler : IRequestHandler<VerifyEmailOtpCommand, Result<bool>>
 {
     private readonly IEmailOtpRepository _emailOtpRepository;
+    private readonly IAuthIdentityRepository _authIdentityRepository;
     private readonly IValidator<VerifyEmailOtpCommand> _validator;
 
     public VerifyEmailOtpCommandHandler(
         IEmailOtpRepository emailOtpRepository,
+        IAuthIdentityRepository authIdentityRepository,
         IValidator<VerifyEmailOtpCommand> validator)
     {
         _emailOtpRepository = emailOtpRepository;
+        _authIdentityRepository = authIdentityRepository;
         _validator = validator;
     }
 
@@ -56,6 +59,14 @@ public class VerifyEmailOtpCommandHandler : IRequestHandler<VerifyEmailOtpComman
         // On success, mark IsUsed = true.
         emailOtp.MarkAsUsed();
         await _emailOtpRepository.UpdateAsync(emailOtp);
+
+        // Also flip the AuthIdentity matching the email to verified
+        var authIdentity = await _authIdentityRepository.GetByEmailAsync(request.Email);
+        if (authIdentity != null && !authIdentity.IsVerified)
+        {
+            authIdentity.MarkVerified();
+            await _authIdentityRepository.UpdateAsync(authIdentity);
+        }
 
         return Result<bool>.Success(true, "Email verified successfully.");
     }
