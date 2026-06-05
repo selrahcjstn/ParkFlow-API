@@ -130,6 +130,50 @@ public class ViolationRepository : IViolationRepository
         }
     }
 
+    public async Task<IReadOnlyList<Violation>> GetViolationsByUserIdAsync(Guid userId)
+    {
+        try
+        {
+            return await _context.Set<Violation>()
+                .AsNoTracking()
+                .Include(v => v.ParkingLog)
+                    .ThenInclude(pl => pl.Vehicle)
+                        .ThenInclude(ve => ve.Owner)
+                            .ThenInclude(ua => ua.UserProfile)
+                                .ThenInclude(up => up.Student)
+                .Include(v => v.ParkingLog)
+                    .ThenInclude(pl => pl.Vehicle)
+                        .ThenInclude(ve => ve.Owner)
+                            .ThenInclude(ua => ua.UserProfile)
+                                .ThenInclude(up => up.Personnel)
+                .Include(v => v.ParkingLog)
+                    .ThenInclude(pl => pl.Vehicle)
+                        .ThenInclude(ve => ve.Owner)
+                            .ThenInclude(ua => ua.UserProfile)
+                                .ThenInclude(up => up.Guard)
+                .Where(v => v.ParkingLog.Vehicle.OwnerId == userId)
+                .OrderByDescending(v => v.CreatedAt)
+                .ToListAsync();
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            return [];
+        }
+    }
+
+    public async Task<bool> HasActiveViolationAsync(Guid vehicleId)
+    {
+        try
+        {
+            return await _context.Set<Violation>()
+                .AnyAsync(v => v.ParkingLog.VehicleId == vehicleId && v.SettlementStatus != global::SettlementStatus.Settled);
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            return false;
+        }
+    }
+
     public async Task UpdateAsync(Violation violation)
     {
         _context.Set<Violation>().Update(violation);
