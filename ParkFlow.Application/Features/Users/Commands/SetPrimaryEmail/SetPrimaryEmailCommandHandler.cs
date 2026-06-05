@@ -52,13 +52,19 @@ public class SetPrimaryEmailCommandHandler : IRequestHandler<SetPrimaryEmailComm
             return Result<bool>.Failure(false, "Email is already the primary email.", ErrorCode.BadRequest);
         }
 
-        targetIdentity.MarkAsPrimary();
-
-        foreach (var other in identities.Where(i => i.Id != targetIdentity.Id && i.IsPrimary))
+        // Step 1: Set IsPrimary = false for all other primary identities and save
+        var otherPrimaries = identities.Where(i => i.Id != targetIdentity.Id && i.IsPrimary).ToList();
+        if (otherPrimaries.Any())
         {
-            other.SetPrimary(false);
+            foreach (var other in otherPrimaries)
+            {
+                other.SetPrimary(false);
+            }
+            await _userAccountRepository.UpdateAsync(user);
         }
 
+        // Step 2: Now set the target identity as primary and save
+        targetIdentity.MarkAsPrimary();
         await _userAccountRepository.UpdateAsync(user);
 
         return Result<bool>.Success(true, "Primary email updated successfully.");

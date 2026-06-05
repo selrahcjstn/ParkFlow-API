@@ -86,6 +86,8 @@ public class SetPrimaryEmailTests
 
         var manualIdentity = AuthIdentity.CreateManual(userId, oldEmail, "hash", isPrimary: true);
         var microsoftIdentity = AuthIdentity.CreateMicrosoft(userId, newEmail, "ms-id");
+        user.AuthIdentities.Add(manualIdentity);
+        user.AuthIdentities.Add(microsoftIdentity);
         await _authIdentityRepository.AddAsync(manualIdentity);
         await _authIdentityRepository.AddAsync(microsoftIdentity);
         await _userAccountRepository.AddAsync(user);
@@ -118,8 +120,10 @@ public class SetPrimaryEmailTests
         var idProperty = typeof(BaseEntity).GetProperty("Id");
         idProperty?.SetValue(user, userId);
 
+        var manualIdentity = AuthIdentity.CreateManual(userId, email, "hash", isPrimary: true);
+        user.AuthIdentities.Add(manualIdentity);
         await _userAccountRepository.AddAsync(user);
-        await _authIdentityRepository.AddAsync(AuthIdentity.CreateManual(userId, email, "hash", isPrimary: true));
+        await _authIdentityRepository.AddAsync(manualIdentity);
 
         var command = new SetPrimaryEmailCommand(userId, unlinkedEmail);
         var handler = new SetPrimaryEmailCommandHandler(_userAccountRepository, _validator);
