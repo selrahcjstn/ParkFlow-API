@@ -8,6 +8,7 @@ using ParkFlow.Application.Features.Users.Commands.MicrosoftAuthUserAccount;
 using ParkFlow.Application.Features.Users.Commands.ResetPasswordUserAccount;
 using ParkFlow.Application.Features.Users.Commands.UpdatePhoneNumber;
 using ParkFlow.Application.Features.Users.Commands.SetPrimaryEmail;
+using ParkFlow.Application.Features.Users.Commands.VerifyResetPasswordCode;
 using ParkFlow.Application.Features.Users.Queries.GetUserCredentials;
 using ParkFlow.Application.Features.Users.DTOs;
 using ParkFlow.Application.Interfaces;
@@ -118,6 +119,22 @@ namespace ParkFlow.API.Controllers
 
             return result.ErrorCode == ErrorCode.NotFound
                 ? NotFound(result)
+                : BadRequest(result);
+        }
+
+        [HttpPost("verify-reset-code")]
+        public async Task<ActionResult<Result<string>>> VerifyResetCode(VerifyResetPasswordCodeRequest request)
+        {
+            var command = new VerifyResetPasswordCodeCommand(request.Email, request.Code);
+            var result = await _mediator.Send(command);
+            if (result.IsSuccess)
+                return Ok(result);
+
+            if (result.ErrorCode == ErrorCode.NotFound)
+                return NotFound(result);
+
+            return result.ErrorCode == ErrorCode.Unauthorized
+                ? Unauthorized(result)
                 : BadRequest(result);
         }
 

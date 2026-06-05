@@ -40,7 +40,12 @@ public class ResetPasswordUserAccountHandler
         if (user is null)
             return Result<Guid>.Failure("User account not found.", ErrorCode.NotFound);
 
-        if (user.AuthProvider != AuthProvider.Manual || string.IsNullOrWhiteSpace(user.PasswordHash))
+        var manualIdentity = user.AuthIdentities.FirstOrDefault(i =>
+            i.Provider == AuthProvider.Manual &&
+            i.Email != null &&
+            i.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
+
+        if (manualIdentity == null || string.IsNullOrWhiteSpace(manualIdentity.PasswordHash))
             return Result<Guid>.Failure("Password reset is only available for manual accounts.", ErrorCode.BadRequest);
 
         var resetTokenHash = Sha256Base64(request.ResetToken);
@@ -51,6 +56,7 @@ public class ResetPasswordUserAccountHandler
             return Result<Guid>.Failure("Invalid or expired reset token.", ErrorCode.Unauthorized);
 
         user.ResetPasswordWithToken(resetTokenHash, newPasswordHash, utcNow);
+        manualIdentity.UpdatePasswordHash(newPasswordHash);
         await _userAccountRepository.UpdateAsync(user);
 
         return Result<Guid>.Success(user.Id, "Password reset successful.");
