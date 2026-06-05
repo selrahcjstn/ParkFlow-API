@@ -12,8 +12,8 @@ using ParkFlow.Persistence;
 namespace ParkFlow.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260526030357_AddMicrosoftAuthToUserAccount")]
-    partial class AddMicrosoftAuthToUserAccount
+    [Migration("20260605154326_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -78,6 +78,103 @@ namespace ParkFlow.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Admins");
+                });
+
+            modelBuilder.Entity("ParkFlow.Domain.Entities.AuthIdentity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<bool>("IsPrimary")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsVerified")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<int>("Provider")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProviderId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserAccountId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasFilter("\"Email\" IS NOT NULL");
+
+                    b.HasIndex("UserAccountId")
+                        .IsUnique()
+                        .HasFilter("\"IsPrimary\" = true");
+
+                    b.HasIndex("Provider", "ProviderId")
+                        .IsUnique()
+                        .HasFilter("\"ProviderId\" IS NOT NULL");
+
+                    b.ToTable("AuthIdentities");
+                });
+
+            modelBuilder.Entity("ParkFlow.Domain.Entities.EmailOtp", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsUsed")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("OtpCode")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.ToTable("EmailOtps");
                 });
 
             modelBuilder.Entity("ParkFlow.Domain.Entities.Guard", b =>
@@ -169,6 +266,36 @@ namespace ParkFlow.Persistence.Migrations
                     b.ToTable("ParkingSchedules");
                 });
 
+            modelBuilder.Entity("ParkFlow.Domain.Entities.PasswordHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserAccountId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserAccountId");
+
+                    b.ToTable("PasswordHistories");
+                });
+
             modelBuilder.Entity("ParkFlow.Domain.Entities.Personnel", b =>
                 {
                     b.Property<Guid>("UserProfileId")
@@ -230,42 +357,6 @@ namespace ParkFlow.Persistence.Migrations
                     b.ToTable("Violations");
                 });
 
-            modelBuilder.Entity("ParkingLogHistory", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("EntryTime")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("ExitTime")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("GuardId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ParkingLogId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("VehicleId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ParkingLogId");
-
-                    b.HasIndex("VehicleId");
-
-                    b.ToTable("ParkingLogHistories", (string)null);
-                });
-
             modelBuilder.Entity("Student", b =>
                 {
                     b.Property<Guid>("UserProfileId")
@@ -315,18 +406,17 @@ namespace ParkFlow.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("ExternalProviderId")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<int>("OnboardingStep")
+                        .HasColumnType("integer");
+
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text");
 
-                    b.Property<DateTime>("PasswordLastUpdatedAt")
+                    b.Property<DateTime?>("PasswordLastUpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("PasswordResetTokenExpiresAt")
@@ -411,6 +501,9 @@ namespace ParkFlow.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid");
 
@@ -459,6 +552,17 @@ namespace ParkFlow.Persistence.Migrations
                     b.Navigation("UserProfile");
                 });
 
+            modelBuilder.Entity("ParkFlow.Domain.Entities.AuthIdentity", b =>
+                {
+                    b.HasOne("UserAccount", "UserAccount")
+                        .WithMany("AuthIdentities")
+                        .HasForeignKey("UserAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("UserAccount");
+                });
+
             modelBuilder.Entity("ParkFlow.Domain.Entities.Guard", b =>
                 {
                     b.HasOne("UserProfile", "UserProfile")
@@ -498,6 +602,17 @@ namespace ParkFlow.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("CorSubmission");
+                });
+
+            modelBuilder.Entity("ParkFlow.Domain.Entities.PasswordHistory", b =>
+                {
+                    b.HasOne("UserAccount", "UserAccount")
+                        .WithMany("PasswordHistories")
+                        .HasForeignKey("UserAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("UserAccount");
                 });
 
             modelBuilder.Entity("ParkFlow.Domain.Entities.Personnel", b =>
@@ -562,6 +677,10 @@ namespace ParkFlow.Persistence.Migrations
 
             modelBuilder.Entity("UserAccount", b =>
                 {
+                    b.Navigation("AuthIdentities");
+
+                    b.Navigation("PasswordHistories");
+
                     b.Navigation("UserProfile");
                 });
 
