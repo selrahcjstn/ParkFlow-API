@@ -124,7 +124,7 @@ public class UploadFileSpecificHandlersTests
         var userId = Guid.NewGuid();
         var previousUrl = "https://res.cloudinary.com/test/image/upload/v1234/parkflow/profiles/old_image.jpg";
         
-        var profile = new UserProfile(userId, "John", "Doe", previousUrl);
+        var profile = new UserProfile(userId, "John", "Doe", null, previousUrl);
         await _userProfileRepository.AddAsync(profile);
 
         var file = CreateMockFile("new_avatar.png", "fake-avatar-bytes");
@@ -232,10 +232,10 @@ public class UploadFileSpecificHandlersTests
     }
 
     [Fact]
-    public void CorValidator_ShouldFailWhenFileIsNotPdf()
+    public void CorValidator_ShouldFailWhenFileIsNotPdfOrImage()
     {
         // Arrange
-        var file = CreateMockFile("cor.jpg", "fake-bytes");
+        var file = CreateMockFile("cor.txt", "fake-bytes");
         var command = new UploadCorDocumentCommand(file, Guid.NewGuid());
 
         // Act
@@ -243,7 +243,7 @@ public class UploadFileSpecificHandlersTests
 
         // Assert
         Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("Only PDF format is allowed"));
+        Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("Only PDF and image formats (JPG, JPEG, PNG) are allowed"));
     }
 }
 

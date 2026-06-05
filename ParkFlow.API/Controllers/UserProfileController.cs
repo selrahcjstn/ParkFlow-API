@@ -42,6 +42,7 @@ public class UserProfileController : ControllerBase
             userId,
             request.FirstName,
             request.LastName,
+            request.MiddleName,
             request.ProfilePictureUrl);
 
         var result = await _mediator.Send(command);

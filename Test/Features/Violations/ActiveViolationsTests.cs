@@ -202,7 +202,7 @@ public class ActiveViolationsTests
         await _vehicleRepository.AddAsync(vehicle);
 
         var ownerAccount = new UserAccount(string.Empty, "+639999999999");
-        var ownerProfile = new UserProfile(ownerId, "John", "Doe", null);
+        var ownerProfile = new UserProfile(ownerId, "John", "Doe", null, null);
         ownerProfile.UserAccount = ownerAccount;
         _userProfileRepository.Profiles.Add(ownerProfile);
 
@@ -244,7 +244,7 @@ public class ActiveViolationsTests
         vehicleIdProperty?.SetValue(vehicle, Guid.NewGuid());
 
         var ownerAccount = new UserAccount(string.Empty, "+639999999999");
-        var ownerProfile = new UserProfile(ownerId, "John", "Doe", null);
+        var ownerProfile = new UserProfile(ownerId, "John", "Doe", null, null);
         ownerProfile.UserAccount = ownerAccount;
         
         // Setup references on owner property of vehicle

@@ -8,6 +8,7 @@ public record UserProfileDto(
     string PhoneNumber,
     string FirstName,
     string LastName,
+    string? MiddleName,
     string? ProfilePictureUrl,
     OnboardingStep OnboardingStep,
     string? StudentNumber = null,

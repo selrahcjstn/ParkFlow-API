@@ -61,6 +61,7 @@ public class GetUserViolationsHandler
                 // Owner
                 FirstName = ownerProfile.FirstName,
                 LastName = ownerProfile.LastName,
+                MiddleName = ownerProfile.MiddleName,
                 RoleName = roleDetails.Role,
 
                 // Vehicle

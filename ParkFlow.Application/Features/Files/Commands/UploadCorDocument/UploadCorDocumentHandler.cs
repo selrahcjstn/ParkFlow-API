@@ -37,8 +37,8 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
                 {
                     try
                     {
-                        // Since it's a PDF, isImage is false (it was uploaded using RawUploadParams)
-                        await _cloudinaryService.DeleteFileAsync(previousPublicId, isImage: false);
+                        var isPreviousPdf = corSubmission.CorDocumentUrl.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+                        await _cloudinaryService.DeleteFileAsync(previousPublicId, isImage: !isPreviousPdf);
                     }
                     catch
                     {
@@ -47,8 +47,11 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
                 }
             }
 
-            // Upload the new PDF document
-            var (secureUrl, publicId) = await _cloudinaryService.UploadPdfAsync(request.File, "parkflow/cor");
+            // Upload the new document (PDF or Image)
+            var isPdf = request.File.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+            var (secureUrl, publicId) = isPdf
+                ? await _cloudinaryService.UploadPdfAsync(request.File, "parkflow/cor")
+                : await _cloudinaryService.UploadImageAsync(request.File, "parkflow/cor");
 
             // Update database record
             corSubmission.UpdateSubmission(null, secureUrl, null);

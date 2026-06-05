@@ -6,7 +6,7 @@ namespace ParkFlow.Application.Features.Files.Commands.UploadCorDocument;
 
 public class UploadCorDocumentCommandValidator : AbstractValidator<UploadCorDocumentCommand>
 {
-    private static readonly string[] AllowedExtensions = { ".pdf" };
+    private static readonly string[] AllowedExtensions = { ".pdf", ".jpg", ".jpeg", ".png" };
 
     public UploadCorDocumentCommandValidator()
     {
@@ -25,6 +25,6 @@ public class UploadCorDocumentCommandValidator : AbstractValidator<UploadCorDocu
                 var extension = Path.GetExtension(file.FileName).ToLower();
                 return AllowedExtensions.Contains(extension);
             })
-            .WithMessage("Invalid file format. Only PDF format is allowed for COR documents.");
+            .WithMessage("Invalid file format. Only PDF and image formats (JPG, JPEG, PNG) are allowed for COR documents.");
     }
 }

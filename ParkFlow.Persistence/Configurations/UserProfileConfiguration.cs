@@ -28,6 +28,9 @@ public class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
         entity.Property(e => e.LastName)
             .HasMaxLength(100);
 
+        entity.Property(e => e.MiddleName)
+            .HasMaxLength(100);
+
         entity.Property(e => e.ProfilePictureUrl)
             .HasMaxLength(2048);
 

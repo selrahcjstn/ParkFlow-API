@@ -45,7 +45,7 @@ public class UploadProfilePictureHandler : IRequestHandler<UploadProfilePictureC
 
             var (secureUrl, publicId) = await _cloudinaryService.UploadImageAsync(request.File, "parkflow/profiles");
 
-            profile.UpdateProfile(null, null, secureUrl);
+            profile.UpdateProfile(null, null, null, secureUrl);
             await _userProfileRepository.UpdateAsync(profile);
 
             var response = new UploadFileResponse(secureUrl, publicId);

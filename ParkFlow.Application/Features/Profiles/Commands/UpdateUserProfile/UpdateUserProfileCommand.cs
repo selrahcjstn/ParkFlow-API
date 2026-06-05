@@ -7,5 +7,6 @@ public record UpdateUserProfileCommand(
     Guid UserId,
     string? FirstName,
     string? LastName,
+    string? MiddleName,
     string? ProfilePictureUrl
 ) : IRequest<Result<Guid>>;

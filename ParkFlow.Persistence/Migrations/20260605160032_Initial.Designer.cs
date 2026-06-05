@@ -12,7 +12,7 @@ using ParkFlow.Persistence;
 namespace ParkFlow.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260605154326_Initial")]
+    [Migration("20260605160032_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -463,6 +463,10 @@ namespace ParkFlow.Persistence.Migrations
 
                     b.Property<string>("LastName")
                         .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("MiddleName")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 

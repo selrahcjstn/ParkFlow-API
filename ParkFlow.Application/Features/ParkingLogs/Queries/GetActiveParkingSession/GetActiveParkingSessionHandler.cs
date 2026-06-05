@@ -1,4 +1,4 @@
-﻿// Handler
+// Handler
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.ParkingLogs.DTOs;
@@ -101,6 +101,7 @@ public class GetActiveParkingSessionHandler
             dtos.Add(new GetActiveParkingSessionResponse(
                 FirstName: ownerProfile.FirstName,
                 LastName: ownerProfile.LastName,
+                MiddleName: ownerProfile.MiddleName,
                 PhoneNumber: ownerPhoneNumber,
 
                 Status: log.Status.ToString(),

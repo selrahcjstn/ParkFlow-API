@@ -111,6 +111,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
             {
                 FirstName = ownerProfile.FirstName,
                 LastName = ownerProfile.LastName,
+                MiddleName = ownerProfile.MiddleName,
                 RoleName = roleDetails.Role,
                 PlateNumber = log.Vehicle.PlateNumber,
                 Brand = log.Vehicle.Brand,

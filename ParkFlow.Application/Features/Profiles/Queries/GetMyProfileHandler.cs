@@ -36,6 +36,7 @@ public class GetMyProfileHandler
             profile.UserAccount.PhoneNumber ?? string.Empty,
             profile.FirstName,
             profile.LastName,
+            profile.MiddleName,
             profile.ProfilePictureUrl,
             profile.UserAccount.OnboardingStep,
             StudentNumber: profile.Student?.StudentNumber,

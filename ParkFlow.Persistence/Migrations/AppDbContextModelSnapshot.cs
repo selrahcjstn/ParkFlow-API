@@ -463,6 +463,10 @@ namespace ParkFlow.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("MiddleName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("ProfilePictureUrl")
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");

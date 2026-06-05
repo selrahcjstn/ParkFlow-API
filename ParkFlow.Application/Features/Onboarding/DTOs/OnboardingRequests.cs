@@ -6,6 +6,7 @@ public record OnboardingProfileRequest(
     string PhoneNumber,
     string FirstName,
     string LastName,
+    string? MiddleName,
     string? ProfilePictureUrl);
 
 public record OnboardingStudentRequest(
