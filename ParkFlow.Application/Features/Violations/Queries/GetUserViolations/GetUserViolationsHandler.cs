@@ -46,6 +46,8 @@ public class GetUserViolationsHandler
             var log = violation.ParkingLog;
             var vehicle = log.Vehicle;
             var ownerProfile = vehicle.Owner.UserProfile;
+            if (ownerProfile is null)
+                continue;
 
             var admin = await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id);
             var roleDetails = _parkingLogRoleService.GetRoleDetails(

@@ -27,7 +27,7 @@ public class GetUserProfileByUserIdHandler : IRequestHandler<GetUserProfileByUse
         var dto = new UserProfileDto(
             profile.Id,
             profile.UserAccountId,
-            profile.UserAccount.PhoneNumber,
+            profile.UserAccount.PhoneNumber ?? string.Empty,
             profile.FirstName,
             profile.LastName,
             profile.ProfilePictureUrl,

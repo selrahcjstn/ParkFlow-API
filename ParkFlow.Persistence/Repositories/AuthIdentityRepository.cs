@@ -22,13 +22,13 @@ public class AuthIdentityRepository(AppDbContext appDbContext) : IAuthIdentityRe
                 .ThenInclude(u => u.AuthIdentities)
             .Include(i => i.UserAccount)
                 .ThenInclude(u => u.UserProfile)
-                    .ThenInclude(p => p.Student)
+                    .ThenInclude(p => p!.Student)
             .Include(i => i.UserAccount)
                 .ThenInclude(u => u.UserProfile)
-                    .ThenInclude(p => p.Personnel)
+                    .ThenInclude(p => p!.Personnel)
             .Include(i => i.UserAccount)
                 .ThenInclude(u => u.UserProfile)
-                    .ThenInclude(p => p.Guard)
+                    .ThenInclude(p => p!.Guard)
             .FirstOrDefaultAsync(i => i.Provider == provider && i.ProviderId == providerId);
     }
 
@@ -39,15 +39,15 @@ public class AuthIdentityRepository(AppDbContext appDbContext) : IAuthIdentityRe
                 .ThenInclude(u => u.AuthIdentities)
             .Include(i => i.UserAccount)
                 .ThenInclude(u => u.UserProfile)
-                    .ThenInclude(p => p.Student)
+                    .ThenInclude(p => p!.Student)
 
             .Include(i => i.UserAccount)
                 .ThenInclude(u => u.UserProfile)
-                    .ThenInclude(p => p.Personnel)
+                    .ThenInclude(p => p!.Personnel)
 
             .Include(i => i.UserAccount)
                 .ThenInclude(u => u.UserProfile)
-                    .ThenInclude(p => p.Guard)
+                    .ThenInclude(p => p!.Guard)
             .FirstOrDefaultAsync(i => i.Email != null && i.Email.ToLower() == email.ToLower());
     }
 

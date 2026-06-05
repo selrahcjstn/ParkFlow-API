@@ -64,6 +64,9 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
         foreach (var log in logs)
         {
             var ownerProfile = log.Vehicle.Owner.UserProfile;
+            if (ownerProfile is null)
+                continue;
+
             var student = ownerProfile.Student;
             var personnel = ownerProfile.Personnel;
             var admin = await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id);

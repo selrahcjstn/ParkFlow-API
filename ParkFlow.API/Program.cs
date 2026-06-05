@@ -32,7 +32,7 @@ builder.Services.AddAuthentication(option =>
     option.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(options =>
-{
+{   
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
