@@ -3,6 +3,10 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System;
 
 namespace ParkFlow.Application.Features.Auth.Commands.LinkManualIdentity;
 
@@ -60,10 +64,11 @@ public class LinkManualIdentityHandler : IRequestHandler<LinkManualIdentityComma
             if (user.Status != ParkFlow.Domain.Enums.AccountStatus.Verified)
             {
                 user.Verify();
-                await _userAccountRepository.UpdateAsync(user);
             }
         }
 
+        user.PasswordHistories.Add(new PasswordHistory(user.Id, hashedPassword));
+        await _userAccountRepository.UpdateAsync(user);
         await _authIdentityRepository.AddAsync(identity);
 
         return Result<Guid>.Success(identity.Id, "Manual login linked successfully.");

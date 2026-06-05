@@ -164,6 +164,9 @@ public class ForgotPasswordTests
         Assert.Equal(expectedHash, manualIdentity.PasswordHash);
         Assert.Null(user.PasswordResetTokenHash);
         Assert.Null(user.PasswordResetTokenExpiresAt);
+        
+        // New password should be in history
+        Assert.Contains(user.PasswordHistories, h => h.PasswordHash == expectedHash);
     }
 
     [Fact]
@@ -201,5 +204,50 @@ public class ForgotPasswordTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Unauthorized, result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task ResetPassword_ShouldReturnBadRequest_WhenReusingOldPassword()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var email = "reuse@parkflow.com";
+        var oldPassword = "OldSecretPassword123!";
+        var oldPasswordHash = _passwordHasher.HashPassword(oldPassword);
+        var user = new UserAccount(oldPasswordHash, "+639000000000");
+
+        var idProperty = typeof(BaseEntity).GetProperty("Id");
+        idProperty?.SetValue(user, userId);
+
+        var manualIdentity = AuthIdentity.CreateManual(userId, email, oldPasswordHash, isPrimary: true);
+        user.AuthIdentities.Add(manualIdentity);
+
+        // Add old password to history
+        user.PasswordHistories.Add(new PasswordHistory(userId, oldPasswordHash));
+        await _userAccountRepository.AddAsync(user);
+
+        // Generate 6-digit code
+        var forgotCommand = new ForgotPasswordUserAccountCommand(email);
+        var forgotHandler = new ForgotPasswordUserAccountHandler(_userAccountRepository, _emailService, _forgotValidator);
+        var forgotResult = await forgotHandler.Handle(forgotCommand, CancellationToken.None);
+        var verificationCode = forgotResult.Data ?? throw new Exception("Code was null");
+
+        // Verify code and get reset token
+        var verifyCommand = new VerifyResetPasswordCodeCommand(email, verificationCode);
+        var verifyHandler = new VerifyResetPasswordCodeCommandHandler(_userAccountRepository, _verifyValidator);
+        var verifyResult = await verifyHandler.Handle(verifyCommand, CancellationToken.None);
+        var secureResetToken = verifyResult.Data ?? throw new Exception("Token was null");
+
+        // Attempt reset with the same old password
+        var resetCommand = new ResetPasswordUserAccountCommand(email, secureResetToken, oldPassword);
+        var resetHandler = new ResetPasswordUserAccountHandler(_userAccountRepository, _resetValidator, _passwordHasher);
+
+        // Act
+        var result = await resetHandler.Handle(resetCommand, CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.BadRequest, result.ErrorCode);
+        Assert.Equal("You cannot reuse any of your previous passwords.", result.Message);
     }
 }

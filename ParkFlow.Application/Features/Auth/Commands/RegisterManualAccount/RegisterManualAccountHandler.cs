@@ -4,6 +4,9 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ParkFlow.Application.Features.Auth.Commands.RegisterManualAccount;
 
@@ -44,6 +47,7 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
 
         var hashedPassword = _passwordHasher.HashPassword(request.Password);
         var user = new UserAccount(hashedPassword, null);
+        user.PasswordHistories.Add(new PasswordHistory(user.Id, hashedPassword));
         await _userAccountRepository.AddAsync(user);
 
         var identity = AuthIdentity.CreateManual(user.Id, request.Email, hashedPassword, isPrimary: true);

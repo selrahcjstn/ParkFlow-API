@@ -4,7 +4,12 @@ using FluentValidation;
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System;
 
 namespace ParkFlow.Application.Features.Users.Commands.ResetPasswordUserAccount;
 
@@ -48,6 +53,13 @@ public class ResetPasswordUserAccountHandler
         if (manualIdentity == null || string.IsNullOrWhiteSpace(manualIdentity.PasswordHash))
             return Result<Guid>.Failure("Password reset is only available for manual accounts.", ErrorCode.BadRequest);
 
+        // Check password histories to avoid reusing any old passwords
+        var isPreviousPassword = user.PasswordHistories.Any(h => _passwordHasher.VerifyPassword(h.PasswordHash, request.NewPassword));
+        if (isPreviousPassword)
+        {
+            return Result<Guid>.Failure("You cannot reuse any of your previous passwords.", ErrorCode.BadRequest);
+        }
+
         var resetTokenHash = Sha256Base64(request.ResetToken);
         var newPasswordHash = _passwordHasher.HashPassword(request.NewPassword);
 
@@ -57,6 +69,10 @@ public class ResetPasswordUserAccountHandler
 
         user.ResetPasswordWithToken(resetTokenHash, newPasswordHash, utcNow);
         manualIdentity.UpdatePasswordHash(newPasswordHash);
+
+        // Save new password to history
+        user.PasswordHistories.Add(new PasswordHistory(user.Id, newPasswordHash));
+
         await _userAccountRepository.UpdateAsync(user);
 
         return Result<Guid>.Success(user.Id, "Password reset successful.");

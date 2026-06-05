@@ -13,6 +13,7 @@ public class UserAccount : BaseEntity
     
     public UserProfile? UserProfile { get; set; }
     public ICollection<AuthIdentity> AuthIdentities { get; private set; } = [];
+    public ICollection<PasswordHistory> PasswordHistories { get; private set; } = [];
     public string? PrimaryEmail => AuthIdentities.FirstOrDefault(i => i.IsPrimary)?.Email
         ?? AuthIdentities.FirstOrDefault(i => i.Email != null)?.Email;
 
