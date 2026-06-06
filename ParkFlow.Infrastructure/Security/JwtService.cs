@@ -27,7 +27,7 @@ namespace ParkFlow.Infrastructure.Security
             var claims = new List<Claim>
     {
         new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-        new Claim(JwtRegisteredClaimNames.Email, user.Email),
+        new Claim(JwtRegisteredClaimNames.Email, user.PrimaryEmail ?? string.Empty),
         new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         new Claim("user_id", user.Id.ToString()),
         new Claim("profile_type", profileType)

@@ -8,5 +8,6 @@ public record CreateUserProfileCommand(
     string IdCardNumber,
     string FirstName,
     string LastName,
+    string? MiddleName,
     string? ProfilePictureUrl
 ) : IRequest<Result<Guid>>;

@@ -47,13 +47,14 @@ public class UpdateOnboardingProfileHandler : IRequestHandler<UpdateOnboardingPr
                 user.Id,
                 request.FirstName,
                 request.LastName,
+                request.MiddleName,
                 request.ProfilePictureUrl);
 
             await _userProfileRepository.AddAsync(profile);
         }
         else
         {
-            profile.UpdateProfile(request.FirstName, request.LastName, request.ProfilePictureUrl);
+            profile.UpdateProfile(request.FirstName, request.LastName, request.MiddleName, request.ProfilePictureUrl);
             await _userProfileRepository.UpdateAsync(profile);
         }
 

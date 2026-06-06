@@ -54,17 +54,17 @@ public class ViolationRepository : IViolationRepository
                     .ThenInclude(pl => pl.Vehicle)
                         .ThenInclude(ve => ve.Owner)
                             .ThenInclude(ua => ua.UserProfile)
-                                .ThenInclude(up => up.Student)
+                                .ThenInclude(up => up!.Student)
                 .Include(v => v.ParkingLog)
                     .ThenInclude(pl => pl.Vehicle)
                         .ThenInclude(ve => ve.Owner)
                             .ThenInclude(ua => ua.UserProfile)
-                                .ThenInclude(up => up.Personnel)
+                                .ThenInclude(up => up!.Personnel)
                 .Include(v => v.ParkingLog)
                     .ThenInclude(pl => pl.Vehicle)
                         .ThenInclude(ve => ve.Owner)
                             .ThenInclude(ua => ua.UserProfile)
-                                .ThenInclude(up => up.Guard)
+                                .ThenInclude(up => up!.Guard)
                 .FirstOrDefaultAsync(v => v.ReferenceNumber == referenceNumber);
         }
         catch (PostgresException ex) when (ex.SqlState == "42P01")
@@ -102,17 +102,17 @@ public class ViolationRepository : IViolationRepository
                     .ThenInclude(pl => pl.Vehicle)
                         .ThenInclude(ve => ve.Owner)
                             .ThenInclude(ua => ua.UserProfile)
-                                .ThenInclude(up => up.Student)
+                                .ThenInclude(up => up!.Student)
                 .Include(v => v.ParkingLog)
                     .ThenInclude(pl => pl.Vehicle)
                         .ThenInclude(ve => ve.Owner)
                             .ThenInclude(ua => ua.UserProfile)
-                                .ThenInclude(up => up.Personnel)
+                                .ThenInclude(up => up!.Personnel)
                 .Include(v => v.ParkingLog)
                     .ThenInclude(pl => pl.Vehicle)
                         .ThenInclude(ve => ve.Owner)
                             .ThenInclude(ua => ua.UserProfile)
-                                .ThenInclude(up => up.Guard)
+                                .ThenInclude(up => up!.Guard)
                 .AsQueryable();
 
             if (userId.HasValue)
@@ -127,6 +127,50 @@ public class ViolationRepository : IViolationRepository
         catch (PostgresException ex) when (ex.SqlState == "42P01")
         {
             return [];
+        }
+    }
+
+    public async Task<IReadOnlyList<Violation>> GetViolationsByUserIdAsync(Guid userId)
+    {
+        try
+        {
+            return await _context.Set<Violation>()
+                .AsNoTracking()
+                .Include(v => v.ParkingLog)
+                    .ThenInclude(pl => pl.Vehicle)
+                        .ThenInclude(ve => ve.Owner)
+                            .ThenInclude(ua => ua.UserProfile)
+                                .ThenInclude(up => up!.Student)
+                .Include(v => v.ParkingLog)
+                    .ThenInclude(pl => pl.Vehicle)
+                        .ThenInclude(ve => ve.Owner)
+                            .ThenInclude(ua => ua.UserProfile)
+                                .ThenInclude(up => up!.Personnel)
+                .Include(v => v.ParkingLog)
+                    .ThenInclude(pl => pl.Vehicle)
+                        .ThenInclude(ve => ve.Owner)
+                            .ThenInclude(ua => ua.UserProfile)
+                                .ThenInclude(up => up!.Guard)
+                .Where(v => v.ParkingLog.Vehicle.OwnerId == userId)
+                .OrderByDescending(v => v.CreatedAt)
+                .ToListAsync();
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            return [];
+        }
+    }
+
+    public async Task<bool> HasActiveViolationAsync(Guid vehicleId)
+    {
+        try
+        {
+            return await _context.Set<Violation>()
+                .AnyAsync(v => v.ParkingLog.VehicleId == vehicleId && v.SettlementStatus != global::SettlementStatus.Settled);
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            return false;
         }
     }
 

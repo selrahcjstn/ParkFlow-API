@@ -13,6 +13,7 @@ public class ViolationPaymentReceiptDto
     // Owner Info
     public string OwnerFirstName { get; set; } = null!;
     public string OwnerLastName { get; set; } = null!;
+    public string? OwnerMiddleName { get; set; }
 
     // Vehicle Info
     public string PlateNumber { get; set; } = null!;

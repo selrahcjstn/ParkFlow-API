@@ -48,6 +48,7 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
             user.Id,
             request.FirstName,
             request.LastName,
+            request.MiddleName,
             request.ProfilePictureUrl
         );
 

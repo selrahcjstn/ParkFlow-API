@@ -13,7 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Dependency Injections:
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure();
+builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddControllers();
 
@@ -32,7 +32,7 @@ builder.Services.AddAuthentication(option =>
     option.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(options =>
-{
+{   
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,

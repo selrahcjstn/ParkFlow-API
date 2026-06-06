@@ -4,6 +4,7 @@ public class CreateParkingLogResponse
 {
     public string FirstName { get; set; } = null!;
     public string LastName { get; set; } = null!;
+    public string? MiddleName { get; set; }
     public string Role { get; set; } = null!;
     public string Status { get; set; } = null!;
     public string PhoneNumber { get; set; } = null!;

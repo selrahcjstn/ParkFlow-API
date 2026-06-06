@@ -25,7 +25,7 @@ public class CorSubmission : BaseEntity
         CorDocumentUrl = corDocumentUrl;
 
 
-        VerificationStatus = CorVerificationStatus.Verified;
+        VerificationStatus = CorVerificationStatus.Pending;
     }
 
     public void UpdateSubmission(

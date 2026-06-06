@@ -4,6 +4,10 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System;
 
 namespace ParkFlow.Application.Features.RegisterGuard.Commands.CreateGuardAccount;
 
@@ -47,17 +51,19 @@ public class CreateGuardAccountHandler : IRequestHandler<CreateGuardAccountComma
 			return Result<Guid>.Failure("User account with this email already exists.", ErrorCode.Conflict);
 
 		var hashedPassword = _passwordHasher.HashPassword(request.Account.Password);
-		var user = new UserAccount(request.Account.Email, hashedPassword, request.Account.PhoneNumber);
+		var user = new UserAccount(hashedPassword, request.Account.PhoneNumber);
 		user.UpdateOnboardingStep(OnboardingStep.Done); // Guards bypass onboarding steps
+		user.PasswordHistories.Add(new PasswordHistory(user.Id, hashedPassword));
 		await _userAccountRepository.AddAsync(user);
 
-		var identity = AuthIdentity.CreateManual(user.Id, request.Account.Email, hashedPassword);
+		var identity = AuthIdentity.CreateManual(user.Id, request.Account.Email, hashedPassword, isPrimary: true);
 		await _authIdentityRepository.AddAsync(identity);
 
 		var userProfile = new UserProfile(
 			user.Id,
 			request.Profile.FirstName,
 			request.Profile.LastName,
+			request.Profile.MiddleName,
 			request.Profile.ProfilePictureUrl);
 
 		await _userProfileRepository.AddAsync(userProfile);

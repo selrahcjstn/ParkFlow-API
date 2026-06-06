@@ -5,7 +5,13 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Auth.Commands.LinkManualIdentity;
 using ParkFlow.Application.Features.Auth.Commands.LinkMicrosoftIdentity;
 using ParkFlow.Application.Features.Auth.Commands.RegisterManualAccount;
+using ParkFlow.Application.Features.Auth.Commands.SendEmailOtp;
+using ParkFlow.Application.Features.Auth.Commands.VerifyEmailOtp;
+using ParkFlow.Application.Features.Auth.Commands.UnlinkIdentity;
+using ParkFlow.Application.Features.Auth.Commands.UpdateManualIdentity;
+using ParkFlow.Application.Features.Auth.Commands.UpdateMicrosoftIdentity;
 using ParkFlow.Application.Features.Auth.DTOs;
+using ParkFlow.Domain.Enums;
 using ParkFlow.Application.Features.Users.Commands.MicrosoftAuthUserAccount;
 using ParkFlow.Application.Features.Users.DTOs;
 using ParkFlow.Application.Interfaces;
@@ -76,6 +82,66 @@ public class AuthController : ControllerBase
             request.LastName,
             request.DisplayName);
 
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+     }
+
+    [HttpPost("send-email-otp")]
+    public async Task<ActionResult<Result<bool>>> SendEmailOtp(SendEmailOtpRequest request)
+    {
+        var command = new SendEmailOtpCommand(request.Email);
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("verify-email-otp")]
+    public async Task<ActionResult<Result<bool>>> VerifyEmailOtp(VerifyEmailOtpRequest request)
+    {
+        var command = new VerifyEmailOtpCommand(request.Email, request.OtpCode);
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
+
+    [Authorize]
+    [HttpDelete("link/{provider}")]
+    public async Task<ActionResult<Result<bool>>> Unlink(string provider)
+    {
+        var userId = _userContext.GetUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized(Result<bool>.Failure(false, "User not identified.", ErrorCode.Unauthorized));
+
+        if (!Enum.TryParse<AuthProvider>(provider, true, out var providerEnum))
+        {
+            return BadRequest(Result<bool>.Failure(false, "Invalid authentication provider.", ErrorCode.BadRequest));
+        }
+
+        var command = new UnlinkIdentityCommand(userId, providerEnum);
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
+
+    [Authorize]
+    [HttpPut("link/manual")]
+    public async Task<ActionResult<Result<bool>>> UpdateManualLink([FromBody] UpdateManualIdentityRequest request)
+    {
+        var userId = _userContext.GetUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized(Result<bool>.Failure(false, "User not identified.", ErrorCode.Unauthorized));
+
+        var command = new UpdateManualIdentityCommand(userId, request.NewEmail);
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
+
+    [Authorize]
+    [HttpPut("link/microsoft")]
+    public async Task<ActionResult<Result<bool>>> UpdateMicrosoftLink([FromBody] UpdateMicrosoftIdentityRequest request)
+    {
+        var userId = _userContext.GetUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized(Result<bool>.Failure(false, "User not identified.", ErrorCode.Unauthorized));
+
+        var command = new UpdateMicrosoftIdentityCommand(userId, request.NewEmail, request.NewExternalProviderId);
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }

@@ -64,6 +64,9 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
         foreach (var log in logs)
         {
             var ownerProfile = log.Vehicle.Owner.UserProfile;
+            if (ownerProfile is null)
+                continue;
+
             var student = ownerProfile.Student;
             var personnel = ownerProfile.Personnel;
             var admin = await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id);
@@ -87,8 +90,11 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 }
             }
 
-            var exitTimeVal = log.ExitTime ?? DateTime.UtcNow;
-            var duration = (exitTimeVal - log.EntryTime).TotalHours;
+            // Use the actual exit time from DB — null means the session is still active
+            var exitTimeVal = log.ExitTime;
+            var duration = exitTimeVal.HasValue
+                ? (exitTimeVal.Value - log.EntryTime).TotalHours
+                : (double?)null;
 
             var hasViolation = false;
             var existingViolation = await _violationRepository.GetByLogIdAsync(log.Id);
@@ -105,6 +111,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
             {
                 FirstName = ownerProfile.FirstName,
                 LastName = ownerProfile.LastName,
+                MiddleName = ownerProfile.MiddleName,
                 RoleName = roleDetails.Role,
                 PlateNumber = log.Vehicle.PlateNumber,
                 Brand = log.Vehicle.Brand,

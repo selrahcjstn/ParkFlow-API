@@ -4,6 +4,9 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ParkFlow.Application.Features.Auth.Commands.RegisterManualAccount;
 
@@ -43,11 +46,13 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
             return Result<string>.Failure("Email is already linked to an account.", ErrorCode.Conflict);
 
         var hashedPassword = _passwordHasher.HashPassword(request.Password);
-        var user = new UserAccount(request.Email, hashedPassword, null);
+        var user = new UserAccount(hashedPassword, null);
+        user.PasswordHistories.Add(new PasswordHistory(user.Id, hashedPassword));
         await _userAccountRepository.AddAsync(user);
 
-        var identity = AuthIdentity.CreateManual(user.Id, request.Email, hashedPassword);
+        var identity = AuthIdentity.CreateManual(user.Id, request.Email, hashedPassword, isPrimary: true);
         await _authIdentityRepository.AddAsync(identity);
+        user.AuthIdentities.Add(identity);
 
         var token = _jwtService.GenerateToken(user, "unassigned");
 

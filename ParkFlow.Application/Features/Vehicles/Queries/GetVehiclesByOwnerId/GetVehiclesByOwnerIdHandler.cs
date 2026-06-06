@@ -20,19 +20,22 @@ public class GetVehiclesByOwnerIdHandler : IRequestHandler<GetVehiclesByOwnerIdQ
     {
         var vehicles = await _vehicleRepository.GetByOwnerIdAsync(request.OwnerId);
 
-        var vehicleDtos = await Task.WhenAll(vehicles.Select(async vehicle =>
+        var vehicleDtos = new List<VehicleDto>();
+
+        foreach (var vehicle in vehicles)
         {
             var activeParkingLog = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id);
             var status = activeParkingLog?.Status.ToString() ?? ParkingStatus.Exited.ToString();
 
-            return new VehicleDto(
+            vehicleDtos.Add(new VehicleDto(
                 vehicle.Id,
                 vehicle.PlateNumber,
                 vehicle.Brand,
                 vehicle.QrCodeHash,
                 vehicle.VehicleType,
-                status);
-        }));
+                status,
+                vehicle.IsPrimary));
+        }
 
         return Result<IEnumerable<VehicleDto>>.Success(vehicleDtos, "Vehicles retrieved.");
     }

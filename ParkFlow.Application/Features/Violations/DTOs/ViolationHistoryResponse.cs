@@ -5,6 +5,7 @@ public class ViolationHistoryResponse
     // Owner Information
     public string FirstName { get; set; } = null!;
     public string LastName { get; set; } = null!;
+    public string? MiddleName { get; set; }
     public string RoleName { get; set; } = null!;
 
     // Vehicle Information

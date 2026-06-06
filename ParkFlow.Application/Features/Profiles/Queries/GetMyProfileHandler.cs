@@ -33,11 +33,18 @@ public class GetMyProfileHandler
         var dto = new UserProfileDto(
             profile.Id,
             profile.UserAccountId,
-            profile.UserAccount.PhoneNumber,
+            profile.UserAccount.PhoneNumber ?? string.Empty,
             profile.FirstName,
             profile.LastName,
+            profile.MiddleName,
             profile.ProfilePictureUrl,
-            profile.UserAccount.OnboardingStep);
+            profile.UserAccount.OnboardingStep,
+            StudentNumber: profile.Student?.StudentNumber,
+            EmployeeIdNumber: profile.Personnel?.IdCardNumber,
+            Course: profile.Student?.Course,
+            YearLevel: profile.Student?.YearLevel,
+            Section: profile.Student?.Section,
+            Department: profile.Personnel?.Department);
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");
     }

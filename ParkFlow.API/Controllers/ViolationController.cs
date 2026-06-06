@@ -6,6 +6,7 @@ using ParkFlow.Application.Features.Violations.DTOs;
 using ParkFlow.Application.Features.Violations.Commands.ProcessViolationPayment;
 using ParkFlow.Application.Features.Violations.Queries.CheckViolationPayment;
 using ParkFlow.Application.Features.Violations.Queries.GetViolationHistory;
+using ParkFlow.Application.Features.Violations.Queries.GetUserViolations;
 using ParkFlow.Application.Interfaces;
 
 namespace ParkFlow.API.Controllers;
@@ -35,6 +36,22 @@ public class ViolationController : ControllerBase
         [FromRoute] string referenceNumber)
     {
         var result = await _mediator.Send(new CheckViolationPaymentQuery(referenceNumber));
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>
+    /// Returns the list of all violations for the currently logged-in user.
+    /// </summary>
+    [HttpGet("my")]
+    [Authorize]
+    public async Task<ActionResult<Result<IEnumerable<ViolationHistoryResponse>>>> GetUserViolations()
+    {
+        var userId = _userContext.GetUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized(Result<IEnumerable<ViolationHistoryResponse>>.Failure(
+                "User not identified.", ErrorCode.Unauthorized));
+
+        var result = await _mediator.Send(new GetUserViolationsQuery(userId));
         return this.ToActionResult(result);
     }
 

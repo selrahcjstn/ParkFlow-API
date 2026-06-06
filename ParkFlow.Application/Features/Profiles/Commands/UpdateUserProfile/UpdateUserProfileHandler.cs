@@ -36,6 +36,7 @@ public class UpdateUserProfileHandler : IRequestHandler<UpdateUserProfileCommand
         profile.UpdateProfile(
             request.FirstName,
             request.LastName,
+            request.MiddleName,
             request.ProfilePictureUrl);
 
         await _userProfileRepository.UpdateAsync(profile);

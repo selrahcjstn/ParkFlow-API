@@ -39,6 +39,7 @@ public class OnboardingController : ControllerBase
             request.PhoneNumber,
             request.FirstName,
             request.LastName,
+            request.MiddleName,
             request.ProfilePictureUrl);
 
         var result = await _mediator.Send(command);

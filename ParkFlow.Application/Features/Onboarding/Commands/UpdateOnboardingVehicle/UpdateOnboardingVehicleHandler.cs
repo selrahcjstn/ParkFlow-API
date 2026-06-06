@@ -36,6 +36,11 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
         }
 
         var existingVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.UserId);
+        if (existingVehicles.Count() >= 5)
+        {
+            return Result<Guid>.Failure("Onboarding failed. A maximum of 5 vehicles are allowed per account.", ErrorCode.Conflict);
+        }
+
         var existingVehicle = existingVehicles.FirstOrDefault(v => v.PlateNumber == request.PlateNumber);
 
         if (existingVehicle == null)
@@ -44,7 +49,11 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
             var qrBytes = _qrCodeService.GenerateQrCode(qrPayload);
             var qrCodeHash = HashQrBytes(qrBytes);
 
+            var isPrimary = !existingVehicles.Any();
             var vehicle = new Vehicle(request.UserId, request.PlateNumber, request.Brand, qrCodeHash, request.VehicleType);
+            if (isPrimary)
+                vehicle.SetPrimary(true);
+
             await _vehicleRepository.AddAsync(vehicle);
             existingVehicle = vehicle;
         }

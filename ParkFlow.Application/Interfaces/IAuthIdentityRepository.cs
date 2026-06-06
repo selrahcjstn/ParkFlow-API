@@ -10,4 +10,5 @@ public interface IAuthIdentityRepository
     Task<IEnumerable<AuthIdentity>> GetByAccountIdAsync(Guid accountId);
     Task AddAsync(AuthIdentity identity);
     Task UpdateAsync(AuthIdentity identity);
+    Task DeleteAsync(AuthIdentity identity);
 }

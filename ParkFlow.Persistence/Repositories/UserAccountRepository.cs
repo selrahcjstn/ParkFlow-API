@@ -17,15 +17,15 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
     public async Task<UserAccount?> GetByEmailAsync(string email)
     {
         return await _appDbContext.UserAccounts
-            .AsNoTracking()
             .Include(u => u.UserProfile)
-                .ThenInclude(p => p.Student)
+                .ThenInclude(p => p!.Student)
             .Include(u => u.UserProfile)
-                .ThenInclude(p => p.Personnel)
+                .ThenInclude(p => p!.Personnel)
             .Include(u => u.UserProfile)
-                .ThenInclude(p => p.Guard)
+                .ThenInclude(p => p!.Guard)
             .Include(u => u.AuthIdentities)
-            .FirstOrDefaultAsync(u => u.Email == email);
+            .Include(u => u.PasswordHistories)
+            .FirstOrDefaultAsync(u => u.AuthIdentities.Any(i => i.Email != null && i.Email.ToLower() == email.ToLower()));
     }
 
     public async Task<UserAccount?> GetByAuthProviderExternalIdAsync(AuthProvider authProvider, string externalProviderId)
@@ -33,6 +33,7 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
         return await _appDbContext.UserAccounts
             .AsNoTracking()
             .Include(u => u.AuthIdentities)
+            .Include(u => u.PasswordHistories)
             .FirstOrDefaultAsync(u =>
                 u.AuthProvider == authProvider &&
                 u.ExternalProviderId == externalProviderId);
@@ -40,14 +41,20 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
 
     public async Task<UserAccount?> GetByIdAsync(Guid id)
     {
-        return await _appDbContext.UserAccounts.FindAsync(id);
+        return await _appDbContext.UserAccounts
+            .Include(u => u.AuthIdentities)
+            .Include(u => u.PasswordHistories)
+            .FirstOrDefaultAsync(u => u.Id == id);
     }
 
     public async Task<bool> EmailExistsAsync(string email, Guid? excludeUserId = null)
     {
-        var query = _appDbContext.UserAccounts.AsNoTracking().Where(u => u.Email == email);
+        var query = _appDbContext.AuthIdentities
+            .AsNoTracking()
+            .Where(i => i.Email != null && i.Email.ToLower() == email.ToLower());
+
         if (excludeUserId.HasValue)
-            query = query.Where(u => u.Id != excludeUserId.Value);
+            query = query.Where(i => i.UserAccountId != excludeUserId.Value);
 
         return await query.AnyAsync();
     }

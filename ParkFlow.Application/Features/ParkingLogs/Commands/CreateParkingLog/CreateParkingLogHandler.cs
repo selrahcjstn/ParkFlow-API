@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Application.Features.ParkingLogs.DTOs;
@@ -18,6 +18,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     private readonly IStudentRepository _studentRepository;
     private readonly IPersonnelRepository _personnelRepository;
     private readonly IAdminRepository _adminRepository;
+    private readonly IViolationRepository _violationRepository;
     private readonly IParkingService _parkingService;
     private readonly IScheduleService _scheduleService;
     private readonly IParkingLogRoleService _parkingLogRoleService;
@@ -32,6 +33,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         IStudentRepository studentRepository,
         IPersonnelRepository personnelRepository,
         IAdminRepository adminRepository,
+        IViolationRepository violationRepository,
         IParkingService parkingService,
         IScheduleService scheduleService,
         IParkingLogRoleService parkingLogRoleService)
@@ -45,6 +47,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         _studentRepository = studentRepository;
         _personnelRepository = personnelRepository;
         _adminRepository = adminRepository;
+        _violationRepository = violationRepository;
         _parkingService = parkingService;
         _scheduleService = scheduleService;
         _parkingLogRoleService = parkingLogRoleService;
@@ -56,6 +59,10 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
 
         if (vehicle == null)
             return Result<CreateParkingLogResponse>.Failure("Invalid QR code. Vehicle not found.", ErrorCode.NotFound);
+
+        var hasActiveViolation = await _violationRepository.HasActiveViolationAsync(vehicle.Id);
+        if (hasActiveViolation)
+            return Result<CreateParkingLogResponse>.Failure("Vehicle has active/unpaid violations. Entry denied.", ErrorCode.Forbidden);
 
         var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
 
@@ -70,6 +77,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             {
                 FirstName = ownerProfile.FirstName,
                 LastName = ownerProfile.LastName,
+                MiddleName = ownerProfile.MiddleName,
                 PlateNumber = vehicle.PlateNumber,
                 Brand = vehicle.Brand,
                 QrCodeHash = vehicle.QrCodeHash,
@@ -134,9 +142,10 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         {
             FirstName = ownerProfile.FirstName,
             LastName = ownerProfile.LastName,
+            MiddleName = ownerProfile.MiddleName,
             Role = roleDetails.Role,
             Status = parkingLog.Status.ToString(),
-            PhoneNumber = ownerProfile.UserAccount.PhoneNumber,
+            PhoneNumber = ownerProfile.UserAccount?.PhoneNumber ?? string.Empty,
             PlateNumber = vehicle.PlateNumber,
             Brand = vehicle.Brand,
             QrCodeHash = vehicle.QrCodeHash,

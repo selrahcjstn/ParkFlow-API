@@ -19,15 +19,16 @@ public class AuthIdentityRepository(AppDbContext appDbContext) : IAuthIdentityRe
     {
         return await _appDbContext.AuthIdentities
             .Include(i => i.UserAccount)
-                .ThenInclude(u => u.UserProfile)
-                    .ThenInclude(p => p.Student)
+                .ThenInclude(u => u.AuthIdentities)
             .Include(i => i.UserAccount)
                 .ThenInclude(u => u.UserProfile)
-                    .ThenInclude(p => p.Personnel)
+                    .ThenInclude(p => p!.Student)
             .Include(i => i.UserAccount)
                 .ThenInclude(u => u.UserProfile)
-                    .ThenInclude(p => p.Guard)
-            .AsNoTracking()
+                    .ThenInclude(p => p!.Personnel)
+            .Include(i => i.UserAccount)
+                .ThenInclude(u => u.UserProfile)
+                    .ThenInclude(p => p!.Guard)
             .FirstOrDefaultAsync(i => i.Provider == provider && i.ProviderId == providerId);
     }
 
@@ -35,19 +36,19 @@ public class AuthIdentityRepository(AppDbContext appDbContext) : IAuthIdentityRe
     {
         return await _appDbContext.AuthIdentities
             .Include(i => i.UserAccount)
+                .ThenInclude(u => u.AuthIdentities)
+            .Include(i => i.UserAccount)
                 .ThenInclude(u => u.UserProfile)
-                    .ThenInclude(p => p.Student)
+                    .ThenInclude(p => p!.Student)
 
             .Include(i => i.UserAccount)
                 .ThenInclude(u => u.UserProfile)
-                    .ThenInclude(p => p.Personnel)
+                    .ThenInclude(p => p!.Personnel)
 
             .Include(i => i.UserAccount)
                 .ThenInclude(u => u.UserProfile)
-                    .ThenInclude(p => p.Guard)
-
-            .AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Email == email);
+                    .ThenInclude(p => p!.Guard)
+            .FirstOrDefaultAsync(i => i.Email != null && i.Email.ToLower() == email.ToLower());
     }
 
     public async Task<IEnumerable<AuthIdentity>> GetByAccountIdAsync(Guid accountId)
@@ -61,6 +62,12 @@ public class AuthIdentityRepository(AppDbContext appDbContext) : IAuthIdentityRe
     public Task UpdateAsync(AuthIdentity identity)
     {
         _appDbContext.AuthIdentities.Update(identity);
+        return _appDbContext.SaveChangesAsync();
+    }
+
+    public Task DeleteAsync(AuthIdentity identity)
+    {
+        _appDbContext.AuthIdentities.Remove(identity);
         return _appDbContext.SaveChangesAsync();
     }
 }

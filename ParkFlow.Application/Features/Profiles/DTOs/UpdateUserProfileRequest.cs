@@ -4,6 +4,7 @@ public record UpdateUserProfileRequest(
     string? IdCardNumber,
     string? FirstName,
     string? LastName,
+    string? MiddleName,
     string? ProfilePictureUrl,
     string? Course,
     string? Section,

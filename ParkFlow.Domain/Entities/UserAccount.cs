@@ -1,10 +1,9 @@
-﻿using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
 
 public class UserAccount : BaseEntity
 {
     // Core Account Details: 
-    public string Email { get; private set; } = null!;
     public string? PasswordHash { get; private set; }
     public string? PhoneNumber { get; private set; }
     public AuthProvider AuthProvider { get; private set; }
@@ -14,8 +13,11 @@ public class UserAccount : BaseEntity
     
     public UserProfile? UserProfile { get; set; }
     public ICollection<AuthIdentity> AuthIdentities { get; private set; } = [];
+    public ICollection<PasswordHistory> PasswordHistories { get; private set; } = [];
+    public string? PrimaryEmail => AuthIdentities.FirstOrDefault(i => i.IsPrimary)?.Email
+        ?? AuthIdentities.FirstOrDefault(i => i.Email != null)?.Email;
 
-    public DateTime PasswordLastUpdatedAt { get; private set; }
+    public DateTime? PasswordLastUpdatedAt { get; private set; }
 
     public string? PasswordResetTokenHash { get; private set; }
     public DateTime? PasswordResetTokenExpiresAt { get; private set; }
@@ -23,11 +25,9 @@ public class UserAccount : BaseEntity
     private UserAccount() { } // For EF Core
 
     public UserAccount(
-        string email,
         string passwordHash,
         string? phoneNumber)
     {
-        Email = email;
         PasswordHash = passwordHash;
         PhoneNumber = phoneNumber;
         AuthProvider = AuthProvider.Manual;
@@ -38,13 +38,11 @@ public class UserAccount : BaseEntity
     }
 
     public static UserAccount CreateMicrosoft(
-        string email,
         string externalProviderId,
         string? phoneNumber = null)
     {
         return new UserAccount
         {
-            Email = email,
             PasswordHash = null,
             PhoneNumber = phoneNumber,
             AuthProvider = AuthProvider.Microsoft,
@@ -57,10 +55,21 @@ public class UserAccount : BaseEntity
     // Domain Methods
     public void UpdateEmail(string? email, string? phoneNumber, Roles? role)
     {
-        if (!string.IsNullOrWhiteSpace(email))
-            Email = email;
         if (!string.IsNullOrWhiteSpace(phoneNumber))
             PhoneNumber = phoneNumber;
+    }
+
+    public void UpdateExternalProviderId(string providerId)
+    {
+        if (string.IsNullOrWhiteSpace(providerId))
+            throw new ArgumentException("External provider ID cannot be empty.");
+
+        ExternalProviderId = providerId;
+    }
+
+    public void Verify()
+    {
+        Status = AccountStatus.Verified;
     }
 
     public void UpdatePhoneNumber(string? phoneNumber)

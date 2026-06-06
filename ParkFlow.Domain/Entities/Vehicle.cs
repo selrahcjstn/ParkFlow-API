@@ -10,6 +10,7 @@ public class Vehicle : BaseEntity
     public string Brand { get; private set; } = null!;
     public string QrCodeHash { get; private set; } = null!;
     public VehicleType VehicleType { get; private set; }
+    public bool IsPrimary { get; private set; }
 
     public ICollection<ParkingLog> ParkingLogs { get; private set; } = [];
 
@@ -26,6 +27,24 @@ public class Vehicle : BaseEntity
         PlateNumber = plateNumber;
         Brand = brand;
         QrCodeHash = qrCodeHash;
+        VehicleType = vehicleType;
+        IsPrimary = false;
+    }
+
+    public void SetPrimary(bool isPrimary)
+    {
+        IsPrimary = isPrimary;
+    }
+
+    public void MarkAsPrimary()
+    {
+        IsPrimary = true;
+    }
+
+    public void Update(string plateNumber, string brand, VehicleType vehicleType)
+    {
+        PlateNumber = plateNumber;
+        Brand = brand;
         VehicleType = vehicleType;
     }
 }

@@ -9,6 +9,7 @@ public class UserProfile : BaseEntity
     // Profile Data
     public string FirstName { get; private set; } = null!;
     public string LastName { get; private set; } = null!;
+    public string? MiddleName { get; private set; }
     public string? ProfilePictureUrl { get; private set; }
 
     public Student? Student { get; set; }
@@ -21,17 +22,20 @@ public class UserProfile : BaseEntity
         Guid userAccountId,
         string firstName,
         string lastName,
+        string? middleName,
         string? profilePictureUrl)
     {
         UserAccountId = userAccountId;
         FirstName = firstName;
         LastName = lastName;
+        MiddleName = middleName;
         ProfilePictureUrl = profilePictureUrl;
     }
 
     public void UpdateProfile(
         string? firstName,
         string? lastName,
+        string? middleName,
         string? profilePictureUrl)
     {
         if (!string.IsNullOrWhiteSpace(firstName))
@@ -39,6 +43,8 @@ public class UserProfile : BaseEntity
 
         if (!string.IsNullOrWhiteSpace(lastName))
             LastName = lastName;
+
+        MiddleName = middleName;
 
         if (!string.IsNullOrWhiteSpace(profilePictureUrl))
             ProfilePictureUrl = profilePictureUrl;

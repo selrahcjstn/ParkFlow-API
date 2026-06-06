@@ -6,6 +6,7 @@ public interface IParkingLogRepository
 {
     Task AddParkingLogAsync(ParkingLog parkingLog);
     Task<ParkingLog?> GetActiveParkingLogByVehicleIdAsync(Guid vehicleId);
+    Task<IReadOnlyList<ParkingLog>> GetActiveParkingLogsAsync(int limit);
     Task<IReadOnlyList<ParkingLog>> GetTodaysParkingLogsAsync(int limit);
     Task<IReadOnlyList<ParkingLog>> GetRecentParkingLogsAsync(int limit);
     Task<IReadOnlyList<ParkingLog>> GetParkingHistoryAsync(Guid? userId = null, int pageNumber = 1, int pageSize = 15);

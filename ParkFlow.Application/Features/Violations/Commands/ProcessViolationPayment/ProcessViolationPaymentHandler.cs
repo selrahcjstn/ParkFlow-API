@@ -77,7 +77,8 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
         var log = violation.ParkingLog;
         var vehicle = log?.Vehicle;
         var ownerProfile = vehicle?.Owner?.UserProfile;
-        var guardName = $"{userProfile.FirstName} {userProfile.LastName}";
+        var guardMiddle = string.IsNullOrWhiteSpace(userProfile.MiddleName) ? "" : $" {userProfile.MiddleName}";
+        var guardName = $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}";
 
         var receipt = new ViolationPaymentReceiptDto
         {
@@ -90,6 +91,7 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
             // Owner Info
             OwnerFirstName = ownerProfile?.FirstName ?? "N/A",
             OwnerLastName = ownerProfile?.LastName ?? "N/A",
+            OwnerMiddleName = ownerProfile?.MiddleName,
 
             // Vehicle Info
             PlateNumber = vehicle?.PlateNumber ?? "N/A",

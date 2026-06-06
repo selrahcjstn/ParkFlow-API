@@ -157,22 +157,6 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             }
         }
 
-        #region FAKE VIOLATION FOR TESTING ONLY (DEVELOPMENT ONLY)
-        var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-        if (isDevelopment && !isViolation)
-        {
-            var violation = new Violation(active.Id, 15.00m);
-            await _violationRepository.AddAsync(violation);
-
-            isViolation = true;
-            violationId = violation.Id;
-            violationType = violation.ViolationType.ToString();
-            settlementStatus = violation.SettlementStatus.ToString();
-            overstayTime = 2.5;
-            penaltyFee = violation.PenaltyFee;
-            referenceNumber = violation.ReferenceNumber;
-        }
-        #endregion
 
         var actualExitTime = active.ExitTime ?? exitTime;
 
@@ -191,6 +175,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         {
             FirstName = ownerProfile.FirstName,
             LastName = ownerProfile.LastName,
+            MiddleName = ownerProfile.MiddleName,
             Role = roleDetails.Role,
             Status = active.Status.ToString(),
             PlateNumber = vehicle.PlateNumber,
@@ -205,7 +190,8 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
 
         if (isViolation)
         {
-            var guardName = $"{userProfile.FirstName} {userProfile.LastName}";
+            var guardMiddle = string.IsNullOrWhiteSpace(userProfile.MiddleName) ? "" : $" {userProfile.MiddleName}";
+            var guardName = $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}";
 
             var notificationDto = new HasViolationNotificationDto
             {
