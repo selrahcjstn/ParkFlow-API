@@ -13,7 +13,10 @@ public class ResendEmailService : IEmailService
     public ResendEmailService(IResend resend, IConfiguration configuration)
     {
         _resend = resend;
-        _fromEmail = configuration.GetSection("Resend")["FromEmail"] ?? "onboarding@resend.dev";
+        var from = configuration.GetSection("Resend")["FromEmail"] 
+                   ?? configuration.GetSection("Resend")["From"] 
+                   ?? "onboarding@resend.dev";
+        _fromEmail = from.Trim('<', '>');
     }
 
     public async Task SendEmailAsync(string to, string subject, string htmlBody)
