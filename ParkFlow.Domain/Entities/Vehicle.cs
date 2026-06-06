@@ -47,4 +47,12 @@ public class Vehicle : BaseEntity
         Brand = brand;
         VehicleType = vehicleType;
     }
+
+    public void Update(string plateNumber, string brand, VehicleType vehicleType, string qrCodeHash)
+    {
+        PlateNumber = plateNumber;
+        Brand = brand;
+        VehicleType = vehicleType;
+        QrCodeHash = qrCodeHash;
+    }
 }

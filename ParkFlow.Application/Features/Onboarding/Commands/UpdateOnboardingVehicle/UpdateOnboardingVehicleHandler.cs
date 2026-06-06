@@ -36,30 +36,43 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
         }
 
         var existingVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.UserId);
-        if (existingVehicles.Count() >= 5)
+        
+        Vehicle existingVehicle;
+
+        if (existingVehicles.Any())
         {
-            return Result<Guid>.Failure("Onboarding failed. A maximum of 5 vehicles are allowed per account.", ErrorCode.Conflict);
+            var vehicleToUpdate = existingVehicles.FirstOrDefault()!;
+            
+            var plateExists = existingVehicles.Any(v => v.Id != vehicleToUpdate.Id && v.PlateNumber.Equals(request.PlateNumber, StringComparison.OrdinalIgnoreCase));
+            if (plateExists)
+            {
+                return Result<Guid>.Failure("A vehicle with this plate number already exists.", ErrorCode.Conflict);
+            }
+            
+            var qrPayload = $"{request.UserId}:{request.PlateNumber}:{request.Brand}";
+            var qrBytes = _qrCodeService.GenerateQrCode(qrPayload);
+            var qrCodeHash = HashQrBytes(qrBytes);
+            
+            vehicleToUpdate.Update(request.PlateNumber, request.Brand, request.VehicleType, qrCodeHash);
+            await _vehicleRepository.UpdateAsync(vehicleToUpdate);
+            existingVehicle = vehicleToUpdate;
         }
-
-        var existingVehicle = existingVehicles.FirstOrDefault(v => v.PlateNumber == request.PlateNumber);
-
-        if (existingVehicle == null)
+        else
         {
+            if (existingVehicles.Count() >= 5)
+            {
+                return Result<Guid>.Failure("Onboarding failed. A maximum of 5 vehicles are allowed per account.", ErrorCode.Conflict);
+            }
+
             var qrPayload = $"{request.UserId}:{request.PlateNumber}:{request.Brand}";
             var qrBytes = _qrCodeService.GenerateQrCode(qrPayload);
             var qrCodeHash = HashQrBytes(qrBytes);
 
-            var isPrimary = !existingVehicles.Any();
             var vehicle = new Vehicle(request.UserId, request.PlateNumber, request.Brand, qrCodeHash, request.VehicleType);
-            if (isPrimary)
-                vehicle.SetPrimary(true);
+            vehicle.SetPrimary(true);
 
             await _vehicleRepository.AddAsync(vehicle);
             existingVehicle = vehicle;
-        }
-        else
-        {
-            return Result<Guid>.Failure("Vehicle with this plate number already exists.", ErrorCode.Conflict);
         }
 
         var user = await _userAccountRepository.GetByIdAsync(request.UserId);
