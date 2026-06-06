@@ -1,0 +1,45 @@
+name: Deploy ParkFlow API to EC2
+
+on:
+  push:
+    branches:
+      - main  
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0' 
+
+    - name: Publish API
+      working-directory: ./ParkFlow.API
+      run: |
+        dotnet restore
+        dotnet publish -c Release -r linux-x64 --self-contained false -o ../publish
+
+    - name: Copy Files via SCP
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "./publish/*"
+        target: "/home/ubuntu/app"
+        strip_components: 1
+
+    - name: Restart Systemd Service
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          sudo systemctl restart parkflow
+          sudo systemctl status parkflow | head -n 5
