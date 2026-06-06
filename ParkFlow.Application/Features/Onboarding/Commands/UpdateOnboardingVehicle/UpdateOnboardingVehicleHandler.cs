@@ -41,12 +41,17 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
 
         if (existingVehicles.Any())
         {
-            var vehicleToUpdate = existingVehicles.FirstOrDefault()!;
+            var vehicleToUpdate = existingVehicles.FirstOrDefault(v => v.PlateNumber.Equals(request.PlateNumber, StringComparison.OrdinalIgnoreCase));
             
-            var plateExists = existingVehicles.Any(v => v.Id != vehicleToUpdate.Id && v.PlateNumber.Equals(request.PlateNumber, StringComparison.OrdinalIgnoreCase));
-            if (plateExists)
+            if (vehicleToUpdate == null)
             {
-                return Result<Guid>.Failure("A vehicle with this plate number already exists.", ErrorCode.Conflict);
+                vehicleToUpdate = existingVehicles.FirstOrDefault(v => v.IsPrimary) ?? existingVehicles.FirstOrDefault()!;
+                
+                var plateExists = existingVehicles.Any(v => v.Id != vehicleToUpdate.Id && v.PlateNumber.Equals(request.PlateNumber, StringComparison.OrdinalIgnoreCase));
+                if (plateExists)
+                {
+                    return Result<Guid>.Failure("A vehicle with this plate number already exists.", ErrorCode.Conflict);
+                }
             }
             
             var qrPayload = $"{request.UserId}:{request.PlateNumber}:{request.Brand}";
