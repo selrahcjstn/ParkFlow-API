@@ -115,7 +115,7 @@ public class OnboardingVehicleTests
     }
 
     [Fact]
-    public async Task UpdateOnboardingVehicleHandler_ShouldPreventPlateCollision_WithOtherVehiclesOfTheSameUser()
+    public async Task UpdateOnboardingVehicleHandler_ShouldUpdateMatchingVehicle_WhenPlateMatchesExistingSecondaryVehicle()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -126,18 +126,20 @@ public class OnboardingVehicleTests
 
         var handler = new UpdateOnboardingVehicleHandler(_vehicleRepository, _userAccountRepository, _qrCodeService, _validator);
 
-        // Setup: user already has two vehicles (e.g. registered through main profile features, not onboarding)
+        // Setup: user already has two vehicles
         var vehicle1 = new Vehicle(userId, "ABC-123", "Toyota", "hash1", VehicleType.Car);
+        vehicle1.SetPrimary(true);
         var vehicle2 = new Vehicle(userId, "XYZ-789", "Honda", "hash2", VehicleType.Car);
         await _vehicleRepository.AddAsync(vehicle1);
         await _vehicleRepository.AddAsync(vehicle2);
 
-        // Act - Try to onboarding-update vehicle1 to use vehicle2's plate number "XYZ-789"
+        // Act - Submit XYZ-789 (matching secondary vehicle) with brand Ford
         var result = await handler.Handle(new UpdateOnboardingVehicleCommand(userId, "XYZ-789", "Ford", VehicleType.Car), CancellationToken.None);
 
         // Assert
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorCode.Conflict, result.ErrorCode);
-        Assert.Contains("plate number already exists", result.Message);
+        Assert.True(result.IsSuccess);
+        var updatedVehicle2 = await _vehicleRepository.GetByIdAsync(vehicle2.Id);
+        Assert.NotNull(updatedVehicle2);
+        Assert.Equal("Ford", updatedVehicle2.Brand);
     }
 }
