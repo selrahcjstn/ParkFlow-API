@@ -1,19 +1,94 @@
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.Linq;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using ParkFlow.Infrastructure.Realtime;
+using ParkFlow.Application;
+using ParkFlow.Infrastructure;
+using ParkFlow.Persistence;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-var optionsBuilder = new DbContextOptionsBuilder<ParkFlow.Persistence.AppDbContext>();
-optionsBuilder.UseNpgsql(connectionString);
+// Add services to the container.
 
-using (var context = new ParkFlow.Persistence.AppDbContext(optionsBuilder.Options))
+// Dependency Injections:
+builder.Services.AddPersistence(builder.Configuration);
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.AddControllers();
+
+// Swagger configuration:
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
 {
-    var vehicles = context.Set<Vehicle>().ToList();
-    Console.WriteLine($"[DIAGNOSTIC] Total vehicles in DB: {vehicles.Count}");
-    foreach (var v in vehicles)
+    options.CustomSchemaIds(type => type.FullName);
+});
+
+// JWT Authentication configuration:
+var key = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT key is missing"));
+builder.Services.AddAuthentication(option =>
+{
+    option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    option.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{   
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        Console.WriteLine($"[DIAGNOSTIC] - Id: {v.Id}, OwnerId: {v.OwnerId}, Plate: {v.PlateNumber}, Brand: {v.Brand}, IsPrimary: {v.IsPrimary}");
-    }
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(key)
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+
+            var path = context.HttpContext.Request.Path;
+
+            if (!string.IsNullOrEmpty(accessToken) &&
+                path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
+    };
+});
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("StudentOnly", policy =>
+        policy.RequireClaim("profile_type", "student"))
+    .AddPolicy("PersonnelOnly", policy =>
+        policy.RequireClaim("profile_type", "personnel"));
+
+builder.Services.AddSignalR();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
+
+// Middleware configuration:
+app.UseHttpsRedirection();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.MapHub<NotificationHub>("/hubs/notifications");
+
+app.Run();
