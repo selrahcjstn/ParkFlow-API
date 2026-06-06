@@ -10,20 +10,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # 1. Pull code using the updated Node 24 action
     - name: Checkout Code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
+    # 2. Setup .NET environment using the updated Node 24 action
     - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: '8.0'
 
+    # 3. Compile targeting the specific API project directly to isolate the output directory
     - name: Publish API
-      working-directory: ./ParkFlow.API
       run: |
-        dotnet restore
-        dotnet publish -c Release -r linux-x64 --self-contained false -o ../publish
+        dotnet restore ParkFlow.API/ParkFlow.API.csproj
+        dotnet publish ParkFlow.API/ParkFlow.API.csproj -c Release -r linux-x64 --self-contained false -o ./publish
 
+    # 4. Shut down service so Linux file handles are safely released
     - name: Stop ParkFlow Service
       uses: appleboy/ssh-action@v1.0.3
       with:
@@ -33,6 +36,7 @@ jobs:
         script: |
           sudo systemctl stop parkflow
 
+    # 5. Clean binaries, assemblies, and layout bundles while protecting production variables
     - name: Clean Deployment Directory Safely
       uses: appleboy/ssh-action@v1.0.3
       with:
@@ -42,6 +46,7 @@ jobs:
         script: |
           find /home/ubuntu/app/ -maxdepth 1 -type f ! -name 'appsettings.Production.json' -delete
 
+    # 6. Copy clean, fresh binaries directly into the app path
     - name: Copy Files via SCP
       uses: appleboy/scp-action@v0.1.7
       with:
@@ -52,6 +57,7 @@ jobs:
         target: "/home/ubuntu/app"
         strip_components: 1
 
+    # 7. Complete a clean service boot sequence
     - name: Start ParkFlow Service
       uses: appleboy/ssh-action@v1.0.3
       with:
