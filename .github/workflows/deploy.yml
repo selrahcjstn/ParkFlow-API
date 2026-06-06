@@ -18,12 +18,12 @@ jobs:
       with:
         dotnet-version: '10.0'
 
-    - name: Publish API
+    - name: Publish API Application
       run: |
         dotnet restore ParkFlow.API/ParkFlow.API.csproj
         dotnet publish ParkFlow.API/ParkFlow.API.csproj -c Release -r linux-x64 --self-contained false -o ./publish
 
-    - name: Stop ParkFlow Service
+    - name: Stop Live Application Service
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.EC2_HOST }}
@@ -32,8 +32,7 @@ jobs:
         script: |
           sudo systemctl stop parkflow
 
-    # FIXED: Targets the exact publish directory where your manual files live
-    - name: Clean Deployment Directory Safely
+    - name: Purge Stale Application Binaries
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.EC2_HOST }}
@@ -44,8 +43,7 @@ jobs:
             find /home/ubuntu/app/publish/ -maxdepth 1 -type f ! -name 'appsettings.Production.json' -delete
           fi
 
-    # FIXED: Targets /home/ubuntu/app/publish directly to align with your manual uploads
-    - name: Copy Files via SCP
+    - name: Deploy Fresh Binaries via SCP
       uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.EC2_HOST }}
@@ -55,7 +53,7 @@ jobs:
         target: "/home/ubuntu/app/publish"
         strip_components: 1
 
-    - name: Start ParkFlow Service
+    - name: Initialize and Start Service
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.EC2_HOST }}
