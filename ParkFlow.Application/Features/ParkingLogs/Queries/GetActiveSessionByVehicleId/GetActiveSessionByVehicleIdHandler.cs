@@ -66,7 +66,7 @@ public class GetActiveSessionByVehicleIdHandler
         // maximumExitTimeUtc  = schedule end + 30 min grace (overtime starts after this)
         DateTime? scheduleDeadlineUtc = null;
         DateTime? maximumExitTimeUtc = null;
-        if (verifiedCor != null)
+        if (activeLog.EntryMethod != EntryMethod.Manual && verifiedCor != null)
         {
             var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
             var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(activeLog.EntryTime);

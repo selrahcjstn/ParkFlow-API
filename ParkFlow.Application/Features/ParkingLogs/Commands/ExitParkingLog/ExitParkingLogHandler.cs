@@ -112,7 +112,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
 
         var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(exitTime);
 
-        if (verifiedCor != null)
+        if (active.EntryMethod != EntryMethod.Manual && verifiedCor != null)
         {
             var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
             var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == philippinesNow.DayOfWeek);

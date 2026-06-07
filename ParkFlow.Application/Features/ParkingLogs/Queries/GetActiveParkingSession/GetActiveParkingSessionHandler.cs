@@ -58,7 +58,7 @@ public class GetActiveParkingSessionHandler
 
             DateTime? maximumExitTimeUtc = null;
 
-            if (verifiedCor != null)
+            if (log.EntryMethod != EntryMethod.Manual && verifiedCor != null)
             {
                 var schedules = await _parkingScheduleRepository
                     .GetBySubmissionIdAsync(verifiedCor.Id);
@@ -114,7 +114,8 @@ public class GetActiveParkingSessionHandler
                 OverstayHours: overstayHours,
                 Amount: amount,
 
-                TotalParkingHours: $"{totalHours:F2} hours"
+                TotalParkingHours: $"{totalHours:F2} hours",
+                EntryMethod: log.EntryMethod.ToString()
             ));
         }
 

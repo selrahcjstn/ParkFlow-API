@@ -18,5 +18,6 @@ namespace ParkFlow.Application.Features.ParkingLogs.DTOs
     DateTime MaximumExitTime,
     double OverstayHours,
     decimal Amount,
-    string TotalParkingHours);
+    string TotalParkingHours,
+    string EntryMethod);
 }
