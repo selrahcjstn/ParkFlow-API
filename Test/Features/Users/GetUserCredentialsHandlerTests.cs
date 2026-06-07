@@ -21,6 +21,7 @@ public class FakeUserAccountRepository : IUserAccountRepository
     public Task<UserAccount?> GetByAuthProviderExternalIdAsync(AuthProvider authProvider, string externalProviderId) =>
         Task.FromResult(Users.FirstOrDefault(u => u.AuthProvider == authProvider && u.ExternalProviderId == externalProviderId));
     public Task<UserAccount?> GetByIdAsync(Guid id) => Task.FromResult(Users.FirstOrDefault(u => u.Id == id));
+    public Task<UserAccount?> GetByPhoneNumberAsync(string phoneNumber) => Task.FromResult(Users.FirstOrDefault(u => u.PhoneNumber == phoneNumber));
     public Task<bool> EmailExistsAsync(string email, Guid? excludeUserId = null)
     {
         var q = Users.Where(u => u.AuthIdentities.Any(i => i.Email == email));

@@ -61,6 +61,7 @@ public class FakeVehicleRepository : IVehicleRepository
 
     public Task<Vehicle?> GetByIdAsync(Guid id) => Task.FromResult(Vehicles.FirstOrDefault(v => v.Id == id));
     public Task<Vehicle?> GetByQrCodeHashAsync(string qrCodeHash) => Task.FromResult(Vehicles.FirstOrDefault(v => v.QrCodeHash == qrCodeHash));
+    public Task<Vehicle?> GetByPlateNumberAsync(string plateNumber) => Task.FromResult(Vehicles.FirstOrDefault(v => v.PlateNumber.Equals(plateNumber, StringComparison.OrdinalIgnoreCase)));
     public Task<IEnumerable<Vehicle>> GetByOwnerIdAsync(Guid ownerId) => Task.FromResult<IEnumerable<Vehicle>>(Vehicles.Where(v => v.OwnerId == ownerId).ToList());
     public Task UpdateAsync(Vehicle vehicle) => Task.CompletedTask;
     public Task DeleteAsync(Vehicle vehicle) => Task.CompletedTask;
@@ -70,7 +71,11 @@ public class FakeUserProfileRepository : IUserProfileRepository
 {
     public List<UserProfile> Profiles { get; } = new();
 
-    public Task AddAsync(UserProfile userProfile) => Task.CompletedTask;
+    public Task AddAsync(UserProfile userProfile)
+    {
+        Profiles.Add(userProfile);
+        return Task.CompletedTask;
+    }
     public Task<UserProfile?> GetByIdAsync(Guid id) => Task.FromResult(Profiles.FirstOrDefault(p => p.Id == id));
     public Task<UserProfile?> GetByUserIdAsync(Guid userId) => Task.FromResult(Profiles.FirstOrDefault(p => p.UserAccountId == userId));
     public Task UpdateAsync(UserProfile userProfile) => Task.CompletedTask;
@@ -144,7 +149,7 @@ public class FakePersonnelRepository : IPersonnelRepository
 
 public class FakeParkingService : IParkingService
 {
-    public ParkingLog CreateEntry(Guid vehicleId, Guid guardId) => null!;
+    public ParkingLog CreateEntry(Guid vehicleId, Guid guardId, EntryMethod entryMethod = EntryMethod.QrCode) => null!;
     public void MarkExit(ParkingLog parkingLog) { }
     public DateTime CalculateEntryGracePeriod(DateTime entryTime, TimeSpan scheduleStartTime, int graceMinutes = 30) => default;
     public DateTime CalculateEstimatedExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int graceMinutes = 30) => default;

@@ -15,4 +15,5 @@ public class CreateParkingLogResponse
     public DateTime? EntryTime { get; set; }
     public DateTime? EntryDate { get; set; }
     public DateTime? MaximumExitTime { get; set; }
+    public string EntryMethod { get; set; } = null!;
 }

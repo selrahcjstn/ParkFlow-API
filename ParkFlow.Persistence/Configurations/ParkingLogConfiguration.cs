@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ParkFlow.Domain.Entities;
 
+using ParkFlow.Domain.Enums;
+
 namespace ParkFlow.Persistence.Configurations;
 
 public class ParkingLogConfiguration : IEntityTypeConfiguration<ParkingLog>
@@ -29,6 +31,9 @@ public class ParkingLogConfiguration : IEntityTypeConfiguration<ParkingLog>
 			.IsRequired(false);
 
 		entity.Property(e => e.Status)
+			.IsRequired();
+
+		entity.Property(e => e.EntryMethod)
 			.IsRequired();
 
 		entity.HasOne(e => e.Vehicle)

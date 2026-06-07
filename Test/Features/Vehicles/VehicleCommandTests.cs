@@ -48,6 +48,11 @@ public class InMemoryVehicleRepository : IVehicleRepository
         return Task.FromResult(Vehicles.FirstOrDefault(v => v.QrCodeHash == qrCodeHash));
     }
 
+    public Task<Vehicle?> GetByPlateNumberAsync(string plateNumber)
+    {
+        return Task.FromResult(Vehicles.FirstOrDefault(v => v.PlateNumber.Equals(plateNumber, StringComparison.OrdinalIgnoreCase)));
+    }
+
     public Task<IEnumerable<Vehicle>> GetByOwnerIdAsync(Guid ownerId)
     {
         return Task.FromResult<IEnumerable<Vehicle>>(Vehicles.Where(v => v.OwnerId == ownerId).ToList());

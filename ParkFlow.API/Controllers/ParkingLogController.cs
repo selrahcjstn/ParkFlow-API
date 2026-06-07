@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
+using ParkFlow.Application.Features.ParkingLogs.Commands.CreateManualParkingLog;
 using ParkFlow.Application.Features.ParkingLogs.Commands.ExitParkingLog;
 using ParkFlow.Application.Features.ParkingLogs.DTOs;
 using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSessionCount;
@@ -24,6 +25,14 @@ public class ParkingLogController : ControllerBase
     // ENTRY
     [HttpPost("entry")]
     public async Task<ActionResult<Result<CreateParkingLogResponse>>> LogEntry([FromBody] CreateParkingLogCommand command)
+    {
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
+
+    // MANUAL ENTRY
+    [HttpPost("manual-entry")]
+    public async Task<ActionResult<Result<CreateParkingLogResponse>>> LogManualEntry([FromBody] CreateManualParkingLogCommand command)
     {
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
