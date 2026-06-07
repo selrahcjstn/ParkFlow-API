@@ -47,6 +47,13 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
             .FirstOrDefaultAsync(u => u.Id == id);
     }
 
+    public async Task<UserAccount?> GetByPhoneNumberAsync(string phoneNumber)
+    {
+        return await _appDbContext.UserAccounts
+            .Include(u => u.UserProfile)
+            .FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber);
+    }
+
     public async Task<bool> EmailExistsAsync(string email, Guid? excludeUserId = null)
     {
         var query = _appDbContext.AuthIdentities

@@ -40,6 +40,9 @@ public class GetSessionCountHandler
 
 		foreach (var log in activeLogs)
 		{
+			if (log.EntryMethod == EntryMethod.Manual)
+				continue;
+
 			var verifiedCor = corSubmissions.FirstOrDefault(c =>
 				c.UserAccountId == log.Vehicle.OwnerId &&
 				c.VerificationStatus == CorVerificationStatus.Verified);
@@ -63,10 +66,13 @@ public class GetSessionCountHandler
 				overstayCount++;
 		}
 
+		var manualSessionCount = activeLogs.Count(x => x.EntryMethod == EntryMethod.Manual);
+
 		var response = new SessionCountResponse(
 			ActiveSessionCount: activeLogs.Count,
 			OverstayCount: overstayCount,
-			MaximumCapacity: request.ParkingCapacity);
+			MaximumCapacity: request.ParkingCapacity,
+			ManualSessionCount: manualSessionCount);
 
 		return Result<SessionCountResponse>.Success(response, "Session count retrieved.");
 	}

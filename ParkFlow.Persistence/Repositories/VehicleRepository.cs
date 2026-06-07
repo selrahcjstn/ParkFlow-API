@@ -37,6 +37,13 @@ public class VehicleRepository : IVehicleRepository
             .FirstOrDefaultAsync(v => v.QrCodeHash == qrCodeHash);
     }
 
+    public async Task<Vehicle?> GetByPlateNumberAsync(string plateNumber)
+    {
+        return await _appDbContext.Set<Vehicle>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(v => v.PlateNumber.ToLower() == plateNumber.ToLower());
+    }
+
     public async Task<IEnumerable<Vehicle>> GetByOwnerIdAsync(Guid ownerId)
     {
         return await _appDbContext.Set<Vehicle>()

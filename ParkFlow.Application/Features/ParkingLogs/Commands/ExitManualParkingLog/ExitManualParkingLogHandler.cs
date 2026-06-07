@@ -7,9 +7,9 @@ using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
 
-namespace ParkFlow.Application.Features.ParkingLogs.Commands.ExitParkingLog;
+namespace ParkFlow.Application.Features.ParkingLogs.Commands.ExitManualParkingLog;
 
-public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Result<ExitParkingLogResponse>>
+public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogCommand, Result<ExitParkingLogResponse>>
 {
     private readonly IParkingLogRepository _parkingLogRepository;
     private readonly IVehicleRepository _vehicleRepository;
@@ -24,10 +24,10 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
     private readonly IParkingService _parkingService;
     private readonly IViolationService _violationService;
     private readonly IParkingLogRoleService _parkingLogRoleService;
-    private readonly IValidator<ExitParkingLogCommand> _validator;
+    private readonly IValidator<ExitManualParkingLogCommand> _validator;
     private readonly ISignalRNotificationSender _notificationSender;
 
-    public ExitParkingLogHandler(
+    public ExitManualParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
         IVehicleRepository vehicleRepository,
         IUserProfileRepository userProfileRepository,
@@ -41,7 +41,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         IParkingService parkingService,
         IViolationService violationService,
         IParkingLogRoleService parkingLogRoleService,
-        IValidator<ExitParkingLogCommand> validator,
+        IValidator<ExitManualParkingLogCommand> validator,
         ISignalRNotificationSender notificationSender)
     {
         _parkingLogRepository = parkingLogRepository;
@@ -61,7 +61,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         _notificationSender = notificationSender;
     }
 
-    public async Task<Result<ExitParkingLogResponse>> Handle(ExitParkingLogCommand request, CancellationToken cancellationToken)
+    public async Task<Result<ExitParkingLogResponse>> Handle(ExitManualParkingLogCommand request, CancellationToken cancellationToken)
     {
         var validationResult = await _validator.ValidateAsync(request, cancellationToken);
 
@@ -71,10 +71,10 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             return Result<ExitParkingLogResponse>.Failure(errors, ErrorCode.BadRequest);
         }
 
-        var vehicle = await _vehicleRepository.GetByQrCodeHashAsync(request.QrCodeHash);
+        var vehicle = await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber);
 
         if (vehicle == null)
-            return Result<ExitParkingLogResponse>.Failure("Invalid QR code. Vehicle not found.", ErrorCode.NotFound);
+            return Result<ExitParkingLogResponse>.Failure("Vehicle not found.", ErrorCode.NotFound);
 
         var userProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
 
@@ -144,6 +144,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                 }
             }
         }
+
         if (!isViolation)
         {
             var existingViolation = await _violationRepository.GetByLogIdAsync(active.Id);
@@ -156,7 +157,6 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                 referenceNumber = existingViolation.ReferenceNumber ?? $"VIO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
             }
         }
-
 
         var actualExitTime = active.ExitTime ?? exitTime;
 
