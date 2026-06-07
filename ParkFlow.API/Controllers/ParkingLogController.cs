@@ -4,6 +4,7 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
 using ParkFlow.Application.Features.ParkingLogs.Commands.CreateManualParkingLog;
 using ParkFlow.Application.Features.ParkingLogs.Commands.ExitParkingLog;
+using ParkFlow.Application.Features.ParkingLogs.Commands.ExitManualParkingLog;
 using ParkFlow.Application.Features.ParkingLogs.DTOs;
 using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSessionCount;
 using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSession;
@@ -41,6 +42,14 @@ public class ParkingLogController : ControllerBase
     // EXIT
     [HttpPatch("exit")]
     public async Task<ActionResult<Result<ExitParkingLogResponse>>> LogExit([FromBody] ExitParkingLogCommand command)
+    {
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
+
+    // MANUAL EXIT
+    [HttpPatch("manual-exit")]
+    public async Task<ActionResult<Result<ExitParkingLogResponse>>> LogManualExit([FromBody] ExitManualParkingLogCommand command)
     {
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
