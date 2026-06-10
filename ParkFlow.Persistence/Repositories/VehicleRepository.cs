@@ -52,6 +52,14 @@ public class VehicleRepository : IVehicleRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<Vehicle>> GetByOwnerIdsAsync(IEnumerable<Guid> ownerIds)
+    {
+        return await _appDbContext.Set<Vehicle>()
+            .AsNoTracking()
+            .Where(v => ownerIds.Contains(v.OwnerId))
+            .ToListAsync();
+    }
+
     public async Task UpdateAsync(Vehicle vehicle)
     {
         _appDbContext.Set<Vehicle>().Update(vehicle);

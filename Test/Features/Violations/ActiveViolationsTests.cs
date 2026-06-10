@@ -63,6 +63,7 @@ public class FakeVehicleRepository : IVehicleRepository
     public Task<Vehicle?> GetByQrCodeHashAsync(string qrCodeHash) => Task.FromResult(Vehicles.FirstOrDefault(v => v.QrCodeHash == qrCodeHash));
     public Task<Vehicle?> GetByPlateNumberAsync(string plateNumber) => Task.FromResult(Vehicles.FirstOrDefault(v => v.PlateNumber.Equals(plateNumber, StringComparison.OrdinalIgnoreCase)));
     public Task<IEnumerable<Vehicle>> GetByOwnerIdAsync(Guid ownerId) => Task.FromResult<IEnumerable<Vehicle>>(Vehicles.Where(v => v.OwnerId == ownerId).ToList());
+    public Task<IEnumerable<Vehicle>> GetByOwnerIdsAsync(IEnumerable<Guid> ownerIds) => Task.FromResult<IEnumerable<Vehicle>>(Vehicles.Where(v => ownerIds.Contains(v.OwnerId)).ToList());
     public Task UpdateAsync(Vehicle vehicle) => Task.CompletedTask;
     public Task DeleteAsync(Vehicle vehicle) => Task.CompletedTask;
 }
@@ -116,6 +117,7 @@ public class FakeCorSubmissionRepository : ICorSubmissionRepository
     public Task UpdateCorSubmissionAsync(CorSubmission corSubmission) => Task.CompletedTask;
     public Task<CorSubmission?> GetCorSubmissionAsync(Guid id) => Task.FromResult<CorSubmission?>(null);
     public Task<CorSubmission?> GetByUserIdAndTermAsync(Guid userId, string term) => Task.FromResult<CorSubmission?>(null);
+    public Task<CorSubmission?> GetLatestByUserIdAsync(Guid userId) => Task.FromResult<CorSubmission?>(null);
     public Task DeleteCorSubmissionAsync(CorSubmission corSubmission) => Task.CompletedTask;
 }
 

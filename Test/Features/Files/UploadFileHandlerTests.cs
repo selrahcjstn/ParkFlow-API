@@ -78,6 +78,8 @@ public class InMemoryCorSubmissionRepository : ICorSubmissionRepository
     public Task<CorSubmission?> GetCorSubmissionAsync(Guid id) => Task.FromResult(Submissions.FirstOrDefault(s => s.Id == id));
     public Task<CorSubmission?> GetByUserIdAndTermAsync(Guid userAccountId, string academicTerm) =>
         Task.FromResult(Submissions.FirstOrDefault(s => s.UserAccountId == userAccountId && s.AcademicTerm == academicTerm));
+    public Task<CorSubmission?> GetLatestByUserIdAsync(Guid userAccountId) =>
+        Task.FromResult(Submissions.OrderByDescending(s => s.CreatedAt).FirstOrDefault(s => s.UserAccountId == userAccountId));
     public Task<IEnumerable<CorSubmission>> ListCorSubmissionsAsync() => Task.FromResult<IEnumerable<CorSubmission>>(Submissions);
     public Task AddCorSubmissionAsync(CorSubmission corSubmission) { Submissions.Add(corSubmission); return Task.CompletedTask; }
     public Task UpdateCorSubmissionAsync(CorSubmission corSubmission)

@@ -4,6 +4,7 @@ public interface ICorSubmissionRepository
 {
     Task<CorSubmission?> GetCorSubmissionAsync(Guid id);
     Task<CorSubmission?> GetByUserIdAndTermAsync(Guid userAccountId, string academicTerm);
+    Task<CorSubmission?> GetLatestByUserIdAsync(Guid userAccountId);
     Task<IEnumerable<CorSubmission>> ListCorSubmissionsAsync();
     Task AddCorSubmissionAsync(CorSubmission corSubmission);
     Task UpdateCorSubmissionAsync(CorSubmission corSubmission);

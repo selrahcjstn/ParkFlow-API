@@ -9,6 +9,7 @@ public interface IVehicleRepository
     Task<Vehicle?> GetByQrCodeHashAsync(string qrCodeHash);
     Task<Vehicle?> GetByPlateNumberAsync(string plateNumber);
     Task<IEnumerable<Vehicle>> GetByOwnerIdAsync(Guid ownerId);
+    Task<IEnumerable<Vehicle>> GetByOwnerIdsAsync(IEnumerable<Guid> ownerIds);
     Task UpdateAsync(Vehicle vehicle);
     Task DeleteAsync(Vehicle vehicle);
 }

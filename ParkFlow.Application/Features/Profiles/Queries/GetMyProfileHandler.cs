@@ -2,6 +2,7 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Profiles.DTOs;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Profiles.Queries;
 
@@ -10,13 +11,16 @@ public class GetMyProfileHandler
 {
     private readonly IUserProfileRepository _userProfileRepository;
     private readonly IUserContext _userContext;
+    private readonly ICorSubmissionRepository _corSubmissionRepository;
 
     public GetMyProfileHandler(
         IUserProfileRepository userProfileRepository,
-        IUserContext userContext)
+        IUserContext userContext,
+        ICorSubmissionRepository corSubmissionRepository)
     {
         _userProfileRepository = userProfileRepository;
         _userContext = userContext;
+        _corSubmissionRepository = corSubmissionRepository;
     }
 
     public async Task<Result<UserProfileDto>> Handle(
@@ -29,6 +33,9 @@ public class GetMyProfileHandler
 
         if (profile == null)
             return Result<UserProfileDto>.Failure("User profile not found.", ErrorCode.NotFound);
+
+        var latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(profile.UserAccountId);
+        var corStatus = latestCor?.VerificationStatus ?? CorVerificationStatus.NotSubmitted;
 
         var dto = new UserProfileDto(
             profile.Id,
@@ -44,7 +51,8 @@ public class GetMyProfileHandler
             Course: profile.Student?.Course,
             YearLevel: profile.Student?.YearLevel,
             Section: profile.Student?.Section,
-            Department: profile.Personnel?.Department);
+            Department: profile.Personnel?.Department,
+            CorVerificationStatus: corStatus);
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");
     }
