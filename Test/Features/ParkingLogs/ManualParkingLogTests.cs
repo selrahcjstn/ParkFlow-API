@@ -263,6 +263,8 @@ public class FakeCorSubmissionRepositoryWithMock : ICorSubmissionRepository
     public Task UpdateCorSubmissionAsync(CorSubmission corSubmission) => Task.CompletedTask;
     public Task<CorSubmission?> GetCorSubmissionAsync(Guid id) => Task.FromResult<CorSubmission?>(null);
     public Task<CorSubmission?> GetByUserIdAndTermAsync(Guid userId, string term) => Task.FromResult<CorSubmission?>(null);
+    public Task<CorSubmission?> GetLatestByUserIdAsync(Guid userId) =>
+        Task.FromResult(_submissions.OrderByDescending(s => s.CreatedAt).FirstOrDefault(s => s.UserAccountId == userId));
     public Task DeleteCorSubmissionAsync(CorSubmission corSubmission) => Task.CompletedTask;
 }
 

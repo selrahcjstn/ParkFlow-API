@@ -38,9 +38,22 @@ public class CorSubmissionRepository : ICorSubmissionRepository
             .FirstOrDefaultAsync(x => x.UserAccountId == userAccountId && x.AcademicTerm == academicTerm);
     }
 
+    public Task<CorSubmission?> GetLatestByUserIdAsync(Guid userAccountId)
+    {
+        return _appDbContext.CorSubmissions
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(x => x.UserAccountId == userAccountId);
+    }
+
     public async Task<IEnumerable<CorSubmission>> ListCorSubmissionsAsync()
     {
         return await _appDbContext.CorSubmissions
+            .Include(x => x.UserAccount)
+                .ThenInclude(u => u.UserProfile)
+            .Include(x => x.UserAccount)
+                .ThenInclude(u => u.AuthIdentities)
+            .OrderByDescending(x => x.CreatedAt)
             .AsNoTracking()
             .ToListAsync();
     }

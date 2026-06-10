@@ -16,5 +16,6 @@ public record UserProfileDto(
     string? Course = null,
     int? YearLevel = null,
     string? Section = null,
-    string? Department = null
+    string? Department = null,
+    CorVerificationStatus? CorVerificationStatus = null
 );

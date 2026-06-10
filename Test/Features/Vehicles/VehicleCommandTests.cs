@@ -58,6 +58,11 @@ public class InMemoryVehicleRepository : IVehicleRepository
         return Task.FromResult<IEnumerable<Vehicle>>(Vehicles.Where(v => v.OwnerId == ownerId).ToList());
     }
 
+    public Task<IEnumerable<Vehicle>> GetByOwnerIdsAsync(IEnumerable<Guid> ownerIds)
+    {
+        return Task.FromResult<IEnumerable<Vehicle>>(Vehicles.Where(v => ownerIds.Contains(v.OwnerId)).ToList());
+    }
+
     public Task UpdateAsync(Vehicle vehicle)
     {
         var existing = Vehicles.FirstOrDefault(v => v.Id == vehicle.Id);
