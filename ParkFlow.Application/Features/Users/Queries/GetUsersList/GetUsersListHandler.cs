@@ -2,6 +2,7 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Users.DTOs;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,15 +16,18 @@ public class GetUsersListHandler : IRequestHandler<GetUsersListQuery, Result<IEn
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IAdminRepository _adminRepository;
     private readonly IVehicleRepository _vehicleRepository;
+    private readonly ICorSubmissionRepository _corSubmissionRepository;
 
     public GetUsersListHandler(
         IUserAccountRepository userAccountRepository,
         IAdminRepository adminRepository,
-        IVehicleRepository vehicleRepository)
+        IVehicleRepository vehicleRepository,
+        ICorSubmissionRepository corSubmissionRepository)
     {
         _userAccountRepository = userAccountRepository;
         _adminRepository = adminRepository;
         _vehicleRepository = vehicleRepository;
+        _corSubmissionRepository = corSubmissionRepository;
     }
 
     public async Task<Result<IEnumerable<UserWithDetailsDto>>> Handle(GetUsersListQuery request, CancellationToken cancellationToken)
@@ -35,6 +39,11 @@ public class GetUsersListHandler : IRequestHandler<GetUsersListQuery, Result<IEn
         var ownerIds = users.Select(u => u.Id).ToList();
         var vehicles = await _vehicleRepository.GetByOwnerIdsAsync(ownerIds);
         var vehiclesByOwner = vehicles.GroupBy(v => v.OwnerId).ToDictionary(g => g.Key, g => g.ToList());
+
+        var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
+        var latestCorByUser = corSubmissions
+            .GroupBy(c => c.UserAccountId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.CreatedAt).First());
 
         var dtos = new List<UserWithDetailsDto>();
 
@@ -65,6 +74,12 @@ public class GetUsersListHandler : IRequestHandler<GetUsersListQuery, Result<IEn
                 }
             }
 
+            string corStatusStr = "NotSubmitted";
+            if (latestCorByUser.TryGetValue(user.Id, out var latestCor))
+            {
+                corStatusStr = latestCor.VerificationStatus.ToString();
+            }
+
             var studentDto = profile?.Student != null
                 ? new UserStudentDto(profile.Student.StudentNumber ?? string.Empty, profile.Student.Course ?? string.Empty, profile.Student.Section ?? string.Empty, profile.Student.YearLevel)
                 : null;
@@ -90,6 +105,7 @@ public class GetUsersListHandler : IRequestHandler<GetUsersListQuery, Result<IEn
                 user.PrimaryEmail ?? string.Empty,
                 user.PhoneNumber ?? string.Empty,
                 user.Status.ToString(),
+                corStatusStr,
                 user.AuthProvider.ToString(),
                 roleStr,
                 user.CreatedAt,

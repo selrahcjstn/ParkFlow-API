@@ -35,6 +35,7 @@ public record UserWithDetailsDto(
     string Email,
     string PhoneNumber,
     string Status,
+    string CorVerificationStatus,
     string AuthProvider,
     string Role,
     DateTime CreatedAt,
