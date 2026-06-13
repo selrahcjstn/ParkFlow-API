@@ -200,9 +200,9 @@ public class EmailOtpTests
         var updatedIdentity = Assert.Single(_authIdentityRepository.Identities);
         Assert.True(updatedIdentity.IsVerified);
 
-        // Check that user status got flipped to verified
+        // Check that user status got flipped to active
         var updatedUser = Assert.Single(_userAccountRepository.Users);
-        Assert.Equal(AccountStatus.Verified, updatedUser.Status);
+        Assert.Equal(AccountStatus.Active, updatedUser.Status);
     }
 
     [Fact]

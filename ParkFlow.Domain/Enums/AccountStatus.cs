@@ -4,6 +4,6 @@
     {
         Suspended,
         PendingVerification,
-        Verified,
+        Active,
     }
 }

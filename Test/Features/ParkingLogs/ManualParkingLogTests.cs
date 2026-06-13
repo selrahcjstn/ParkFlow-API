@@ -240,7 +240,7 @@ public class ManualParkingLogTests
         // Verify guest account and vehicle were created
         var guestAccount = await _userAccountRepository.GetByPhoneNumberAsync("+00000000000");
         Assert.NotNull(guestAccount);
-        Assert.Equal(AccountStatus.Verified, guestAccount.Status);
+        Assert.Equal(AccountStatus.Active, guestAccount.Status);
 
         var registeredVehicle = await _vehicleRepository.GetByPlateNumberAsync("UNKNOWN-PLATE");
         Assert.NotNull(registeredVehicle);

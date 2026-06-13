@@ -23,7 +23,7 @@ public class UpdateUserStatusHandler : IRequestHandler<UpdateUserStatusCommand, 
             return Result<Guid>.Failure("Status is required.", ErrorCode.BadRequest);
 
         if (!Enum.TryParse<AccountStatus>(request.Status, true, out var newStatus))
-            return Result<Guid>.Failure($"Invalid status: {request.Status}. Allowed: Suspended, PendingVerification, Verified.", ErrorCode.BadRequest);
+            return Result<Guid>.Failure($"Invalid status: {request.Status}. Allowed: Suspended, PendingVerification, Active.", ErrorCode.BadRequest);
 
         var user = await _userAccountRepository.GetByIdAsync(request.UserId);
         if (user == null)
