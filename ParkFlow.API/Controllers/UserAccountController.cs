@@ -10,6 +10,8 @@ using ParkFlow.Application.Features.Users.Commands.UpdatePhoneNumber;
 using ParkFlow.Application.Features.Users.Commands.SetPrimaryEmail;
 using ParkFlow.Application.Features.Users.Commands.VerifyResetPasswordCode;
 using ParkFlow.Application.Features.Users.Queries.GetUserCredentials;
+using ParkFlow.Application.Features.Users.Queries.GetUsersList;
+using ParkFlow.Application.Features.Users.Commands.UpdateUserStatus;
 using ParkFlow.Application.Features.Users.DTOs;
 using ParkFlow.Application.Interfaces;
 
@@ -157,5 +159,24 @@ namespace ParkFlow.API.Controllers
                 ? Unauthorized(result)
                 : BadRequest(result);
         }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<ActionResult<Result<IEnumerable<UserWithDetailsDto>>>> GetUsers()
+        {
+            var result = await _mediator.Send(new GetUsersListQuery());
+            return this.ToActionResult(result);
+        }
+
+        [Authorize]
+        [HttpPut("{id}/status")]
+        public async Task<ActionResult<Result<Guid>>> UpdateStatus(Guid id, [FromBody] UpdateUserStatusRequest request)
+        {
+            var command = new UpdateUserStatusCommand(id, request.Status);
+            var result = await _mediator.Send(command);
+            return this.ToActionResult(result);
+        }
     }
+
+    public record UpdateUserStatusRequest(string Status);
 }

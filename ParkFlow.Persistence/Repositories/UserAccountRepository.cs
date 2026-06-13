@@ -66,6 +66,20 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
         return await query.AnyAsync();
     }
 
+    public async Task<IEnumerable<UserAccount>> ListAllAsync()
+    {
+        return await _appDbContext.UserAccounts
+            .Include(u => u.UserProfile)
+                .ThenInclude(p => p!.Student)
+            .Include(u => u.UserProfile)
+                .ThenInclude(p => p!.Personnel)
+            .Include(u => u.UserProfile)
+                .ThenInclude(p => p!.Guard)
+            .Include(u => u.AuthIdentities)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
     public async Task UpdateAsync(UserAccount user)
     {
         await _appDbContext.SaveChangesAsync();
