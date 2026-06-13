@@ -72,6 +72,11 @@ public class UserAccount : BaseEntity
         Status = AccountStatus.Verified;
     }
 
+    public void UpdateStatus(AccountStatus status)
+    {
+        Status = status;
+    }
+
     public void UpdatePhoneNumber(string? phoneNumber)
     {
         if (!string.IsNullOrWhiteSpace(phoneNumber))

@@ -22,7 +22,12 @@ public class AdminRepository : IAdminRepository
     public async Task<Admin?> GetByUserProfileIdAsync(Guid userProfileId)
     {
         return await _context.Admins
-            .Include(a => a .UserProfile)
+            .Include(a => a.UserProfile)
             .FirstOrDefaultAsync(x => x.UserProfileId == userProfileId);
+    }
+
+    public async Task<IEnumerable<Admin>> ListAllAsync()
+    {
+        return await _context.Admins.AsNoTracking().ToListAsync();
     }
 }

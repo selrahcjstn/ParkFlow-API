@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Interfaces;
@@ -9,6 +11,7 @@ public interface IUserAccountRepository
     Task<UserAccount?> GetByIdAsync(Guid id);
     Task<UserAccount?> GetByPhoneNumberAsync(string phoneNumber);
     Task<bool> EmailExistsAsync(string email, Guid? excludeUserId = null);
+    Task<IEnumerable<UserAccount>> ListAllAsync();
 
     Task AddAsync(UserAccount user);
     Task UpdateAsync(UserAccount user);

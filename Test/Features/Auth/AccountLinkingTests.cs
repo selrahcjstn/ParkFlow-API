@@ -31,6 +31,7 @@ public class FakeUserAccountRepository : IUserAccountRepository
         return Task.FromResult(q.Any());
     }
     public Task AddAsync(UserAccount user) { Users.Add(user); return Task.CompletedTask; }
+    public Task<IEnumerable<UserAccount>> ListAllAsync() => Task.FromResult<IEnumerable<UserAccount>>(Users);
     public Task UpdateAsync(UserAccount user)
     {
         var existing = Users.FirstOrDefault(u => u.Id == user.Id);
