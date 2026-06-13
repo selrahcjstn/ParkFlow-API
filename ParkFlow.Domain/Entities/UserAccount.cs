@@ -69,7 +69,7 @@ public class UserAccount : BaseEntity
 
     public void Verify()
     {
-        Status = AccountStatus.Verified;
+        Status = AccountStatus.Active;
     }
 
     public void UpdateStatus(AccountStatus status)

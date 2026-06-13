@@ -61,7 +61,7 @@ public class LinkManualIdentityHandler : IRequestHandler<LinkManualIdentityComma
         if (latestOtp?.IsUsed == true)
         {
             identity.MarkVerified();
-            if (user.Status != ParkFlow.Domain.Enums.AccountStatus.Verified)
+            if (user.Status != ParkFlow.Domain.Enums.AccountStatus.Active)
             {
                 user.Verify();
             }
