@@ -83,12 +83,7 @@ namespace ParkFlow.API.Controllers
             );
 
             var result = await _mediator.Send(command);
-            if (result.IsSuccess)
-                return Ok(result);
-
-            return result.ErrorCode == ErrorCode.Unauthorized
-                ? Unauthorized(result)
-                : BadRequest(result);
+            return this.ToActionResult(result);
         }
 
         [HttpPost("login-microsoft")]
@@ -102,12 +97,7 @@ namespace ParkFlow.API.Controllers
                 request.DisplayName);
 
             var result = await _mediator.Send(command);
-            if (result.IsSuccess)
-                return Ok(result);
-
-            return result.ErrorCode == ErrorCode.Conflict
-                ? Conflict(result)
-                : BadRequest(result);
+            return this.ToActionResult(result);
         }
 
         [HttpPost("forgot-password")]

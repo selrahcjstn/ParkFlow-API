@@ -34,6 +34,11 @@ public class GetMyProfileHandler
         if (profile == null)
             return Result<UserProfileDto>.Failure("User profile not found.", ErrorCode.NotFound);
 
+        if (profile.UserAccount.Status == AccountStatus.Suspended)
+        {
+            return Result<UserProfileDto>.Failure("Your account has been suspended. Please contact the administrator.", ErrorCode.Forbidden);
+        }
+
         var latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(profile.UserAccountId);
         var corStatus = latestCor?.VerificationStatus ?? CorVerificationStatus.NotSubmitted;
 

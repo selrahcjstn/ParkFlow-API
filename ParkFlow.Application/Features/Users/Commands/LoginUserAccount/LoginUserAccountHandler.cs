@@ -42,6 +42,11 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
             return Result<AuthResponse>.Failure("Invalid email or password.", ErrorCode.Unauthorized);
         }
 
+        if (user.Status == AccountStatus.Suspended)
+        {
+            return Result<AuthResponse>.Failure("Your account has been suspended. Please contact the administrator.", ErrorCode.Forbidden);
+        }
+
         var isPasswordValid = _passwordHasher.VerifyPassword(identity.PasswordHash, request.Password);
 
         if (!isPasswordValid)

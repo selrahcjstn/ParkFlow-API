@@ -69,6 +69,11 @@ public class MicrosoftAuthUserAccountHandler : IRequestHandler<MicrosoftAuthUser
             user.AuthIdentities.Add(identity);
         }
 
+        if (user.Status == AccountStatus.Suspended)
+        {
+            return Result<MicrosoftAuthResultDto>.Failure("Your account has been suspended. Please contact the administrator.", ErrorCode.Forbidden);
+        }
+
         string? resolvedFirstName = request.FirstName;
         string? resolvedLastName = request.LastName;
 
