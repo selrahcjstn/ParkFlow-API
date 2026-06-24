@@ -46,4 +46,22 @@ public class ParkingHistoryController : ControllerBase
 
         return this.ToActionResult(result);
     }
+
+    [HttpGet("all/page/{pageNumber:int}/{pageSize:int}")]
+    public async Task<ActionResult<Result<PagedParkingHistoryResponse>>> GetAllHistory(
+        int pageNumber,
+        int pageSize)
+    {
+        // Validation constraints
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 15;
+        if (pageSize > 45) pageSize = 45;
+
+        var result = await _mediator.Send(new GetParkingHistoryQuery(Guid.Empty, pageNumber, pageSize));
+
+        if (result.IsSuccess)
+            return Ok(result);
+
+        return this.ToActionResult(result);
+    }
 }
