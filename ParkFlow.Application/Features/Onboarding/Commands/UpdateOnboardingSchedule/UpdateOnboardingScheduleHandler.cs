@@ -35,9 +35,12 @@ public class UpdateOnboardingScheduleHandler : IRequestHandler<UpdateOnboardingS
             return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
         }
 
-        var submission = await _corSubmissionRepository.GetByUserIdAndTermAsync(request.UserId, "2024-2025");
+        var submission = await _corSubmissionRepository.GetLatestByUserIdAsync(request.UserId);
         if (submission == null)
-            return Result<Guid>.Failure("COR submission not found.", ErrorCode.NotFound);
+        {
+            submission = new CorSubmission(request.UserId, "2024-2025", "pending");
+            await _corSubmissionRepository.AddCorSubmissionAsync(submission);
+        }
 
         var existingSchedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(submission.Id);
         foreach (var existing in existingSchedules)
@@ -54,7 +57,7 @@ public class UpdateOnboardingScheduleHandler : IRequestHandler<UpdateOnboardingS
         var user = await _userAccountRepository.GetByIdAsync(request.UserId);
         if (user != null)
         {
-            user.UpdateOnboardingStep(OnboardingStep.Done);
+            user.UpdateOnboardingStep(OnboardingStep.Schedule);
             await _userAccountRepository.UpdateAsync(user);
         }
 

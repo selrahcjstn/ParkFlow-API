@@ -32,7 +32,7 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
             return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
         }
 
-        var existing = await _corSubmissionRepository.GetByUserIdAndTermAsync(request.UserId, request.AcademicTerm);
+        var existing = await _corSubmissionRepository.GetLatestByUserIdAsync(request.UserId);
         if (existing == null)
         {
             var submission = new CorSubmission(request.UserId, request.AcademicTerm, request.CorDocumentUrl, request.OrcrDocumentUrl, request.MotorPictureUrl);
@@ -48,7 +48,7 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
         var user = await _userAccountRepository.GetByIdAsync(request.UserId);
         if (user != null)
         {
-            user.UpdateOnboardingStep(OnboardingStep.Schedule);
+            user.UpdateOnboardingStep(OnboardingStep.Done);
             await _userAccountRepository.UpdateAsync(user);
         }
 
