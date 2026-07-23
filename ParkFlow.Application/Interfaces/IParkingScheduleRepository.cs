@@ -10,4 +10,5 @@ public interface IParkingScheduleRepository
     Task<IEnumerable<ParkingSchedule>> GetByUserIdAsync(Guid userId);
     Task UpdateAsync(ParkingSchedule parkingSchedule);
     Task DeleteAsync(ParkingSchedule parkingSchedule);
+    Task ReplaceSchedulesAsync(Guid submissionId, IEnumerable<ParkingSchedule> newSchedules);
 }

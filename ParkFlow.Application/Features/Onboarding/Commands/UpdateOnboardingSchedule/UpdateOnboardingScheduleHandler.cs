@@ -42,17 +42,11 @@ public class UpdateOnboardingScheduleHandler : IRequestHandler<UpdateOnboardingS
             await _corSubmissionRepository.AddCorSubmissionAsync(submission);
         }
 
-        var existingSchedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(submission.Id);
-        foreach (var existing in existingSchedules)
-        {
-            await _parkingScheduleRepository.DeleteAsync(existing);
-        }
+        var newSchedules = request.Items.Select(item =>
+            new ParkingSchedule(submission.Id, item.DayOfWeek, item.StartTime, item.EndTime)
+        ).ToList();
 
-        foreach (var item in request.Items)
-        {
-            var schedule = new ParkingSchedule(submission.Id, item.DayOfWeek, item.StartTime, item.EndTime);
-            await _parkingScheduleRepository.AddAsync(schedule);
-        }
+        await _parkingScheduleRepository.ReplaceSchedulesAsync(submission.Id, newSchedules);
 
         var user = await _userAccountRepository.GetByIdAsync(request.UserId);
         if (user != null)

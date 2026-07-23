@@ -80,4 +80,19 @@ public class ParkingScheduleRepository : IParkingScheduleRepository
         _appDbContext.ParkingSchedules.Update(parkingSchedule);
         await _appDbContext.SaveChangesAsync();
     }
+
+    public async Task ReplaceSchedulesAsync(Guid submissionId, IEnumerable<ParkingSchedule> newSchedules)
+    {
+        var existing = await _appDbContext.ParkingSchedules
+            .Where(x => x.SubmissionId == submissionId)
+            .ToListAsync();
+
+        if (existing.Count > 0)
+        {
+            _appDbContext.ParkingSchedules.RemoveRange(existing);
+        }
+
+        await _appDbContext.ParkingSchedules.AddRangeAsync(newSchedules);
+        await _appDbContext.SaveChangesAsync();
+    }
 }
