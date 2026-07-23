@@ -34,7 +34,7 @@ public class GetMyProfileHandler
         if (profile == null)
             return Result<UserProfileDto>.Failure("User profile not found.", ErrorCode.NotFound);
 
-        if (profile.UserAccount.Status == AccountStatus.Suspended)
+        if (profile.UserAccount != null && profile.UserAccount.Status == AccountStatus.Suspended)
         {
             return Result<UserProfileDto>.Failure("Your account has been suspended. Please contact the administrator.", ErrorCode.Forbidden);
         }
@@ -45,12 +45,12 @@ public class GetMyProfileHandler
         var dto = new UserProfileDto(
             profile.Id,
             profile.UserAccountId,
-            profile.UserAccount.PhoneNumber ?? string.Empty,
+            profile.UserAccount?.PhoneNumber ?? string.Empty,
             profile.FirstName,
             profile.LastName,
             profile.MiddleName,
             profile.ProfilePictureUrl,
-            profile.UserAccount.OnboardingStep,
+            profile.UserAccount?.OnboardingStep ?? OnboardingStep.Profile,
             StudentNumber: profile.Student?.StudentNumber,
             EmployeeIdNumber: profile.Personnel?.IdCardNumber,
             Course: profile.Student?.Course,
