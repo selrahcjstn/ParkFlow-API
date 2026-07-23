@@ -46,15 +46,29 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
 
     public async Task<Result<PagedParkingHistoryResponse>> Handle(GetParkingHistoryQuery request, CancellationToken cancellationToken)
     {
-        var profile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
-        if (profile == null)
-            return Result<PagedParkingHistoryResponse>.Failure("User profile not found.", ErrorCode.NotFound);
+        Guid? filterUserId = request.UserId;
 
-        var guard = await _guardRepository.GetByUserProfileIdAsync(profile.Id);
-        var isGuard = guard != null;
+        if (request.UserId != Guid.Empty)
+        {
+            var profile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
+            if (profile == null)
+                return Result<PagedParkingHistoryResponse>.Failure("User profile not found.", ErrorCode.NotFound);
+
+            var guard = await _guardRepository.GetByUserProfileIdAsync(profile.Id);
+            var isGuard = guard != null;
+
+            if (isGuard)
+            {
+                filterUserId = null;
+            }
+        }
+        else
+        {
+            filterUserId = null;
+        }
 
         var logs = await _parkingLogRepository.GetParkingHistoryAsync(
-            isGuard ? null : request.UserId,
+            filterUserId,
             request.PageNumber,
             request.PageSize);
 

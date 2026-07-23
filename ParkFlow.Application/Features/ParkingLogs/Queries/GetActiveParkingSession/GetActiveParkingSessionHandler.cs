@@ -17,17 +17,23 @@ public class GetActiveParkingSessionHandler
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IViolationService _violationService;
+    private readonly IAdminRepository _adminRepository;
+    private readonly IParkingLogRoleService _parkingLogRoleService;
 
     public GetActiveParkingSessionHandler(
         IParkingLogRepository parkingLogRepository,
         IParkingScheduleRepository parkingScheduleRepository,
         ICorSubmissionRepository corSubmissionRepository,
-        IViolationService violationService)
+        IViolationService violationService,
+        IAdminRepository adminRepository,
+        IParkingLogRoleService parkingLogRoleService)
     {
         _parkingLogRepository = parkingLogRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
         _corSubmissionRepository = corSubmissionRepository;
         _violationService = violationService;
+        _adminRepository = adminRepository;
+        _parkingLogRoleService = parkingLogRoleService;
     }
 
     public async Task<Result<IEnumerable<GetActiveParkingSessionResponse>>> Handle(
@@ -96,6 +102,11 @@ public class GetActiveParkingSessionHandler
                 continue;
             }
 
+            var student = ownerProfile.Student;
+            var personnel = ownerProfile.Personnel;
+            var admin = await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id);
+            var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);
+
             var totalHours = Math.Max(0, (nowUtc - log.EntryTime).TotalHours);
 
             dtos.Add(new GetActiveParkingSessionResponse(
@@ -103,6 +114,7 @@ public class GetActiveParkingSessionHandler
                 LastName: ownerProfile.LastName,
                 MiddleName: ownerProfile.MiddleName,
                 PhoneNumber: ownerPhoneNumber,
+                Role: roleDetails.Role,
 
                 Status: log.Status.ToString(),
                 PlateNumber: log.Vehicle.PlateNumber,

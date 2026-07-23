@@ -102,12 +102,16 @@ public class GetSessionCountTests
         var corSubmissionRepository = new FakeCorSubmissionRepositoryWithMock(new List<CorSubmission>());
         var parkingScheduleRepository = new FakeParkingScheduleRepositoryWithMock(new List<ParkingSchedule>());
         var violationService = new FakeViolationService();
+        var adminRepository = new FakeAdminRepository();
+        var parkingLogRoleService = new ParkingLogRoleService();
 
         var handler = new GetActiveParkingSessionHandler(
             parkingLogRepository,
             parkingScheduleRepository,
             corSubmissionRepository,
-            violationService
+            violationService,
+            adminRepository,
+            parkingLogRoleService
         );
 
         var query = new GetActiveParkingSessionQuery(100);
@@ -231,12 +235,16 @@ public class GetSessionCountTests
         var corSubmissionRepository = new FakeCorSubmissionRepositoryWithMock(new List<CorSubmission> { cor });
         var parkingScheduleRepository = new FakeParkingScheduleRepositoryWithMock(new List<ParkingSchedule> { schedule });
         var violationService = new FakeViolationService();
+        var adminRepository = new FakeAdminRepository();
+        var parkingLogRoleService = new ParkingLogRoleService();
 
         var handler = new GetActiveParkingSessionHandler(
             parkingLogRepository,
             parkingScheduleRepository,
             corSubmissionRepository,
-            violationService
+            violationService,
+            adminRepository,
+            parkingLogRoleService
         );
 
         var query = new GetActiveParkingSessionQuery(100);
@@ -277,4 +285,14 @@ public class FakeViolationService : IViolationService
     public bool IsOverstay(DateTime exitTime, TimeSpan scheduleEndTime, int graceMinutes = 30) => false;
     public TimeSpan GetOverstayDuration(DateTime exitTime, TimeSpan scheduleEndTime, int graceMinutes = 30) => TimeSpan.Zero;
     public decimal CalculatePenalty(TimeSpan overstayDuration, decimal hourlyRate = 5) => 0m;
+}
+
+public class FakeAdminRepository : IAdminRepository
+{
+    public Task AddAsync(Admin entity) => Task.CompletedTask;
+    public Task DeleteAsync(Admin entity) => Task.CompletedTask;
+    public Task<Admin?> GetByIdAsync(Guid id) => Task.FromResult<Admin?>(null);
+    public Task<Admin?> GetByUserProfileIdAsync(Guid userProfileId) => Task.FromResult<Admin?>(null);
+    public Task<IEnumerable<Admin>> ListAllAsync() => Task.FromResult<IEnumerable<Admin>>(new List<Admin>());
+    public Task UpdateAsync(Admin entity) => Task.CompletedTask;
 }
