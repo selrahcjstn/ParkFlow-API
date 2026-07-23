@@ -10,6 +10,8 @@ public class CorSubmission : BaseEntity
     public string AcademicTerm { get; private set; } = null!;
 
     public string CorDocumentUrl { get; private set; } = null!;
+    public string? OrcrDocumentUrl { get; private set; }
+    public string? MotorPictureUrl { get; private set; }
 
     public CorVerificationStatus VerificationStatus { get; private set; }
 
@@ -18,12 +20,15 @@ public class CorSubmission : BaseEntity
     public CorSubmission(
         Guid userAccountId,
         string academicTerm,
-        string corDocumentUrl)
+        string corDocumentUrl,
+        string? orcrDocumentUrl = null,
+        string? motorPictureUrl = null)
     {
         UserAccountId = userAccountId;
         AcademicTerm = academicTerm;
         CorDocumentUrl = corDocumentUrl;
-
+        OrcrDocumentUrl = orcrDocumentUrl;
+        MotorPictureUrl = motorPictureUrl;
 
         VerificationStatus = CorVerificationStatus.Pending;
     }
@@ -31,13 +36,21 @@ public class CorSubmission : BaseEntity
     public void UpdateSubmission(
         string? academicTerm,
         string? corDocumentUrl,
-        CorVerificationStatus? verificationStatus)
+        CorVerificationStatus? verificationStatus,
+        string? orcrDocumentUrl = null,
+        string? motorPictureUrl = null)
     {
         if (!string.IsNullOrWhiteSpace(academicTerm))
             AcademicTerm = academicTerm;
 
         if (!string.IsNullOrWhiteSpace(corDocumentUrl))
             CorDocumentUrl = corDocumentUrl;
+
+        if (!string.IsNullOrWhiteSpace(orcrDocumentUrl))
+            OrcrDocumentUrl = orcrDocumentUrl;
+
+        if (!string.IsNullOrWhiteSpace(motorPictureUrl))
+            MotorPictureUrl = motorPictureUrl;
 
         if (verificationStatus.HasValue)
             VerificationStatus = verificationStatus.Value;

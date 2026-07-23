@@ -34,4 +34,6 @@ public record OnboardingScheduleRequest(
 
 public record OnboardingCorRequest(
     string AcademicTerm,
-    string CorDocumentUrl);
+    string CorDocumentUrl,
+    string? OrcrDocumentUrl = null,
+    string? MotorPictureUrl = null);

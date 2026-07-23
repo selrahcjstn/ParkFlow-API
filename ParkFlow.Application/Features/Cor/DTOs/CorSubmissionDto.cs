@@ -8,6 +8,8 @@ public record CorSubmissionDto(
     Guid UserAccountId,
     string AcademicTerm,
     string CorDocumentUrl,
+    string? OrcrDocumentUrl,
+    string? MotorPictureUrl,
     CorVerificationStatus VerificationStatus,
     string FullName,
     string Email,

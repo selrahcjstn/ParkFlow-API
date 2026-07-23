@@ -35,13 +35,13 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
         var existing = await _corSubmissionRepository.GetByUserIdAndTermAsync(request.UserId, request.AcademicTerm);
         if (existing == null)
         {
-            var submission = new CorSubmission(request.UserId, request.AcademicTerm, request.CorDocumentUrl);
+            var submission = new CorSubmission(request.UserId, request.AcademicTerm, request.CorDocumentUrl, request.OrcrDocumentUrl, request.MotorPictureUrl);
             await _corSubmissionRepository.AddCorSubmissionAsync(submission);
             existing = submission;
         }
         else
         {
-            existing.UpdateSubmission(request.AcademicTerm, request.CorDocumentUrl, existing.VerificationStatus);
+            existing.UpdateSubmission(request.AcademicTerm, request.CorDocumentUrl, existing.VerificationStatus, request.OrcrDocumentUrl, request.MotorPictureUrl);
             await _corSubmissionRepository.UpdateCorSubmissionAsync(existing);
         }
 

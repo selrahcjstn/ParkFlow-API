@@ -121,7 +121,9 @@ public class OnboardingController : ControllerBase
         var command = new UpdateOnboardingCorCommand(
             userId,
             request.AcademicTerm,
-            request.CorDocumentUrl);
+            request.CorDocumentUrl,
+            request.OrcrDocumentUrl,
+            request.MotorPictureUrl);
 
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);

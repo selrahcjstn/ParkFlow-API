@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Files.Commands.UploadProfilePicture;
 using ParkFlow.Application.Features.Files.Commands.UploadCorDocument;
+using ParkFlow.Application.Features.Files.Commands.UploadOrcrDocument;
+using ParkFlow.Application.Features.Files.Commands.UploadMotorPicture;
 using ParkFlow.Application.Features.Files.DTOs;
 using System.Threading.Tasks;
 
@@ -30,6 +32,22 @@ public class FilesController : ControllerBase
     [HttpPost("upload/cor")]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<Result<UploadFileResponse>>> UploadCorDocument([FromForm] UploadCorDocumentCommand command)
+    {
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("upload/orcr")]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<Result<UploadFileResponse>>> UploadOrcrDocument([FromForm] UploadOrcrDocumentCommand command)
+    {
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("upload/motor-picture")]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<Result<UploadFileResponse>>> UploadMotorPicture([FromForm] UploadMotorPictureCommand command)
     {
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);

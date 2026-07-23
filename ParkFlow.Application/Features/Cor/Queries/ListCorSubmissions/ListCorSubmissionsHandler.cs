@@ -52,6 +52,8 @@ public class ListCorSubmissionsHandler : IRequestHandler<ListCorSubmissionsQuery
                 s.UserAccountId,
                 s.AcademicTerm,
                 s.CorDocumentUrl,
+                s.OrcrDocumentUrl,
+                s.MotorPictureUrl,
                 s.VerificationStatus,
                 fullName,
                 email,
