@@ -188,7 +188,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
             ReferenceNumber = referenceNumber
         };
 
-        if (active.EntryMethod != EntryMethod.Manual && isViolation)
+        if (isViolation)
         {
             var guardMiddle = string.IsNullOrWhiteSpace(userProfile.MiddleName) ? "" : $" {userProfile.MiddleName}";
             var guardName = $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}";
