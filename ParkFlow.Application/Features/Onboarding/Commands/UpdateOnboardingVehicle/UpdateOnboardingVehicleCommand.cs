@@ -8,4 +8,7 @@ public record UpdateOnboardingVehicleCommand(
     Guid UserId,
     string PlateNumber,
     string Brand,
-    VehicleType VehicleType) : IRequest<Result<Guid>>;
+    VehicleType VehicleType,
+    string? Color = null,
+    string? MotorPictureUrl = null,
+    string? OrcrDocumentUrl = null) : IRequest<Result<Guid>>;

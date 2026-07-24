@@ -127,7 +127,11 @@ public class GetActiveParkingSessionHandler
                 Amount: amount,
 
                 TotalParkingHours: $"{totalHours:F2} hours",
-                EntryMethod: log.EntryMethod.ToString()
+                EntryMethod: log.EntryMethod.ToString(),
+
+                Color: log.Vehicle.Color,
+                MotorPictureUrl: log.Vehicle.MotorPictureUrl,
+                OrcrDocumentUrl: log.Vehicle.OrcrDocumentUrl
             ));
         }
 

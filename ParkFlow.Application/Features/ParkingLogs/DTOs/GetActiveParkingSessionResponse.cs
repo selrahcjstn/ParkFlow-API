@@ -20,5 +20,10 @@ namespace ParkFlow.Application.Features.ParkingLogs.DTOs
     double OverstayHours,
     decimal Amount,
     string TotalParkingHours,
-    string EntryMethod);
+    string EntryMethod,
+
+    // Vehicle Additional Info & Media
+    string? Color = null,
+    string? MotorPictureUrl = null,
+    string? OrcrDocumentUrl = null);
 }
