@@ -60,9 +60,9 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
         if (profile != null)
         {
             profileType =
+                profile.Guard != null ? "guard" :
                 profile.Student != null ? "student" :
                 profile.Personnel != null ? "personnel" :
-                profile.Guard != null ? "guard" :
                 "unassigned";
         }
 

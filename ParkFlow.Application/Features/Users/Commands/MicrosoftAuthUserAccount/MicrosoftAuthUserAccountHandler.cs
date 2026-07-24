@@ -108,9 +108,9 @@ public class MicrosoftAuthUserAccountHandler : IRequestHandler<MicrosoftAuthUser
         if (user.UserProfile != null)
         {
             profileType =
+                user.UserProfile.Guard != null ? "guard" :
                 user.UserProfile.Student != null ? "student" :
                 user.UserProfile.Personnel != null ? "personnel" :
-                user.UserProfile.Guard != null ? "guard" :
                 "unassigned";
         }
 
