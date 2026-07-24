@@ -15,19 +15,22 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
     private readonly IGuardRepository _guardRepository;
     private readonly IParkingLogRepository _parkingLogRepository;
     private readonly IValidator<ProcessViolationPaymentCommand> _validator;
+    private readonly ISignalRNotificationSender _notificationSender;
 
     public ProcessViolationPaymentHandler(
         IViolationRepository violationRepository,
         IUserProfileRepository userProfileRepository,
         IGuardRepository guardRepository,
         IParkingLogRepository parkingLogRepository,
-        IValidator<ProcessViolationPaymentCommand> validator)
+        IValidator<ProcessViolationPaymentCommand> validator,
+        ISignalRNotificationSender notificationSender)
     {
         _violationRepository = violationRepository;
         _userProfileRepository = userProfileRepository;
         _guardRepository = guardRepository;
         _parkingLogRepository = parkingLogRepository;
         _validator = validator;
+        _notificationSender = notificationSender;
     }
 
     public async Task<Result<ViolationPaymentReceiptDto>> Handle(ProcessViolationPaymentCommand request, CancellationToken cancellationToken)
@@ -105,6 +108,25 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
             // Processor Info
             GuardName = guardName
         };
+
+        // Broadcast real-time payment notification so all connected clients (guards and users) update history in real time
+        try
+        {
+            var notificationData = new
+            {
+                ReferenceNumber = violation.ReferenceNumber,
+                PlateNumber = vehicle?.PlateNumber ?? "N/A",
+                IsPaid = true,
+                SettlementStatus = "Settled",
+                PaidAt = receipt.PaidAt
+            };
+            await _notificationSender.SendToAllAsync("PaymentProcessed", notificationData);
+            await _notificationSender.SendToAllAsync("paymentprocessed", notificationData);
+        }
+        catch
+        {
+            // Non-blocking if SignalR fails
+        }
 
         return Result<ViolationPaymentReceiptDto>.Success(
             receipt,

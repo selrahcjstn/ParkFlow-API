@@ -150,6 +150,18 @@ public class FakeSignalRNotificationSender : ISignalRNotificationSender
         WasNotificationSent = true;
         return Task.CompletedTask;
     }
+
+    public Task SendToUserAsync(string userId, string method, object data)
+    {
+        WasNotificationSent = true;
+        return Task.CompletedTask;
+    }
+
+    public Task SendToAllAsync(string method, object data)
+    {
+        WasNotificationSent = true;
+        return Task.CompletedTask;
+    }
 }
 
 public class FakeParkingServiceForExit : IParkingService
