@@ -34,10 +34,7 @@ public class GetVehiclesByOwnerIdHandler : IRequestHandler<GetVehiclesByOwnerIdQ
                 vehicle.QrCodeHash,
                 vehicle.VehicleType,
                 status,
-                vehicle.IsPrimary,
-                vehicle.Color,
-                vehicle.MotorPictureUrl,
-                vehicle.OrcrDocumentUrl));
+                vehicle.IsPrimary));
         }
 
         return Result<IEnumerable<VehicleDto>>.Success(vehicleDtos, "Vehicles retrieved.");

@@ -58,7 +58,7 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
             var qrBytes = _qrCodeService.GenerateQrCode(qrPayload);
             var qrCodeHash = HashQrBytes(qrBytes);
             
-            vehicleToUpdate.Update(request.PlateNumber, request.Brand, request.VehicleType, qrCodeHash, request.Color, request.MotorPictureUrl, request.OrcrDocumentUrl);
+            vehicleToUpdate.Update(request.PlateNumber, request.Brand, request.VehicleType, qrCodeHash);
             await _vehicleRepository.UpdateAsync(vehicleToUpdate);
             existingVehicle = vehicleToUpdate;
         }
@@ -73,7 +73,7 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
             var qrBytes = _qrCodeService.GenerateQrCode(qrPayload);
             var qrCodeHash = HashQrBytes(qrBytes);
 
-            var vehicle = new Vehicle(request.UserId, request.PlateNumber, request.Brand, qrCodeHash, request.VehicleType, request.Color, request.MotorPictureUrl, request.OrcrDocumentUrl);
+            var vehicle = new Vehicle(request.UserId, request.PlateNumber, request.Brand, qrCodeHash, request.VehicleType);
             vehicle.SetPrimary(true);
 
             await _vehicleRepository.AddAsync(vehicle);
