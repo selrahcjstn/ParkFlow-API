@@ -33,16 +33,17 @@ public class GetViolationHistoryHandler
         GetViolationHistoryQuery request,
         CancellationToken cancellationToken)
     {
-        // Determine if the caller is a guard — guards see all violations
+        // Determine if caller is a guard or admin — guards and admins see all violations
         var profile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
         if (profile is null)
             return Result<PagedViolationHistoryResponse>.Failure("User profile not found.", ErrorCode.NotFound);
 
         var guard = await _guardRepository.GetByUserProfileIdAsync(profile.Id);
-        var isGuard = guard is not null;
+        var callerAdmin = await _adminRepository.GetByUserProfileIdAsync(profile.Id);
+        var canViewAll = guard is not null || callerAdmin is not null;
 
         var violations = await _violationRepository.GetViolationHistoryAsync(
-            isGuard ? null : request.UserId,
+            canViewAll ? null : request.UserId,
             request.PageNumber,
             request.PageSize);
 

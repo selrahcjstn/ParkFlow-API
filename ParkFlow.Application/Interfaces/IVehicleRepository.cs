@@ -10,6 +10,7 @@ public interface IVehicleRepository
     Task<Vehicle?> GetByPlateNumberAsync(string plateNumber);
     Task<IEnumerable<Vehicle>> GetByOwnerIdAsync(Guid ownerId);
     Task<IEnumerable<Vehicle>> GetByOwnerIdsAsync(IEnumerable<Guid> ownerIds);
+    Task<IEnumerable<Vehicle>> GetAllAsync();
     Task UpdateAsync(Vehicle vehicle);
     Task DeleteAsync(Vehicle vehicle);
 }

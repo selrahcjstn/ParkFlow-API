@@ -15,6 +15,8 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
     private readonly IUserProfileRepository _userProfileRepository;
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IGuardRepository _guardRepository;
+    private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IParkingScheduleRepository _parkingScheduleRepository;
     private readonly IStudentRepository _studentRepository;
     private readonly IPersonnelRepository _personnelRepository;
     private readonly IAdminRepository _adminRepository;
@@ -29,6 +31,8 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         IUserProfileRepository userProfileRepository,
         IUserAccountRepository userAccountRepository,
         IGuardRepository guardRepository,
+        ICorSubmissionRepository corSubmissionRepository,
+        IParkingScheduleRepository parkingScheduleRepository,
         IStudentRepository studentRepository,
         IPersonnelRepository personnelRepository,
         IAdminRepository adminRepository,
@@ -42,6 +46,8 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         _userProfileRepository = userProfileRepository;
         _userAccountRepository = userAccountRepository;
         _guardRepository = guardRepository;
+        _corSubmissionRepository = corSubmissionRepository;
+        _parkingScheduleRepository = parkingScheduleRepository;
         _studentRepository = studentRepository;
         _personnelRepository = personnelRepository;
         _adminRepository = adminRepository;
@@ -133,16 +139,59 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         if (guard == null)
             return Result<CreateParkingLogResponse>.Failure("Guard not found.", ErrorCode.NotFound);
 
-        // 5. Create Entry with manual method
-        var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard.UserProfileId, EntryMethod.Manual);
-        await _parkingLogRepository.AddParkingLogAsync(parkingLog);
-
-        // 6. Calculate maximum exit time if schedule exists (always null for manual/ignore all)
-        DateTime? maximumExitTimeUtc = null;
-
         var student = await _studentRepository.GetByUserProfileIdAsync(ownerProfile.Id);
         var personnel = await _personnelRepository.GetByUserProfileIdAsync(ownerProfile.Id);
         var admin = await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id);
+
+        var isStudentOrPersonnel = (student != null || personnel != null) && admin == null;
+
+        DateTime? maximumExitTimeUtc = null;
+
+        if (isStudentOrPersonnel)
+        {
+            var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
+
+            var verifiedCor = corSubmissions.FirstOrDefault(c =>
+                c.UserAccountId == vehicle.OwnerId &&
+                c.VerificationStatus == CorVerificationStatus.Verified);
+
+            if (verifiedCor == null)
+            {
+                var docName = student != null ? "Student COR" : "Personnel ID / Registration";
+                return Result<CreateParkingLogResponse>.Failure(
+                    $"Entry denied: {docName} document is missing or unverified.",
+                    ErrorCode.Forbidden);
+            }
+
+            var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
+
+            var utcNow = DateTime.UtcNow;
+            var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
+            var todayDayOfWeek = philippinesNow.DayOfWeek;
+
+            var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == todayDayOfWeek);
+
+            if (todaySchedule == null)
+            {
+                return Result<CreateParkingLogResponse>.Failure(
+                    "Entry denied: No class or work schedule submitted for today.",
+                    ErrorCode.Forbidden);
+            }
+
+            if (!_scheduleService.CanEnter(philippinesNow, todaySchedule))
+            {
+                return Result<CreateParkingLogResponse>.Failure(
+                    "Entry denied: Entry time does not align with authorized schedule.",
+                    ErrorCode.BadRequest);
+            }
+
+            var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todaySchedule.EndTime);
+            maximumExitTimeUtc = scheduleEndTimeUtc.AddMinutes(30);
+        }
+
+        // 5. Create Entry with manual method
+        var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard.UserProfileId, EntryMethod.Manual);
+        await _parkingLogRepository.AddParkingLogAsync(parkingLog);
 
         var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);
 

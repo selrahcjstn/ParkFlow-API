@@ -104,4 +104,7 @@ app.MapControllers();
 
 app.MapHub<NotificationHub>("/hubs/notifications");
 
+// Seed default SuperAdmin account
+await ParkFlow.Persistence.SuperAdminSeeder.SeedSuperAdminAsync(app.Services);
+
 app.Run();

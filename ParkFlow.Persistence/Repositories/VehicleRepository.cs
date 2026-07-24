@@ -60,6 +60,21 @@ public class VehicleRepository : IVehicleRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<Vehicle>> GetAllAsync()
+    {
+        return await _appDbContext.Set<Vehicle>()
+            .Include(v => v.Owner)
+                .ThenInclude(o => o.AuthIdentities)
+            .Include(v => v.Owner)
+                .ThenInclude(o => o.UserProfile)
+                    .ThenInclude(p => p!.Student)
+            .Include(v => v.Owner)
+                .ThenInclude(o => o.UserProfile)
+                    .ThenInclude(p => p!.Personnel)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
     public async Task UpdateAsync(Vehicle vehicle)
     {
         _appDbContext.Set<Vehicle>().Update(vehicle);

@@ -29,6 +29,14 @@ public class VehicleController : ControllerBase
         _userContext = userContext;
     }
 
+    [Authorize]
+    [HttpGet]
+    public async Task<ActionResult<Result<IEnumerable<ParkFlow.Application.Features.Vehicles.Queries.GetAllVehicles.AdminVehicleDto>>>> GetAll()
+    {
+        var result = await _mediator.Send(new ParkFlow.Application.Features.Vehicles.Queries.GetAllVehicles.GetAllVehiclesQuery());
+        return this.ToActionResult(result);
+    }
+
     [HttpPost("create")]
     public async Task<ActionResult<Result<Guid>>> Create(CreateVehicleCommand command)
     {
