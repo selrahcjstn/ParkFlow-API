@@ -14,9 +14,6 @@ public class ParkingHistoryResponse
     public string PlateNumber { get; set; } = null!;
     public string Brand { get; set; } = null!;
     public string Type { get; set; } = null!;
-    public string? Color { get; set; }
-    public string? MotorPictureUrl { get; set; }
-    public string? OrcrDocumentUrl { get; set; }
 
     // Session Information
     public DateTime EntryTime { get; set; }

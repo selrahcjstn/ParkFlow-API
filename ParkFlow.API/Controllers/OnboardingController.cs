@@ -91,10 +91,7 @@ public class OnboardingController : ControllerBase
             userId,
             request.PlateNumber,
             request.Brand,
-            request.VehicleType,
-            request.Color,
-            request.MotorPictureUrl,
-            request.OrcrDocumentUrl);
+            request.VehicleType);
 
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);

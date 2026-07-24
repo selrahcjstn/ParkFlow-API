@@ -22,10 +22,7 @@ public record OnboardingPersonnelRequest(
 public record OnboardingVehicleRequest(
     string PlateNumber,
     string Brand,
-    VehicleType VehicleType,
-    string? Color = null,
-    string? MotorPictureUrl = null,
-    string? OrcrDocumentUrl = null);
+    VehicleType VehicleType);
 
 public record OnboardingScheduleItem(
     DayOfWeek DayOfWeek,
