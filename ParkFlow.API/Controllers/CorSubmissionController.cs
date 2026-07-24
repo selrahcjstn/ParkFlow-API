@@ -35,6 +35,13 @@ public class CorSubmissionController : ControllerBase
         return this.ToActionResult(result);
     }
 
+    [HttpGet("my-submission")]
+    public async Task<ActionResult<Result<CorSubmissionDto?>>> GetMySubmission()
+    {
+        var result = await _mediator.Send(new ParkFlow.Application.Features.Cor.Queries.GetMyCorSubmission.GetMyCorSubmissionQuery());
+        return this.ToActionResult(result);
+    }
+
     [HttpPatch("{corSubmissionId:guid}")]
     public async Task<ActionResult<Result<Guid>>> Update(Guid corSubmissionId, UpdateCorSubmissionRequest request)
     {
