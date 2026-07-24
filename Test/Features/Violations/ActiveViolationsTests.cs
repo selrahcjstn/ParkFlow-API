@@ -132,6 +132,7 @@ public class FakeParkingScheduleRepository : IParkingScheduleRepository
     public Task UpdateParkingScheduleAsync(ParkingSchedule parkingSchedule) => Task.CompletedTask;
     public Task UpdateAsync(ParkingSchedule parkingSchedule) => Task.CompletedTask;
     public Task DeleteAsync(ParkingSchedule parkingSchedule) => Task.CompletedTask;
+    public Task ReplaceSchedulesAsync(Guid submissionId, IEnumerable<ParkingSchedule> schedules) => Task.CompletedTask;
 }
 
 public class FakeStudentRepository : IStudentRepository

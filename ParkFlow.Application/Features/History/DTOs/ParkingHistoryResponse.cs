@@ -20,4 +20,5 @@ public class ParkingHistoryResponse
     public DateTime? ExitTime { get; set; }
     public double? ParkingDuration { get; set; }
     public bool HasViolation { get; set; }
+    public decimal ViolationFee { get; set; }
 }

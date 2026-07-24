@@ -19,6 +19,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
     private readonly IViolationRepository _violationRepository;
+    private readonly IViolationService _violationService;
 
     public GetParkingHistoryHandler(
         IParkingLogRepository parkingLogRepository,
@@ -30,7 +31,8 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
         IParkingLogRoleService parkingLogRoleService,
         ICorSubmissionRepository corSubmissionRepository,
         IParkingScheduleRepository parkingScheduleRepository,
-        IViolationRepository violationRepository)
+        IViolationRepository violationRepository,
+        IViolationService violationService)
     {
         _parkingLogRepository = parkingLogRepository;
         _userProfileRepository = userProfileRepository;
@@ -42,6 +44,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
         _corSubmissionRepository = corSubmissionRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
         _violationRepository = violationRepository;
+        _violationService = violationService;
     }
 
     public async Task<Result<PagedParkingHistoryResponse>> Handle(GetParkingHistoryQuery request, CancellationToken cancellationToken)
@@ -111,14 +114,23 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 : (double?)null;
 
             var hasViolation = false;
+            decimal violationFee = 0m;
+
             var existingViolation = await _violationRepository.GetByLogIdAsync(log.Id);
             if (existingViolation != null)
             {
                 hasViolation = true;
+                violationFee = existingViolation.PenaltyFee;
             }
             else if (log.ExitTime.HasValue && log.ExitTime.Value > mustExitBy)
             {
                 hasViolation = true;
+                var overstayDuration = log.ExitTime.Value - mustExitBy;
+                violationFee = _violationService.CalculatePenalty(overstayDuration);
+                if (violationFee == 0m)
+                {
+                    violationFee = 100.00m;
+                }
             }
 
             dtoList.Add(new ParkingHistoryResponse
@@ -133,7 +145,8 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 EntryTime = log.EntryTime,
                 ExitTime = exitTimeVal,
                 ParkingDuration = duration,
-                HasViolation = hasViolation
+                HasViolation = hasViolation,
+                ViolationFee = violationFee
             });
         }
 
