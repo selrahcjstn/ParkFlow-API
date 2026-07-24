@@ -3,6 +3,7 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Violations.DTOs;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Violations.Commands.ProcessViolationPayment;
@@ -12,17 +13,20 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
     private readonly IViolationRepository _violationRepository;
     private readonly IUserProfileRepository _userProfileRepository;
     private readonly IGuardRepository _guardRepository;
+    private readonly IParkingLogRepository _parkingLogRepository;
     private readonly IValidator<ProcessViolationPaymentCommand> _validator;
 
     public ProcessViolationPaymentHandler(
         IViolationRepository violationRepository,
         IUserProfileRepository userProfileRepository,
         IGuardRepository guardRepository,
+        IParkingLogRepository parkingLogRepository,
         IValidator<ProcessViolationPaymentCommand> validator)
     {
         _violationRepository = violationRepository;
         _userProfileRepository = userProfileRepository;
         _guardRepository = guardRepository;
+        _parkingLogRepository = parkingLogRepository;
         _validator = validator;
     }
 

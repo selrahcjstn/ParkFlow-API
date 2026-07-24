@@ -116,12 +116,16 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
             var hasViolation = false;
             decimal violationFee = 0m;
             double overstayHours = 0;
+            bool isPaid = true;
+            string? referenceNumber = null;
 
             var existingViolation = await _violationRepository.GetByLogIdAsync(log.Id);
             if (existingViolation != null)
             {
                 hasViolation = true;
                 violationFee = existingViolation.PenaltyFee;
+                isPaid = existingViolation.SettlementStatus == SettlementStatus.Settled;
+                referenceNumber = existingViolation.ReferenceNumber;
                 if (log.ExitTime.HasValue && log.ExitTime.Value > mustExitBy)
                 {
                     overstayHours = Math.Round((log.ExitTime.Value - mustExitBy).TotalHours, 2);
@@ -130,6 +134,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
             else if (log.ExitTime.HasValue && log.ExitTime.Value > mustExitBy)
             {
                 hasViolation = true;
+                isPaid = false;
                 var overstayDuration = log.ExitTime.Value - mustExitBy;
                 overstayHours = Math.Round(overstayDuration.TotalHours, 2);
                 violationFee = _violationService.CalculatePenalty(overstayDuration);
@@ -137,6 +142,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 {
                     violationFee = 100.00m;
                 }
+                referenceNumber = $"VIO-LOG-{log.Id.ToString()[..8].ToUpper()}";
             }
 
             dtoList.Add(new ParkingHistoryResponse
@@ -153,7 +159,9 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 ParkingDuration = duration,
                 HasViolation = hasViolation,
                 ViolationFee = violationFee,
-                OverstayHours = overstayHours
+                OverstayHours = overstayHours,
+                IsPaid = isPaid,
+                ReferenceNumber = referenceNumber
             });
         }
 

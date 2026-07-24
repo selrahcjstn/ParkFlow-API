@@ -22,4 +22,6 @@ public class ParkingHistoryResponse
     public bool HasViolation { get; set; }
     public decimal ViolationFee { get; set; }
     public double OverstayHours { get; set; }
+    public bool IsPaid { get; set; }
+    public string? ReferenceNumber { get; set; }
 }
