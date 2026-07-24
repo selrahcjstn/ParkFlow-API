@@ -11,6 +11,7 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
 {
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IUserAccountRepository _userAccountRepository;
+    private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IQrCodeService _qrCodeService;
     private readonly IValidator<UpdateOnboardingVehicleCommand> _validator;
 
@@ -19,9 +20,20 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
         IUserAccountRepository userAccountRepository,
         IQrCodeService qrCodeService,
         IValidator<UpdateOnboardingVehicleCommand> validator)
+        : this(vehicleRepository, userAccountRepository, null!, qrCodeService, validator)
+    {
+    }
+
+    public UpdateOnboardingVehicleHandler(
+        IVehicleRepository vehicleRepository,
+        IUserAccountRepository userAccountRepository,
+        ICorSubmissionRepository corSubmissionRepository,
+        IQrCodeService qrCodeService,
+        IValidator<UpdateOnboardingVehicleCommand> validator)
     {
         _vehicleRepository = vehicleRepository;
         _userAccountRepository = userAccountRepository;
+        _corSubmissionRepository = corSubmissionRepository;
         _qrCodeService = qrCodeService;
         _validator = validator;
     }
@@ -58,7 +70,7 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
             var qrBytes = _qrCodeService.GenerateQrCode(qrPayload);
             var qrCodeHash = HashQrBytes(qrBytes);
             
-            vehicleToUpdate.Update(request.PlateNumber, request.Brand, request.VehicleType, qrCodeHash);
+            vehicleToUpdate.Update(request.PlateNumber, request.Brand, request.VehicleType, qrCodeHash, request.Color, request.MotorPictureUrl, request.OrcrDocumentUrl);
             await _vehicleRepository.UpdateAsync(vehicleToUpdate);
             existingVehicle = vehicleToUpdate;
         }
@@ -73,11 +85,26 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
             var qrBytes = _qrCodeService.GenerateQrCode(qrPayload);
             var qrCodeHash = HashQrBytes(qrBytes);
 
-            var vehicle = new Vehicle(request.UserId, request.PlateNumber, request.Brand, qrCodeHash, request.VehicleType);
+            var vehicle = new Vehicle(request.UserId, request.PlateNumber, request.Brand, qrCodeHash, request.VehicleType, request.Color, request.MotorPictureUrl, request.OrcrDocumentUrl);
             vehicle.SetPrimary(true);
 
             await _vehicleRepository.AddAsync(vehicle);
             existingVehicle = vehicle;
+        }
+
+        if (_corSubmissionRepository != null && (!string.IsNullOrWhiteSpace(request.MotorPictureUrl) || !string.IsNullOrWhiteSpace(request.OrcrDocumentUrl)))
+        {
+            var cor = await _corSubmissionRepository.GetLatestByUserIdAsync(request.UserId);
+            if (cor != null)
+            {
+                cor.UpdateSubmission(cor.AcademicTerm, cor.CorDocumentUrl, cor.VerificationStatus, request.OrcrDocumentUrl, request.MotorPictureUrl);
+                await _corSubmissionRepository.UpdateCorSubmissionAsync(cor);
+            }
+            else
+            {
+                var newCor = new CorSubmission(request.UserId, "2024-2025", "pending", request.OrcrDocumentUrl, request.MotorPictureUrl);
+                await _corSubmissionRepository.AddCorSubmissionAsync(newCor);
+            }
         }
 
         var user = await _userAccountRepository.GetByIdAsync(request.UserId);
