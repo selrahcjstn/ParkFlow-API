@@ -22,6 +22,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     private readonly IParkingService _parkingService;
     private readonly IScheduleService _scheduleService;
     private readonly IParkingLogRoleService _parkingLogRoleService;
+    private readonly ISignalRNotificationSender _signalRNotificationSender;
 
     public CreateParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -36,7 +37,8 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         IViolationRepository violationRepository,
         IParkingService parkingService,
         IScheduleService scheduleService,
-        IParkingLogRoleService parkingLogRoleService)
+        IParkingLogRoleService parkingLogRoleService,
+        ISignalRNotificationSender signalRNotificationSender)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
@@ -51,6 +53,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         _parkingService = parkingService;
         _scheduleService = scheduleService;
         _parkingLogRoleService = parkingLogRoleService;
+        _signalRNotificationSender = signalRNotificationSender;
     }
 
     public async Task<Result<CreateParkingLogResponse>> Handle(CreateParkingLogCommand request, CancellationToken cancellationToken)
@@ -173,6 +176,19 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             MaximumExitTime = maximumExitTimeUtc,
             EntryMethod = parkingLog.EntryMethod.ToString()
         };
+
+        try
+        {
+            await _signalRNotificationSender.SendToAllAsync("ParkingSessionUpdated", response);
+            if (vehicle.OwnerId != Guid.Empty)
+            {
+                await _signalRNotificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ParkingSessionUpdated", response);
+            }
+        }
+        catch
+        {
+            // Ignore SignalR dispatch failure
+        }
 
         return Result<CreateParkingLogResponse>.Success(response, "Entry Confirmed");
     }

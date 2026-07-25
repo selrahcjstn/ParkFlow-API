@@ -14,6 +14,8 @@ using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
 
+using Test.Features.ParkingLogs;
+
 namespace Test.Features.Violations;
 
 public class FakeViolationRepository : IViolationRepository
@@ -232,7 +234,8 @@ public class ActiveViolationsTests
             _violationRepository,
             _parkingService,
             _scheduleService,
-            _parkingLogRoleService
+            _parkingLogRoleService,
+            new FakeSignalRNotificationSender()
         );
 
         // Act

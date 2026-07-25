@@ -109,7 +109,8 @@ public class ManualParkingLogTests
             _violationRepository,
             _parkingService,
             _scheduleService,
-            _parkingLogRoleService
+            _parkingLogRoleService,
+            new FakeSignalRNotificationSender()
         );
 
         var command = new CreateManualParkingLogCommand("ABC-1234", VehicleType.Car, "+639999999999", "Toyota", guardUserId);
@@ -177,7 +178,8 @@ public class ManualParkingLogTests
             _violationRepository,
             _parkingService,
             _scheduleService,
-            _parkingLogRoleService
+            _parkingLogRoleService,
+            new FakeSignalRNotificationSender()
         );
 
         var command = new CreateManualParkingLogCommand("NEW-PLATE", VehicleType.Car, "+639999999999", "Honda", guardUserId);
@@ -229,7 +231,8 @@ public class ManualParkingLogTests
             _violationRepository,
             _parkingService,
             _scheduleService,
-            _parkingLogRoleService
+            _parkingLogRoleService,
+            new FakeSignalRNotificationSender()
         );
 
         var command = new CreateManualParkingLogCommand("UNKNOWN-PLATE", VehicleType.Car, "+639999999999", "Honda", guardUserId);
