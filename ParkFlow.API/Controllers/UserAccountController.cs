@@ -11,6 +11,7 @@ using ParkFlow.Application.Features.Users.Commands.SetPrimaryEmail;
 using ParkFlow.Application.Features.Users.Commands.VerifyResetPasswordCode;
 using ParkFlow.Application.Features.Users.Queries.GetUserCredentials;
 using ParkFlow.Application.Features.Users.Queries.GetUsersList;
+using ParkFlow.Application.Features.Users.Commands.DeleteUserAccount;
 using ParkFlow.Application.Features.Users.Commands.UpdateUserStatus;
 using ParkFlow.Application.Features.Users.DTOs;
 using ParkFlow.Application.Interfaces;
@@ -163,6 +164,15 @@ namespace ParkFlow.API.Controllers
         public async Task<ActionResult<Result<Guid>>> UpdateStatus(Guid id, [FromBody] UpdateUserStatusRequest request)
         {
             var command = new UpdateUserStatusCommand(id, request.Status);
+            var result = await _mediator.Send(command);
+            return this.ToActionResult(result);
+        }
+
+        [Authorize]
+        [HttpDelete("{id}")]
+        public async Task<ActionResult<Result<bool>>> DeleteUser(Guid id)
+        {
+            var command = new DeleteUserAccountCommand(id);
             var result = await _mediator.Send(command);
             return this.ToActionResult(result);
         }

@@ -42,6 +42,16 @@ public class FakeUserAccountRepository : IUserAccountRepository
         }
         return Task.CompletedTask;
     }
+    public Task<bool> DeleteAsync(Guid id)
+    {
+        var existing = Users.FirstOrDefault(u => u.Id == id);
+        if (existing != null)
+        {
+            Users.Remove(existing);
+            return Task.FromResult(true);
+        }
+        return Task.FromResult(false);
+    }
 }
 
 public class FakePasswordHasher : IPasswordHasher

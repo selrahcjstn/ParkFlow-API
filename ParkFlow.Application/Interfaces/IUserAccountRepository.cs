@@ -15,4 +15,5 @@ public interface IUserAccountRepository
 
     Task AddAsync(UserAccount user);
     Task UpdateAsync(UserAccount user);
+    Task<bool> DeleteAsync(Guid id);
 }
