@@ -2,6 +2,7 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Files.DTOs;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Entities;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,37 +13,44 @@ public class UploadMotorPictureHandler : IRequestHandler<UploadMotorPictureComma
 {
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly ICloudinaryService _cloudinaryService;
+    private readonly IUserContext _userContext;
 
-    public UploadMotorPictureHandler(ICorSubmissionRepository corSubmissionRepository, ICloudinaryService cloudinaryService)
+    public UploadMotorPictureHandler(
+        ICorSubmissionRepository corSubmissionRepository,
+        ICloudinaryService cloudinaryService,
+        IUserContext userContext)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _cloudinaryService = cloudinaryService;
+        _userContext = userContext;
     }
 
     public async Task<Result<UploadFileResponse>> Handle(UploadMotorPictureCommand request, CancellationToken cancellationToken)
     {
         try
         {
-            var corSubmission = await _corSubmissionRepository.GetCorSubmissionAsync(request.CorSubmissionId);
+            CorSubmission? corSubmission = null;
+            if (request.CorSubmissionId != Guid.Empty)
+            {
+                corSubmission = await _corSubmissionRepository.GetCorSubmissionAsync(request.CorSubmissionId);
+            }
+
+            var currentUserId = _userContext.GetUserId();
+            if (corSubmission == null && currentUserId != Guid.Empty)
+            {
+                corSubmission = await _corSubmissionRepository.GetLatestByUserIdAsync(currentUserId);
+            }
+
+            if (corSubmission == null && currentUserId != Guid.Empty)
+            {
+                var newSubmission = new CorSubmission(currentUserId, "2025-2026", "pending");
+                await _corSubmissionRepository.AddCorSubmissionAsync(newSubmission);
+                corSubmission = newSubmission;
+            }
+
             if (corSubmission == null)
             {
                 return Result<UploadFileResponse>.Failure("COR submission record not found.", ErrorCode.NotFound);
-            }
-
-            if (!string.IsNullOrWhiteSpace(corSubmission.MotorPictureUrl))
-            {
-                var previousPublicId = CloudinaryUrlParser.ExtractPublicId(corSubmission.MotorPictureUrl);
-                if (!string.IsNullOrWhiteSpace(previousPublicId))
-                {
-                    try
-                    {
-                        await _cloudinaryService.DeleteFileAsync(previousPublicId, isImage: true);
-                    }
-                    catch
-                    {
-                        // Ignore deletion failure to avoid blocking the new upload
-                    }
-                }
             }
 
             var (secureUrl, publicId) = await _cloudinaryService.UploadImageAsync(request.File, "parkflow/motor-pictures");

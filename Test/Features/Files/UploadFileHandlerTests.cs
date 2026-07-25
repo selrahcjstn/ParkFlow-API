@@ -52,6 +52,15 @@ public class FakeCloudinaryService : ICloudinaryService
     }
 }
 
+public class FakeUserContext : IUserContext
+{
+    public Guid UserId { get; set; } = Guid.NewGuid();
+    public Guid GetUserId() => UserId;
+    public string GetEmail() => "test@parkflow.app";
+    public string GetRole() => "Student";
+    public bool IsAuthenticated() => true;
+}
+
 public class InMemoryUserProfileRepository : IUserProfileRepository
 {
     public List<UserProfile> Profiles { get; } = new();
@@ -165,9 +174,10 @@ public class UploadFileSpecificHandlersTests
 
         await _corSubmissionRepository.AddCorSubmissionAsync(corSubmission);
 
+        var userContext = new FakeUserContext();
         var file = CreateMockFile("new_cor.pdf", "fake-pdf-bytes");
         var command = new UploadCorDocumentCommand(file, submissionId);
-        var handler = new UploadCorDocumentHandler(_corSubmissionRepository, _cloudinaryService);
+        var handler = new UploadCorDocumentHandler(_corSubmissionRepository, _cloudinaryService, userContext);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -206,9 +216,10 @@ public class UploadFileSpecificHandlersTests
     public async Task UploadCorDocumentHandler_ShouldReturnNotFoundIfSubmissionDoesNotExist()
     {
         // Arrange
+        var emptyUserContext = new FakeUserContext { UserId = Guid.Empty };
         var file = CreateMockFile("cor.pdf", "fake-pdf-bytes");
         var command = new UploadCorDocumentCommand(file, Guid.NewGuid());
-        var handler = new UploadCorDocumentHandler(_corSubmissionRepository, _cloudinaryService);
+        var handler = new UploadCorDocumentHandler(_corSubmissionRepository, _cloudinaryService, emptyUserContext);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);

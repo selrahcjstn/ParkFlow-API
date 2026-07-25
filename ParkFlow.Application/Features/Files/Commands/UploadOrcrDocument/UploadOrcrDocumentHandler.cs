@@ -2,6 +2,7 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Files.DTOs;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Entities;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,38 +13,44 @@ public class UploadOrcrDocumentHandler : IRequestHandler<UploadOrcrDocumentComma
 {
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly ICloudinaryService _cloudinaryService;
+    private readonly IUserContext _userContext;
 
-    public UploadOrcrDocumentHandler(ICorSubmissionRepository corSubmissionRepository, ICloudinaryService cloudinaryService)
+    public UploadOrcrDocumentHandler(
+        ICorSubmissionRepository corSubmissionRepository,
+        ICloudinaryService cloudinaryService,
+        IUserContext userContext)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _cloudinaryService = cloudinaryService;
+        _userContext = userContext;
     }
 
     public async Task<Result<UploadFileResponse>> Handle(UploadOrcrDocumentCommand request, CancellationToken cancellationToken)
     {
         try
         {
-            var corSubmission = await _corSubmissionRepository.GetCorSubmissionAsync(request.CorSubmissionId);
+            CorSubmission? corSubmission = null;
+            if (request.CorSubmissionId != Guid.Empty)
+            {
+                corSubmission = await _corSubmissionRepository.GetCorSubmissionAsync(request.CorSubmissionId);
+            }
+
+            var currentUserId = _userContext.GetUserId();
+            if (corSubmission == null && currentUserId != Guid.Empty)
+            {
+                corSubmission = await _corSubmissionRepository.GetLatestByUserIdAsync(currentUserId);
+            }
+
+            if (corSubmission == null && currentUserId != Guid.Empty)
+            {
+                var newSubmission = new CorSubmission(currentUserId, "2025-2026", "pending");
+                await _corSubmissionRepository.AddCorSubmissionAsync(newSubmission);
+                corSubmission = newSubmission;
+            }
+
             if (corSubmission == null)
             {
                 return Result<UploadFileResponse>.Failure("COR submission record not found.", ErrorCode.NotFound);
-            }
-
-            if (!string.IsNullOrWhiteSpace(corSubmission.OrcrDocumentUrl))
-            {
-                var previousPublicId = CloudinaryUrlParser.ExtractPublicId(corSubmission.OrcrDocumentUrl);
-                if (!string.IsNullOrWhiteSpace(previousPublicId))
-                {
-                    try
-                    {
-                        var isPreviousPdf = corSubmission.OrcrDocumentUrl.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
-                        await _cloudinaryService.DeleteFileAsync(previousPublicId, isImage: !isPreviousPdf);
-                    }
-                    catch
-                    {
-                        // Ignore deletion failure to avoid blocking the new upload
-                    }
-                }
             }
 
             var isPdf = request.File.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
