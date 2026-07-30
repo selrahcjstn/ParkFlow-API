@@ -2,19 +2,24 @@ using FluentValidation;
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Cor.Commands.ValidateCorSubmission;
 
 public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissionCommand, Result<Guid>>
 {
     private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IUserAccountRepository _userAccountRepository;
     private readonly IValidator<ValidateCorSubmissionCommand> _validator;
 
     public ValidateCorSubmissionHandler(
         ICorSubmissionRepository corSubmissionRepository,
+        IUserAccountRepository userAccountRepository,
         IValidator<ValidateCorSubmissionCommand> validator)
     {
         _corSubmissionRepository = corSubmissionRepository;
+        _userAccountRepository = userAccountRepository;
         _validator = validator;
     }
 
@@ -28,15 +33,46 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
             return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
         }
 
+        // 1. Try to find submission by submission ID
         var submission = await _corSubmissionRepository.GetCorSubmissionAsync(request.CorSubmissionId);
 
+        // 2. If not found, try finding latest submission by user ID
         if (submission == null)
-            return Result<Guid>.Failure("COR submission not found.", ErrorCode.NotFound);
+        {
+            submission = await _corSubmissionRepository.GetLatestByUserIdAsync(request.CorSubmissionId);
+        }
 
-        submission.UpdateSubmission(null, null, request.VerificationStatus);
+        UserAccount? user = null;
+        if (submission != null)
+        {
+            submission.UpdateSubmission(null, null, request.VerificationStatus);
+            await _corSubmissionRepository.UpdateCorSubmissionAsync(submission);
+            user = await _userAccountRepository.GetByIdAsync(submission.UserAccountId);
+        }
+        else
+        {
+            // If no submission exists, check if request ID is a direct UserAccountId
+            user = await _userAccountRepository.GetByIdAsync(request.CorSubmissionId);
+        }
 
-        await _corSubmissionRepository.UpdateCorSubmissionAsync(submission);
+        if (user != null)
+        {
+            if (request.VerificationStatus == CorVerificationStatus.Verified)
+            {
+                user.Verify();
+            }
+            else if (request.VerificationStatus == CorVerificationStatus.Rejected)
+            {
+                user.UpdateStatus(AccountStatus.PendingVerification);
+            }
+            await _userAccountRepository.UpdateAsync(user);
+        }
 
-        return Result<Guid>.Success(submission.Id, $"COR submission validation updated to {request.VerificationStatus}.");
+        if (submission == null && user == null)
+        {
+            return Result<Guid>.Failure("COR submission or user account not found.", ErrorCode.NotFound);
+        }
+
+        return Result<Guid>.Success(submission?.Id ?? user!.Id, $"COR submission validation updated to {request.VerificationStatus}.");
     }
 }

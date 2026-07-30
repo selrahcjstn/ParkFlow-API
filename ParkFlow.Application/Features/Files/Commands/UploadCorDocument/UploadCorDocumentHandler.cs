@@ -53,6 +53,23 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
                 return Result<UploadFileResponse>.Failure("COR submission record not found.", ErrorCode.NotFound);
             }
 
+            // Delete previous document if it exists
+            if (!string.IsNullOrWhiteSpace(corSubmission.CorDocumentUrl))
+            {
+                var oldPublicId = CloudinaryUrlParser.ExtractPublicId(corSubmission.CorDocumentUrl);
+                if (!string.IsNullOrWhiteSpace(oldPublicId))
+                {
+                    try
+                    {
+                        var isPreviousPdf = corSubmission.CorDocumentUrl.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+                        await _cloudinaryService.DeleteFileAsync(oldPublicId, isImage: !isPreviousPdf);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+
             // Upload the new document (PDF or Image)
             var isPdf = request.File.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
             var (secureUrl, publicId) = isPdf
@@ -60,7 +77,7 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
                 : await _cloudinaryService.UploadImageAsync(request.File, "parkflow/cor");
 
             // Update database record
-            corSubmission.UpdateSubmission(null, secureUrl, null);
+            corSubmission.UpdateSubmission(null, secureUrl, ParkFlow.Domain.Enums.CorVerificationStatus.Pending);
             await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
 
             var response = new UploadFileResponse(secureUrl, publicId);

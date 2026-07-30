@@ -41,7 +41,7 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
         }
         else
         {
-            existing.UpdateSubmission(request.AcademicTerm, request.CorDocumentUrl, existing.VerificationStatus, request.OrcrDocumentUrl, request.MotorPictureUrl);
+            existing.UpdateSubmission(request.AcademicTerm, request.CorDocumentUrl, CorVerificationStatus.Pending, request.OrcrDocumentUrl, request.MotorPictureUrl);
             await _corSubmissionRepository.UpdateCorSubmissionAsync(existing);
         }
 
