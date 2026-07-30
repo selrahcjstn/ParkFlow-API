@@ -81,6 +81,7 @@ public class CreateAdminAccountHandler : IRequestHandler<CreateAdminAccountComma
 
 		var hashedPassword = _passwordHasher.HashPassword(request.Account.Password);
 		var user = new UserAccount(hashedPassword, request.Account.PhoneNumber);
+		user.Verify(); // Admin accounts are verified upon provision
 		user.UpdateOnboardingStep(OnboardingStep.Done); // Admins bypass onboarding steps
 		user.PasswordHistories.Add(new PasswordHistory(user.Id, hashedPassword));
 		await _userAccountRepository.AddAsync(user);

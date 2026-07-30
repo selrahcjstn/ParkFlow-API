@@ -32,6 +32,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [HttpPost("register-manual")]
     public async Task<ActionResult<Result<string>>> Register(RegisterManualRequest request)
     {
         var command = new RegisterManualAccountCommand(request.Email, request.Password);

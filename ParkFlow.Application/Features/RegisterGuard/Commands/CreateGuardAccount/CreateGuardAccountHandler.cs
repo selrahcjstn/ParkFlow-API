@@ -52,6 +52,7 @@ public class CreateGuardAccountHandler : IRequestHandler<CreateGuardAccountComma
 
 		var hashedPassword = _passwordHasher.HashPassword(request.Account.Password);
 		var user = new UserAccount(hashedPassword, request.Account.PhoneNumber);
+		user.Verify(); // Guard accounts are verified upon provision
 		user.UpdateOnboardingStep(OnboardingStep.Done); // Guards bypass onboarding steps
 		user.PasswordHistories.Add(new PasswordHistory(user.Id, hashedPassword));
 		await _userAccountRepository.AddAsync(user);
