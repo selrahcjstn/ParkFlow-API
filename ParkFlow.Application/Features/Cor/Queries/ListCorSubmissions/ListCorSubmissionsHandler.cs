@@ -26,7 +26,9 @@ public class ListCorSubmissionsHandler : IRequestHandler<ListCorSubmissionsQuery
     public async Task<Result<IEnumerable<CorSubmissionDto>>> Handle(ListCorSubmissionsQuery request, CancellationToken cancellationToken)
     {
         var submissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
-        var submissionsList = submissions.ToList();
+        var submissionsList = submissions
+            .Where(s => s.VerificationStatus != ParkFlow.Domain.Enums.CorVerificationStatus.NotSubmitted)
+            .ToList();
 
         var userIds = submissionsList.Select(s => s.UserAccountId).Distinct().ToList();
         var vehicles = await _vehicleRepository.GetByOwnerIdsAsync(userIds);

@@ -22,7 +22,8 @@ public class CorSubmission : BaseEntity
         string academicTerm,
         string corDocumentUrl,
         string? orcrDocumentUrl = null,
-        string? motorPictureUrl = null)
+        string? motorPictureUrl = null,
+        CorVerificationStatus verificationStatus = CorVerificationStatus.NotSubmitted)
     {
         UserAccountId = userAccountId;
         AcademicTerm = academicTerm;
@@ -30,7 +31,7 @@ public class CorSubmission : BaseEntity
         OrcrDocumentUrl = orcrDocumentUrl;
         MotorPictureUrl = motorPictureUrl;
 
-        VerificationStatus = CorVerificationStatus.Pending;
+        VerificationStatus = verificationStatus;
     }
 
     public void UpdateSubmission(

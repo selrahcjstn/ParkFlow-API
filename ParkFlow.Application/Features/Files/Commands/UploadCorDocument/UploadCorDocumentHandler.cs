@@ -77,7 +77,7 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
                 : await _cloudinaryService.UploadImageAsync(request.File, "parkflow/cor");
 
             // Update database record
-            corSubmission.UpdateSubmission(null, secureUrl, ParkFlow.Domain.Enums.CorVerificationStatus.Pending);
+            corSubmission.UpdateSubmission(null, secureUrl, null);
             await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
 
             var response = new UploadFileResponse(secureUrl, publicId);
