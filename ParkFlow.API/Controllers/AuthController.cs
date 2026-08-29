@@ -31,15 +31,29 @@ public class AuthController : ControllerBase
         _userContext = userContext;
     }
 
+    [AllowAnonymous]
     [HttpPost("register")]
     [HttpPost("register-manual")]
     public async Task<ActionResult<Result<string>>> Register(RegisterManualRequest request)
     {
-        var command = new RegisterManualAccountCommand(request.Email, request.Password);
+        var command = new RegisterManualAccountCommand(
+            request.Email,
+            request.Password,
+            request.FirstName,
+            request.LastName,
+            request.MiddleName,
+            request.PhoneNumber,
+            request.Role,
+            request.Status,
+            request.Student,
+            request.Personnel,
+            request.Guard);
+
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }
 
+    [AllowAnonymous]
     [HttpPost("microsoft")]
     public async Task<ActionResult<Result<MicrosoftAuthResultDto>>> MicrosoftLogin(MicrosoftAuthRequestDTO request)
     {
@@ -87,6 +101,7 @@ public class AuthController : ControllerBase
         return this.ToActionResult(result);
      }
 
+    [AllowAnonymous]
     [HttpPost("send-email-otp")]
     public async Task<ActionResult<Result<bool>>> SendEmailOtp(SendEmailOtpRequest request)
     {
@@ -95,10 +110,11 @@ public class AuthController : ControllerBase
         return this.ToActionResult(result);
     }
 
+    [AllowAnonymous]
     [HttpPost("verify-email-otp")]
     public async Task<ActionResult<Result<bool>>> VerifyEmailOtp(VerifyEmailOtpRequest request)
     {
-        var command = new VerifyEmailOtpCommand(request.Email, request.OtpCode);
+        var command = new VerifyEmailOtpCommand(request.Email, request.OtpCode, request.Purpose);
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }

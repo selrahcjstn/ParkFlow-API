@@ -198,4 +198,114 @@ public class RegistrationRoleTests
         Assert.NotNull(createdGuard);
         Assert.Equal(1, createdGuard.AssignedGate);
     }
+
+    [Fact]
+    public async Task RegisterManualAccountHandler_ShouldSuccessfullyRegisterBasicAccount()
+    {
+        // Arrange
+        var userRepo = new FakeUserAccountRepository();
+        var authRepo = new RegRoleAuthIdentityRepository();
+        var profileRepo = new RegRoleUserProfileRepository();
+        var studentRepo = new RegRoleStudentRepository();
+        var personnelRepo = new RegRolePersonnelRepository();
+        var guardRepo = new RegRoleGuardRepository();
+        var passwordHasher = new FakePasswordHasher();
+        var jwtService = new FakeJwtService();
+        var validator = new ParkFlow.Application.Features.Auth.Commands.RegisterManualAccount.RegisterManualAccountValidator();
+
+        var handler = new ParkFlow.Application.Features.Auth.Commands.RegisterManualAccount.RegisterManualAccountHandler(
+            userRepo, authRepo, profileRepo, studentRepo, personnelRepo, guardRepo, passwordHasher, jwtService, validator);
+
+        var command = new ParkFlow.Application.Features.Auth.Commands.RegisterManualAccount.RegisterManualAccountCommand(
+            "student1@parkflow.app", "Password123!");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Data);
+
+        var createdUser = await userRepo.GetByEmailAsync("student1@parkflow.app");
+        Assert.NotNull(createdUser);
+        Assert.Equal(AccountStatus.PendingVerification, createdUser.Status);
+    }
+
+    [Fact]
+    public async Task RegisterManualAccountHandler_ShouldSuccessfullyRegisterFullClientAccountWithProfileAndRole()
+    {
+        // Arrange
+        var userRepo = new FakeUserAccountRepository();
+        var authRepo = new RegRoleAuthIdentityRepository();
+        var profileRepo = new RegRoleUserProfileRepository();
+        var studentRepo = new RegRoleStudentRepository();
+        var personnelRepo = new RegRolePersonnelRepository();
+        var guardRepo = new RegRoleGuardRepository();
+        var passwordHasher = new FakePasswordHasher();
+        var jwtService = new FakeJwtService();
+        var validator = new ParkFlow.Application.Features.Auth.Commands.RegisterManualAccount.RegisterManualAccountValidator();
+
+        var handler = new ParkFlow.Application.Features.Auth.Commands.RegisterManualAccount.RegisterManualAccountHandler(
+            userRepo, authRepo, profileRepo, studentRepo, personnelRepo, guardRepo, passwordHasher, jwtService, validator);
+
+        var command = new ParkFlow.Application.Features.Auth.Commands.RegisterManualAccount.RegisterManualAccountCommand(
+            "student2@parkflow.app",
+            "Password123!",
+            FirstName: "Juan",
+            LastName: "Dela Cruz",
+            MiddleName: "Santos",
+            PhoneNumber: "09171234567",
+            Role: "Student",
+            Status: "Active",
+            Student: new ParkFlow.Application.Features.Auth.DTOs.RegisterStudentDto("2026-00123", "BSCS", "4A", 4)
+        );
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Data);
+
+        var createdUser = await userRepo.GetByEmailAsync("student2@parkflow.app");
+        Assert.NotNull(createdUser);
+        Assert.Equal(AccountStatus.Active, createdUser.Status);
+        Assert.Equal(OnboardingStep.Done, createdUser.OnboardingStep);
+
+        var createdProfile = await profileRepo.GetByUserIdAsync(createdUser.Id);
+        Assert.NotNull(createdProfile);
+        Assert.Equal("Juan", createdProfile.FirstName);
+        Assert.Equal("Dela Cruz", createdProfile.LastName);
+
+        var createdStudent = await studentRepo.GetByUserProfileIdAsync(createdProfile.Id);
+        Assert.NotNull(createdStudent);
+        Assert.Equal("2026-00123", createdStudent.StudentNumber);
+    }
+}
+
+public class RegRoleStudentRepository : IStudentRepository
+{
+    public List<Student> Students { get; } = new();
+    public Task AddAsync(Student student) { Students.Add(student); return Task.CompletedTask; }
+    public Task UpdateAsync(Student student) => Task.CompletedTask;
+    public Task<Student?> GetByUserProfileIdAsync(Guid userProfileId) =>
+        Task.FromResult(Students.FirstOrDefault(s => s.UserProfileId == userProfileId));
+    public Task<Student?> GetByStudentNumberAsync(string studentNumber) =>
+        Task.FromResult(Students.FirstOrDefault(s => s.StudentNumber.Equals(studentNumber, StringComparison.OrdinalIgnoreCase)));
+}
+
+public class RegRolePersonnelRepository : IPersonnelRepository
+{
+    public List<Personnel> PersonnelList { get; } = new();
+    public Task AddAsync(Personnel personnel) { PersonnelList.Add(personnel); return Task.CompletedTask; }
+    public Task UpdateAsync(Personnel personnel) => Task.CompletedTask;
+    public Task<Personnel?> GetByUserProfileIdAsync(Guid userProfileId) =>
+        Task.FromResult(PersonnelList.FirstOrDefault(p => p.UserProfileId == userProfileId));
+    public Task<Personnel?> GetByIdCardNumberAsync(string idCardNumber) =>
+        Task.FromResult(PersonnelList.FirstOrDefault(p => p.IdCardNumber.Equals(idCardNumber, StringComparison.OrdinalIgnoreCase)));
+}
+
+public class FakeJwtService : IJwtService
+{
+    public string GenerateToken(UserAccount user, string profileType) => $"fake_token_{profileType}";
 }

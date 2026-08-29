@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.RegisterAdmin.Commands.CreateAdminAccount;
@@ -25,6 +26,7 @@ public class AdminController : ControllerBase
 	/// Registers a new admin account. Highly secured.
 	/// Can be called using X-Admin-Registration-Key header or by an authenticated SuperAdmin.
 	/// </summary>
+	[AllowAnonymous]
 	[HttpPost("register")]
 	public async Task<ActionResult<Result<Guid>>> Register(
 		[FromBody] CreateAdminAccountCommand command,

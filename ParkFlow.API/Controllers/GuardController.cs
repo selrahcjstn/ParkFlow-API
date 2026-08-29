@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.RegisterGuard.Commands.CreateGuardAccount;
@@ -19,6 +20,7 @@ public class GuardController : ControllerBase
     /// <summary>
     /// Creates a new guard account with login credentials.
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("create")]
     public async Task<ActionResult<Result<Guid>>> Create([FromBody] CreateGuardAccountCommand command)
     {
