@@ -8,5 +8,5 @@ namespace ParkFlow.Application.Features.Files.Commands.UploadMotorPicture;
 
 public record UploadMotorPictureCommand(
     IFormFile File,
-    Guid CorSubmissionId
+    Guid? CorSubmissionId = null
 ) : IRequest<Result<UploadFileResponse>>;

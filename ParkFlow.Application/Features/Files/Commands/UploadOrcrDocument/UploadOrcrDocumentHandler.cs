@@ -30,9 +30,9 @@ public class UploadOrcrDocumentHandler : IRequestHandler<UploadOrcrDocumentComma
         try
         {
             CorSubmission? corSubmission = null;
-            if (request.CorSubmissionId != Guid.Empty)
+            if (request.CorSubmissionId.HasValue && request.CorSubmissionId.Value != Guid.Empty)
             {
-                corSubmission = await _corSubmissionRepository.GetCorSubmissionAsync(request.CorSubmissionId);
+                corSubmission = await _corSubmissionRepository.GetCorSubmissionAsync(request.CorSubmissionId.Value);
             }
 
             var currentUserId = _userContext.GetUserId();

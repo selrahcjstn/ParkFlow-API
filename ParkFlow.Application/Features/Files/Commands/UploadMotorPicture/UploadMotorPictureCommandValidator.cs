@@ -10,9 +10,6 @@ public class UploadMotorPictureCommandValidator : AbstractValidator<UploadMotorP
 
     public UploadMotorPictureCommandValidator()
     {
-        RuleFor(x => x.CorSubmissionId)
-            .NotEmpty()
-            .WithMessage("COR submission ID is required.");
 
         RuleFor(x => x.File)
             .NotNull()

@@ -8,5 +8,5 @@ namespace ParkFlow.Application.Features.Files.Commands.UploadOrcrDocument;
 
 public record UploadOrcrDocumentCommand(
     IFormFile File,
-    Guid CorSubmissionId
+    Guid? CorSubmissionId = null
 ) : IRequest<Result<UploadFileResponse>>;

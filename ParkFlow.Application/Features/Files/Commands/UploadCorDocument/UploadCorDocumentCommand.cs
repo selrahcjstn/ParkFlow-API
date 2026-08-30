@@ -8,5 +8,5 @@ namespace ParkFlow.Application.Features.Files.Commands.UploadCorDocument;
 
 public record UploadCorDocumentCommand(
     IFormFile File,
-    Guid CorSubmissionId
+    Guid? CorSubmissionId = null
 ) : IRequest<Result<UploadFileResponse>>;

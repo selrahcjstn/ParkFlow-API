@@ -10,9 +10,6 @@ public class UploadOrcrDocumentCommandValidator : AbstractValidator<UploadOrcrDo
 
     public UploadOrcrDocumentCommandValidator()
     {
-        RuleFor(x => x.CorSubmissionId)
-            .NotEmpty()
-            .WithMessage("COR submission ID is required.");
 
         RuleFor(x => x.File)
             .NotNull()
