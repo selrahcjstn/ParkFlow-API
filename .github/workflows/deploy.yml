@@ -22,7 +22,7 @@ jobs:
     - name: Publish API Application
       run: |
         dotnet restore ParkFlow.API/ParkFlow.API.csproj
-        dotnet publish ParkFlow.API/ParkFlow.API.csproj -c Release -r linux-x64 --self-contained false -o ./publish
+        dotnet publish ParkFlow.API/ParkFlow.API.csproj -c Release -r linux-x64 --self-contained true -o ./publish
 
     - name: Stop Live Application Service
       uses: appleboy/ssh-action@v1.0.3
@@ -31,7 +31,7 @@ jobs:
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          sudo systemctl stop parkflow
+          sudo systemctl stop parkflow || true
 
     - name: Purge Stale Application Binaries
       uses: appleboy/ssh-action@v1.0.3
@@ -40,9 +40,8 @@ jobs:
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          if [ -d "/home/ubuntu/app/publish" ]; then
-            find /home/ubuntu/app/publish/ -maxdepth 1 -type f ! -name 'appsettings.Production.json' -delete
-          fi
+          mkdir -p /home/ubuntu/app/publish
+          find /home/ubuntu/app/publish/ -maxdepth 1 -type f ! -name 'appsettings.Production.json' -delete
 
     - name: Deploy Fresh Binaries via SCP
       uses: appleboy/scp-action@v0.1.7
@@ -61,6 +60,7 @@ jobs:
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
+          chmod +x /home/ubuntu/app/publish/ParkFlow.API
           sudo systemctl daemon-reload
           sudo systemctl start parkflow
           sudo systemctl status parkflow --no-pager -l
