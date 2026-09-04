@@ -24,6 +24,8 @@ public class ParkingReservationRepository : IParkingReservationRepository
         return await _context.ParkingReservations
             .Include(r => r.UserAccount)
                 .ThenInclude(u => u.UserProfile)
+            .Include(r => r.UserAccount)
+                .ThenInclude(u => u.AuthIdentities)
             .FirstOrDefaultAsync(r => r.Id == id);
     }
 
@@ -32,6 +34,8 @@ public class ParkingReservationRepository : IParkingReservationRepository
         return await _context.ParkingReservations
             .Include(r => r.UserAccount)
                 .ThenInclude(u => u.UserProfile)
+            .Include(r => r.UserAccount)
+                .ThenInclude(u => u.AuthIdentities)
             .Where(r => r.UserId == userId)
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync();
@@ -42,6 +46,8 @@ public class ParkingReservationRepository : IParkingReservationRepository
         return await _context.ParkingReservations
             .Include(r => r.UserAccount)
                 .ThenInclude(u => u.UserProfile)
+            .Include(r => r.UserAccount)
+                .ThenInclude(u => u.AuthIdentities)
             .FirstOrDefaultAsync(r => r.ReferenceNumber == referenceNumber);
     }
 
@@ -50,6 +56,8 @@ public class ParkingReservationRepository : IParkingReservationRepository
         var query = _context.ParkingReservations
             .Include(r => r.UserAccount)
                 .ThenInclude(u => u.UserProfile)
+            .Include(r => r.UserAccount)
+                .ThenInclude(u => u.AuthIdentities)
             .AsQueryable();
 
         if (status.HasValue)

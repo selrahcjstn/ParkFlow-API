@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
@@ -12,6 +13,9 @@ public static class SuperAdminSeeder
     public static async Task SeedSuperAdminAsync(IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await dbContext.Database.MigrateAsync();
+
         var userAccountRepository = scope.ServiceProvider.GetRequiredService<IUserAccountRepository>();
         var authIdentityRepository = scope.ServiceProvider.GetRequiredService<IAuthIdentityRepository>();
         var userProfileRepository = scope.ServiceProvider.GetRequiredService<IUserProfileRepository>();
