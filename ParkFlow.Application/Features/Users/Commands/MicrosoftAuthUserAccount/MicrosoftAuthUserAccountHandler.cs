@@ -107,11 +107,22 @@ public class MicrosoftAuthUserAccountHandler : IRequestHandler<MicrosoftAuthUser
         var profileType = "unassigned";
         if (user.UserProfile != null)
         {
-            profileType =
-                user.UserProfile.Guard != null ? "guard" :
-                user.UserProfile.Student != null ? "student" :
-                user.UserProfile.Personnel != null ? "personnel" :
-                "unassigned";
+            if (user.UserProfile.Admin != null)
+            {
+                profileType = user.UserProfile.Admin.RoleLevel == RoleLevel.SuperAdmin ? "superadmin" : "admin";
+            }
+            else if (user.UserProfile.Guard != null)
+            {
+                profileType = "guard";
+            }
+            else if (user.UserProfile.Student != null)
+            {
+                profileType = "student";
+            }
+            else if (user.UserProfile.Personnel != null)
+            {
+                profileType = "personnel";
+            }
         }
 
         var token = _jwtService.GenerateToken(user, profileType);

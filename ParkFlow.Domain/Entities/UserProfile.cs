@@ -15,6 +15,7 @@ public class UserProfile : BaseEntity
     public Student? Student { get; set; }
     public Personnel? Personnel { get; set; }
     public Guard? Guard { get; set; }
+    public Admin? Admin { get; set; }
 
     private UserProfile() { }
 

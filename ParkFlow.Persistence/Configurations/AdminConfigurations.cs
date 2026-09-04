@@ -14,7 +14,7 @@ public class AdminConfiguration : IEntityTypeConfiguration<Admin>
 			.IsRequired();
 
 		entity.HasOne(e => e.UserProfile)
-			.WithOne()
+			.WithOne(p => p.Admin)
 			.HasForeignKey<Admin>(e => e.UserProfileId)
 			.OnDelete(DeleteBehavior.Cascade);
 

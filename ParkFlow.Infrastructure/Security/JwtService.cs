@@ -25,14 +25,44 @@ namespace ParkFlow.Infrastructure.Security
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var claims = new List<Claim>
-    {
-        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-        new Claim(JwtRegisteredClaimNames.Email, user.PrimaryEmail ?? string.Empty),
-        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-        new Claim("user_id", user.Id.ToString()),
-        new Claim("profile_type", profileType)
-    };
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Email, user.PrimaryEmail ?? string.Empty),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim("user_id", user.Id.ToString()),
+                new Claim("profile_type", profileType)
+            };
+
+            var normalizedProfileType = (profileType ?? string.Empty).ToLowerInvariant();
+
+            if (normalizedProfileType == "superadmin")
+            {
+                claims.Add(new Claim(ClaimTypes.Role, "SuperAdmin"));
+                claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+                claims.Add(new Claim("role", "SuperAdmin"));
+                claims.Add(new Claim("role", "Admin"));
+            }
+            else if (normalizedProfileType == "admin")
+            {
+                claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+                claims.Add(new Claim("role", "Admin"));
+            }
+            else if (normalizedProfileType == "guard")
+            {
+                claims.Add(new Claim(ClaimTypes.Role, "Guard"));
+                claims.Add(new Claim("role", "Guard"));
+            }
+            else if (normalizedProfileType == "student")
+            {
+                claims.Add(new Claim(ClaimTypes.Role, "Student"));
+                claims.Add(new Claim("role", "Student"));
+            }
+            else if (normalizedProfileType == "personnel")
+            {
+                claims.Add(new Claim(ClaimTypes.Role, "Personnel"));
+                claims.Add(new Claim("role", "Personnel"));
+            }
 
             var token = new JwtSecurityToken(
                 issuer: _configuration["Jwt:Issuer"],

@@ -59,11 +59,22 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
 
         if (profile != null)
         {
-            profileType =
-                profile.Guard != null ? "guard" :
-                profile.Student != null ? "student" :
-                profile.Personnel != null ? "personnel" :
-                "unassigned";
+            if (profile.Admin != null)
+            {
+                profileType = profile.Admin.RoleLevel == RoleLevel.SuperAdmin ? "superadmin" : "admin";
+            }
+            else if (profile.Guard != null)
+            {
+                profileType = "guard";
+            }
+            else if (profile.Student != null)
+            {
+                profileType = "student";
+            }
+            else if (profile.Personnel != null)
+            {
+                profileType = "personnel";
+            }
         }
 
         var token = _jwtService.GenerateToken(user, profileType);
