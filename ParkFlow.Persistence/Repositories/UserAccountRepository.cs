@@ -42,6 +42,7 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
     public async Task<UserAccount?> GetByIdAsync(Guid id)
     {
         return await _appDbContext.UserAccounts
+            .Include(u => u.UserProfile)
             .Include(u => u.AuthIdentities)
             .Include(u => u.PasswordHistories)
             .FirstOrDefaultAsync(u => u.Id == id);

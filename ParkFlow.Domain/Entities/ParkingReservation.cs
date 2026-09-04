@@ -39,7 +39,7 @@ public class ParkingReservation : BaseEntity
 
         UserId = userId;
         ReferenceNumber = referenceNumber;
-        ReservationDate = reservationDate.Date;
+        ReservationDate = DateTime.SpecifyKind(reservationDate.Date, DateTimeKind.Utc);
         StartTime = startTime;
         EndTime = endTime;
         Reason = reason.Trim();
@@ -53,7 +53,7 @@ public class ParkingReservation : BaseEntity
 
         Status = ReservationStatus.Approved;
         ApprovedByAdminId = adminId;
-        ApprovedAt = DateTime.UtcNow;
+        ApprovedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
         AdminNotes = notes;
     }
 
@@ -64,7 +64,7 @@ public class ParkingReservation : BaseEntity
 
         Status = ReservationStatus.Rejected;
         ApprovedByAdminId = adminId;
-        ApprovedAt = DateTime.UtcNow;
+        ApprovedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
         AdminNotes = notes;
     }
 

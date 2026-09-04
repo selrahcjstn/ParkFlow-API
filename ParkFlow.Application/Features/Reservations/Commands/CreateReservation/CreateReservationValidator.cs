@@ -10,7 +10,7 @@ public class CreateReservationValidator : AbstractValidator<CreateReservationCom
             .NotEmpty().WithMessage("UserId is required.");
 
         RuleFor(x => x.ReservationDate)
-            .GreaterThanOrEqualTo(DateTime.Today)
+            .GreaterThanOrEqualTo(DateTime.UtcNow.Date.AddDays(-1))
             .WithMessage("Reservation date must not be in the past.");
 
         RuleFor(x => x.EndTime)
