@@ -26,7 +26,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
     private readonly IParkingLogRoleService _parkingLogRoleService;
     private readonly IValidator<ExitManualParkingLogCommand> _validator;
     private readonly ISignalRNotificationSender _notificationSender;
-    private readonly IParkingReservationRepository _reservationRepository;
+    private readonly IParkingReservationRepository? _reservationRepository;
 
     public ExitManualParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -148,7 +148,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
             }
         }
 
-        var userReservations = await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId);
+        var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId) : [];
         var specialRes = userReservations.FirstOrDefault(r => 
             (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
             r.ReservationDate.Date == philippinesNow.Date &&

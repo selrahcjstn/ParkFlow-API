@@ -23,7 +23,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     private readonly IScheduleService _scheduleService;
     private readonly IParkingLogRoleService _parkingLogRoleService;
     private readonly ISignalRNotificationSender _signalRNotificationSender;
-    private readonly IParkingReservationRepository _reservationRepository;
+    private readonly IParkingReservationRepository? _reservationRepository;
 
     public CreateParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -63,7 +63,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     {
         var vehicle = await _vehicleRepository.GetByQrCodeHashAsync(request.QrCodeHash);
 
-        if (vehicle == null)
+        if (vehicle == null && _reservationRepository != null)
         {
             // Try resolving by Reservation Reference Number
             var reservationPass = await _reservationRepository.GetByReferenceNumberAsync(request.QrCodeHash);
@@ -133,7 +133,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
 
         DateTime? maximumExitTimeUtc = null;
 
-        var userReservations = await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId);
+        var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId) : [];
         var utcNow = DateTime.UtcNow;
         var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
         var todayReservation = userReservations.FirstOrDefault(r => 

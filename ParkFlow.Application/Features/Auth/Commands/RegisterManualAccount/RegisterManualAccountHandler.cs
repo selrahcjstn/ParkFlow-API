@@ -19,8 +19,8 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
     private readonly IStudentRepository _studentRepository;
     private readonly IPersonnelRepository _personnelRepository;
     private readonly IGuardRepository _guardRepository;
-    private readonly ICorSubmissionRepository _corSubmissionRepository;
-    private readonly IParkingScheduleRepository _parkingScheduleRepository;
+    private readonly ICorSubmissionRepository? _corSubmissionRepository;
+    private readonly IParkingScheduleRepository? _parkingScheduleRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
     private readonly IValidator<RegisterManualAccountCommand> _validator;
