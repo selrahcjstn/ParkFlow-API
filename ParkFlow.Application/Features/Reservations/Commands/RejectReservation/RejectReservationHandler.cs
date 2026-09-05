@@ -61,7 +61,7 @@ public class RejectReservationHandler : IRequestHandler<RejectReservationCommand
 
                 if (!string.IsNullOrWhiteSpace(applicantEmail))
                 {
-                    var subject = $"❌ BulSU ParkFlow - Parking Reservation Declined ({reservation.ReferenceNumber})";
+                    var subject = $"❌ SAS ParkFlow - Parking Reservation Declined ({reservation.ReferenceNumber})";
                     var reservationDate = reservation.ReservationDate.ToString("MMMM dd, yyyy");
                     var startTime = DateTime.Today.Add(reservation.StartTime).ToString("hh:mm tt");
                     var endTime = DateTime.Today.Add(reservation.EndTime).ToString("hh:mm tt");
@@ -75,11 +75,11 @@ public class RejectReservationHandler : IRequestHandler<RejectReservationCommand
   <table width='100%' cellpadding='0' cellspacing='0' style='background-color:#f1f5f9;padding:40px 16px;'>
     <tr><td align='center'>
       <table width='600' cellpadding='0' cellspacing='0' style='background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.08);border:1px solid #e2e8f0;'>
-        <!-- BulSU Header -->
+        <!-- Header -->
         <tr>
           <td style='background:linear-gradient(135deg, #7f1d1d 0%, #0f172a 60%, #dc2626 100%);border-top:4px solid #f59e0b;padding:36px 40px;text-align:center;'>
             <div style='display:inline-block;padding:4px 14px;background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.4);border-radius:20px;color:#fbbf24;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;'>
-              BULACAN STATE UNIVERSITY
+              SAS PARKING MANAGEMENT
             </div>
             <h1 style='color:#ffffff;font-size:24px;font-weight:800;margin:0;letter-spacing:-0.5px;'>Reservation Request Declined</h1>
             <p style='color:rgba(255,255,255,0.85);font-size:13px;margin:6px 0 0;'>Campus Parking Management Notice</p>
@@ -139,7 +139,7 @@ public class RejectReservationHandler : IRequestHandler<RejectReservationCommand
             </p>
 
             <div style='text-align:center;margin-top:24px;padding-top:18px;border-top:1px solid #e2e8f0;'>
-              <p style='font-size:11px;color:#94a3b8;margin:0;'>Bulacan State University • Office of Security & Safety</p>
+              <p style='font-size:11px;color:#94a3b8;margin:0;'>SAS • Office of Security & Safety</p>
             </div>
           </td>
         </tr>
@@ -147,7 +147,7 @@ public class RejectReservationHandler : IRequestHandler<RejectReservationCommand
         <!-- Footer -->
         <tr>
           <td style='background-color:#f8fafc;padding:18px 36px;text-align:center;border-top:1px solid #e2e8f0;'>
-            <p style='font-size:11px;color:#94a3b8;margin:0;'>© {DateTime.UtcNow.Year} Bulacan State University ParkFlow System. All rights reserved.</p>
+            <p style='font-size:11px;color:#94a3b8;margin:0;'>© {DateTime.UtcNow.Year} SAS ParkFlow System. All rights reserved.</p>
           </td>
         </tr>
       </table>
