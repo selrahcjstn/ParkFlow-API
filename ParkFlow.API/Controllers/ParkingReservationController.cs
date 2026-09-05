@@ -30,8 +30,8 @@ public class ParkingReservationController : ControllerBase
 
     public record CreateReservationRequest(
         DateTime ReservationDate,
-        TimeSpan StartTime,
-        TimeSpan EndTime,
+        string StartTime,
+        string EndTime,
         string Reason);
 
     public record ReviewReservationRequest(string? Notes);
@@ -44,11 +44,21 @@ public class ParkingReservationController : ControllerBase
         if (userId == Guid.Empty)
             return Unauthorized(Result<ParkingReservationDto>.Failure("User not identified.", ErrorCode.Unauthorized));
 
+        if (!TimeSpan.TryParse(request.StartTime, out var startTime))
+        {
+            return BadRequest(Result<ParkingReservationDto>.Failure("Invalid start time format.", ErrorCode.BadRequest));
+        }
+
+        if (!TimeSpan.TryParse(request.EndTime, out var endTime))
+        {
+            return BadRequest(Result<ParkingReservationDto>.Failure("Invalid end time format.", ErrorCode.BadRequest));
+        }
+
         var command = new CreateReservationCommand(
             userId,
             request.ReservationDate,
-            request.StartTime,
-            request.EndTime,
+            startTime,
+            endTime,
             request.Reason);
 
         var result = await _mediator.Send(command);
@@ -88,7 +98,7 @@ public class ParkingReservationController : ControllerBase
     }
 
     [HttpPost("{id:guid}/approve")]
-    [Authorize(Roles = "Admin,SuperAdmin")]
+    [Authorize(Policy = "AdminOrSuperAdmin")]
     public async Task<ActionResult<Result<bool>>> Approve(Guid id, [FromBody] ReviewReservationRequest? request)
     {
         var adminId = _userContext.GetUserId();
@@ -97,7 +107,7 @@ public class ParkingReservationController : ControllerBase
     }
 
     [HttpPost("{id:guid}/reject")]
-    [Authorize(Roles = "Admin,SuperAdmin")]
+    [Authorize(Policy = "AdminOrSuperAdmin")]
     public async Task<ActionResult<Result<bool>>> Reject(Guid id, [FromBody] ReviewReservationRequest? request)
     {
         var adminId = _userContext.GetUserId();
@@ -106,7 +116,7 @@ public class ParkingReservationController : ControllerBase
     }
 
     [HttpGet("admin/all")]
-    [Authorize(Roles = "Admin,SuperAdmin")]
+    [Authorize(Policy = "AdminOrSuperAdmin")]
     public async Task<ActionResult<Result<IEnumerable<ParkingReservationDto>>>> GetAll([FromQuery] ReservationStatus? status)
     {
         var result = await _mediator.Send(new GetAllReservationsQuery(status));

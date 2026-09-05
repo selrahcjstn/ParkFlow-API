@@ -79,7 +79,16 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy("StudentOnly", policy =>
         policy.RequireClaim("profile_type", "student"))
     .AddPolicy("PersonnelOnly", policy =>
-        policy.RequireClaim("profile_type", "personnel"));
+        policy.RequireClaim("profile_type", "personnel"))
+    .AddPolicy("AdminOrSuperAdmin", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.IsInRole("Admin") ||
+            ctx.User.IsInRole("SuperAdmin") ||
+            ctx.User.HasClaim("profile_type", "admin") ||
+            ctx.User.HasClaim("profile_type", "superadmin") ||
+            ctx.User.HasClaim("role", "Admin") ||
+            ctx.User.HasClaim("role", "SuperAdmin")
+        ));
 
 builder.Services.AddSignalR();
 
