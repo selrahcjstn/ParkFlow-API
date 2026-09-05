@@ -11,16 +11,19 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
 {
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IUserAccountRepository _userAccountRepository;
+    private readonly IVehicleRepository? _vehicleRepository;
     private readonly IValidator<ValidateCorSubmissionCommand> _validator;
 
     public ValidateCorSubmissionHandler(
         ICorSubmissionRepository corSubmissionRepository,
         IUserAccountRepository userAccountRepository,
-        IValidator<ValidateCorSubmissionCommand> validator)
+        IValidator<ValidateCorSubmissionCommand> validator,
+        IVehicleRepository? vehicleRepository = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _userAccountRepository = userAccountRepository;
         _validator = validator;
+        _vehicleRepository = vehicleRepository;
     }
 
     public async Task<Result<Guid>> Handle(ValidateCorSubmissionCommand request, CancellationToken cancellationToken)
@@ -60,6 +63,16 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
             if (request.VerificationStatus == CorVerificationStatus.Verified)
             {
                 user.Verify();
+
+                if (_vehicleRepository != null)
+                {
+                    var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(user.Id);
+                    foreach (var vehicle in userVehicles)
+                    {
+                        vehicle.UpdateVerificationStatus(CorVerificationStatus.Verified);
+                        await _vehicleRepository.UpdateAsync(vehicle);
+                    }
+                }
             }
             else if (request.VerificationStatus == CorVerificationStatus.Rejected)
             {

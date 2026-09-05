@@ -101,7 +101,12 @@ public record ValidateVehicleRequest(
 
     [Authorize]
     [HttpPatch("{id:guid}/validate")]
-    public async Task<ActionResult<Result<Guid>>> ValidateVehicle(Guid id, [FromBody] ValidateVehicleRequest request, [FromServices] IVehicleRepository vehicleRepository)
+    public async Task<ActionResult<Result<Guid>>> ValidateVehicle(
+        Guid id,
+        [FromBody] ValidateVehicleRequest request,
+        [FromServices] IVehicleRepository vehicleRepository,
+        [FromServices] IUserAccountRepository userAccountRepository,
+        [FromServices] ICorSubmissionRepository corSubmissionRepository)
     {
         var vehicle = await vehicleRepository.GetByIdAsync(id);
         if (vehicle == null)
@@ -110,13 +115,35 @@ public record ValidateVehicleRequest(
         vehicle.UpdateVerificationStatus(request.VerificationStatus);
         await vehicleRepository.UpdateAsync(vehicle);
 
+        if (request.VerificationStatus == CorVerificationStatus.Verified)
+        {
+            var user = await userAccountRepository.GetByIdAsync(vehicle.OwnerId);
+            if (user != null)
+            {
+                user.Verify();
+                await userAccountRepository.UpdateAsync(user);
+            }
+
+            var submission = await corSubmissionRepository.GetLatestByUserIdAsync(vehicle.OwnerId);
+            if (submission != null)
+            {
+                submission.UpdateSubmission(null, null, CorVerificationStatus.Verified);
+                await corSubmissionRepository.UpdateCorSubmissionAsync(submission);
+            }
+        }
+
         return Ok(Result<Guid>.Success(vehicle.Id, $"Vehicle verification status updated to {request.VerificationStatus}."));
     }
 
     [Authorize]
     [HttpPost("{id:guid}/validate")]
-    public async Task<ActionResult<Result<Guid>>> ValidateVehiclePost(Guid id, [FromBody] ValidateVehicleRequest request, [FromServices] IVehicleRepository vehicleRepository)
+    public async Task<ActionResult<Result<Guid>>> ValidateVehiclePost(
+        Guid id,
+        [FromBody] ValidateVehicleRequest request,
+        [FromServices] IVehicleRepository vehicleRepository,
+        [FromServices] IUserAccountRepository userAccountRepository,
+        [FromServices] ICorSubmissionRepository corSubmissionRepository)
     {
-        return await ValidateVehicle(id, request, vehicleRepository);
+        return await ValidateVehicle(id, request, vehicleRepository, userAccountRepository, corSubmissionRepository);
     }
 }
