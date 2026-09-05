@@ -46,6 +46,11 @@ public class ParkingReservation : BaseEntity
         Status = ReservationStatus.Pending;
     }
 
+    public void SetAdminNotes(string? notes)
+    {
+        AdminNotes = notes;
+    }
+
     public void Approve(Guid adminId, string? notes = null)
     {
         if (Status != ReservationStatus.Pending)
