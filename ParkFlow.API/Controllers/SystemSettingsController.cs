@@ -36,7 +36,13 @@ public class SystemSettingsController : ControllerBase
             request.ViolationRatePerHour,
             request.GracePeriodMinutes,
             request.AcademicYear,
-            request.CurrentSemester);
+            request.CurrentSemester,
+            request.MaxParkingHours,
+            request.TotalCapacity,
+            request.MaxVehiclesPerUser,
+            request.MaintenanceMode,
+            request.RfidInstantScanEnabled,
+            request.AutoApproveVerification);
 
         var updated = SystemSettingsStore.Current;
 
