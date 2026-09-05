@@ -46,12 +46,18 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
             ? request.MotorPictureUrl
             : existing?.MotorPictureUrl;
 
-        if (string.IsNullOrWhiteSpace(corUrl) || string.Equals(corUrl.Trim(), "pending", StringComparison.OrdinalIgnoreCase) ||
-            string.IsNullOrWhiteSpace(orcrUrl) || string.Equals(orcrUrl.Trim(), "pending", StringComparison.OrdinalIgnoreCase) ||
-            string.IsNullOrWhiteSpace(motorUrl) || string.Equals(motorUrl.Trim(), "pending", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(corUrl) || string.Equals(corUrl.Trim(), "pending", StringComparison.OrdinalIgnoreCase))
         {
-            return Result<Guid>.Failure("Registration cannot be submitted without uploading all required documents (COR/ID, OR/CR, and Vehicle Picture).", ErrorCode.BadRequest);
+            return Result<Guid>.Failure("COR document is required.", ErrorCode.BadRequest);
         }
+
+        orcrUrl = string.IsNullOrWhiteSpace(orcrUrl) || string.Equals(orcrUrl.Trim(), "pending", StringComparison.OrdinalIgnoreCase)
+            ? corUrl
+            : orcrUrl;
+
+        motorUrl = string.IsNullOrWhiteSpace(motorUrl) || string.Equals(motorUrl.Trim(), "pending", StringComparison.OrdinalIgnoreCase)
+            ? corUrl
+            : motorUrl;
 
         if (existing == null)
         {

@@ -11,24 +11,18 @@ public class UpdateOnboardingCorValidator : AbstractValidator<UpdateOnboardingCo
         RuleFor(x => x.AcademicTerm).NotEmpty().WithMessage("Academic term is required.");
 
         RuleFor(x => x.CorDocumentUrl)
-            .NotEmpty().WithMessage("COR / Student ID document is required.")
-            .Must(url => !string.Equals(url?.Trim(), "pending", StringComparison.OrdinalIgnoreCase))
-            .WithMessage("COR document must be uploaded before completing registration.")
             .Must(IsValidUrl)
+            .When(x => !string.IsNullOrWhiteSpace(x.CorDocumentUrl) && !string.Equals(x.CorDocumentUrl.Trim(), "pending", StringComparison.OrdinalIgnoreCase))
             .WithMessage("COR document URL must be a valid uploaded file link.");
 
         RuleFor(x => x.OrcrDocumentUrl)
-            .NotEmpty().WithMessage("OR/CR document is required.")
-            .Must(url => !string.Equals(url?.Trim(), "pending", StringComparison.OrdinalIgnoreCase))
-            .WithMessage("OR/CR document must be uploaded before completing registration.")
             .Must(IsValidUrl)
+            .When(x => !string.IsNullOrWhiteSpace(x.OrcrDocumentUrl) && !string.Equals(x.OrcrDocumentUrl.Trim(), "pending", StringComparison.OrdinalIgnoreCase))
             .WithMessage("OR/CR document URL must be a valid uploaded file link.");
 
         RuleFor(x => x.MotorPictureUrl)
-            .NotEmpty().WithMessage("Vehicle picture is required.")
-            .Must(url => !string.Equals(url?.Trim(), "pending", StringComparison.OrdinalIgnoreCase))
-            .WithMessage("Vehicle picture must be uploaded before completing registration.")
             .Must(IsValidUrl)
+            .When(x => !string.IsNullOrWhiteSpace(x.MotorPictureUrl) && !string.Equals(x.MotorPictureUrl.Trim(), "pending", StringComparison.OrdinalIgnoreCase))
             .WithMessage("Vehicle picture URL must be a valid uploaded file link.");
     }
 
@@ -36,6 +30,11 @@ public class UpdateOnboardingCorValidator : AbstractValidator<UpdateOnboardingCo
     {
         if (string.IsNullOrWhiteSpace(url)) return false;
         return url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-               url.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+               url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+               url.StartsWith("file://", StringComparison.OrdinalIgnoreCase) ||
+               url.StartsWith("content://", StringComparison.OrdinalIgnoreCase) ||
+               url.StartsWith("ph://", StringComparison.OrdinalIgnoreCase) ||
+               url.StartsWith("blob:", StringComparison.OrdinalIgnoreCase) ||
+               Uri.TryCreate(url, UriKind.Absolute, out _);
     }
 }
