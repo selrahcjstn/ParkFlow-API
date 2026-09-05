@@ -73,7 +73,7 @@ public class SystemAnnouncementController : ControllerBase
 
         var command = new UpdateSystemAnnouncementCommand(
             userId,
-            "System Notice",
+            "System Announcement",
             "No active system message.",
             "info",
             false
