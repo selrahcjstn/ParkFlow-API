@@ -74,7 +74,7 @@ public class GetUsersListHandler : IRequestHandler<GetUsersListQuery, Result<IEn
                 }
             }
 
-            string corStatusStr = "NotSubmitted";
+            string corStatusStr = user.Status == AccountStatus.Active ? "Verified" : "NotSubmitted";
             if (latestCorByUser.TryGetValue(user.Id, out var latestCor))
             {
                 corStatusStr = latestCor.VerificationStatus.ToString();

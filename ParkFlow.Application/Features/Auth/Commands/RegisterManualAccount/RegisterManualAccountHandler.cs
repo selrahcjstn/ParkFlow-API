@@ -19,6 +19,8 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
     private readonly IStudentRepository _studentRepository;
     private readonly IPersonnelRepository _personnelRepository;
     private readonly IGuardRepository _guardRepository;
+    private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IParkingScheduleRepository _parkingScheduleRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
     private readonly IValidator<RegisterManualAccountCommand> _validator;
@@ -31,6 +33,8 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
         IStudentRepository studentRepository,
         IPersonnelRepository personnelRepository,
         IGuardRepository guardRepository,
+        ICorSubmissionRepository corSubmissionRepository,
+        IParkingScheduleRepository parkingScheduleRepository,
         IPasswordHasher passwordHasher,
         IJwtService jwtService,
         IValidator<RegisterManualAccountCommand> validator,
@@ -42,6 +46,8 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
         _studentRepository = studentRepository;
         _personnelRepository = personnelRepository;
         _guardRepository = guardRepository;
+        _corSubmissionRepository = corSubmissionRepository;
+        _parkingScheduleRepository = parkingScheduleRepository;
         _passwordHasher = passwordHasher;
         _jwtService = jwtService;
         _validator = validator;
@@ -147,6 +153,24 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
 
                 var personnel = new Personnel(userProfile.Id, idCard, dept);
                 await _personnelRepository.AddAsync(personnel);
+            }
+
+            // Admin created account -> Auto-verify COR status & create default schedule
+            var autoCor = new CorSubmission(
+                user.Id,
+                "Academic Year 2026-2027",
+                "https://parkflow.bulsu.edu.ph/admin-auto-verified",
+                null,
+                null,
+                CorVerificationStatus.Verified);
+
+            await _corSubmissionRepository.AddCorSubmissionAsync(autoCor);
+
+            var defaultDays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday };
+            foreach (var day in defaultDays)
+            {
+                var sched = new ParkingSchedule(autoCor.Id, day, new TimeSpan(6, 0, 0), new TimeSpan(22, 0, 0));
+                await _parkingScheduleRepository.AddAsync(sched);
             }
         }
 
