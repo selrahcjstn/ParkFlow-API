@@ -51,6 +51,13 @@ public class ParkingReservation : BaseEntity
         AdminNotes = notes;
     }
 
+    private string? GetExistingNotifyTag()
+    {
+        if (string.IsNullOrWhiteSpace(AdminNotes)) return null;
+        var match = System.Text.RegularExpressions.Regex.Match(AdminNotes, @"\[NotifyEmail:(.*?)\]");
+        return match.Success ? match.Value : null;
+    }
+
     public void Approve(Guid adminId, string? notes = null)
     {
         if (Status != ReservationStatus.Pending)
@@ -59,7 +66,16 @@ public class ParkingReservation : BaseEntity
         Status = ReservationStatus.Approved;
         ApprovedByAdminId = adminId;
         ApprovedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
-        AdminNotes = notes;
+        
+        var existingTag = GetExistingNotifyTag();
+        if (!string.IsNullOrWhiteSpace(notes))
+        {
+            AdminNotes = existingTag != null ? $"{existingTag} {notes.Trim()}" : notes.Trim();
+        }
+        else
+        {
+            AdminNotes = existingTag;
+        }
     }
 
     public void Reject(Guid adminId, string? notes = null)
@@ -70,7 +86,16 @@ public class ParkingReservation : BaseEntity
         Status = ReservationStatus.Rejected;
         ApprovedByAdminId = adminId;
         ApprovedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
-        AdminNotes = notes;
+
+        var existingTag = GetExistingNotifyTag();
+        if (!string.IsNullOrWhiteSpace(notes))
+        {
+            AdminNotes = existingTag != null ? $"{existingTag} {notes.Trim()}" : notes.Trim();
+        }
+        else
+        {
+            AdminNotes = existingTag;
+        }
     }
 
     public void Cancel()

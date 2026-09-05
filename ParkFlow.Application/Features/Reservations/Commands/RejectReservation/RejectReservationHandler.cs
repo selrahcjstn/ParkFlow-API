@@ -28,6 +28,16 @@ public class RejectReservationHandler : IRequestHandler<RejectReservationCommand
 
         try
         {
+            string? customNotifyEmail = null;
+            if (!string.IsNullOrWhiteSpace(reservation.AdminNotes) && reservation.AdminNotes.Contains("[NotifyEmail:"))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(reservation.AdminNotes, @"\[NotifyEmail:(.*?)\]");
+                if (match.Success)
+                {
+                    customNotifyEmail = match.Groups[1].Value.Trim();
+                }
+            }
+
             reservation.Reject(request.AdminId, request.Notes);
             await _reservationRepository.UpdateAsync(reservation);
             await _reservationRepository.SaveChangesAsync();
@@ -41,7 +51,10 @@ public class RejectReservationHandler : IRequestHandler<RejectReservationCommand
             // Send email notification to the applicant
             try
             {
-                var applicantEmail = reservation.UserAccount?.PrimaryEmail;
+                var applicantEmail = !string.IsNullOrWhiteSpace(customNotifyEmail)
+                    ? customNotifyEmail
+                    : reservation.UserAccount?.PrimaryEmail;
+
                 var applicantName = reservation.UserAccount?.UserProfile != null
                     ? $"{reservation.UserAccount.UserProfile.FirstName} {reservation.UserAccount.UserProfile.LastName}".Trim()
                     : "Applicant";
