@@ -146,43 +146,53 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todayReservation.EndTime);
             maximumExitTimeUtc = resEndTimeUtc.AddMinutes(30);
         }
-        else if (isStudentOrPersonnel)
+        else
         {
-            var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
-
-            var verifiedCor = corSubmissions.FirstOrDefault(c =>
-                c.UserAccountId == vehicle.OwnerId &&
-                c.VerificationStatus == CorVerificationStatus.Verified);
-
-            if (verifiedCor == null)
+            if (admin == null && vehicle.VerificationStatus != CorVerificationStatus.Verified)
             {
-                var docName = student != null ? "Student COR" : "Personnel ID / Registration";
                 return Result<CreateParkingLogResponse>.Failure(
-                    $"Entry denied: {docName} document is missing or unverified.",
+                    "Entry denied: Vehicle is unverified or pending admin approval.",
                     ErrorCode.Forbidden);
             }
 
-            var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-            var todayDayOfWeek = philippinesNow.DayOfWeek;
-
-            var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == todayDayOfWeek);
-
-            if (todaySchedule == null)
+            if (isStudentOrPersonnel)
             {
-                return Result<CreateParkingLogResponse>.Failure(
-                    "Entry denied: No class or work schedule submitted for today.",
-                    ErrorCode.Forbidden);
-            }
+                var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
 
-            if (!_scheduleService.CanEnter(philippinesNow, todaySchedule))
-            {
-                return Result<CreateParkingLogResponse>.Failure(
-                    "Entry denied: Entry time does not align with authorized schedule.",
-                    ErrorCode.BadRequest);
-            }
+                var verifiedCor = corSubmissions.FirstOrDefault(c =>
+                    c.UserAccountId == vehicle.OwnerId &&
+                    c.VerificationStatus == CorVerificationStatus.Verified);
 
-            var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todaySchedule.EndTime);
-            maximumExitTimeUtc = scheduleEndTimeUtc.AddMinutes(30);
+                if (verifiedCor == null)
+                {
+                    var docName = student != null ? "Student COR" : "Personnel ID / Registration";
+                    return Result<CreateParkingLogResponse>.Failure(
+                        $"Entry denied: {docName} document is unverified or pending admin approval.",
+                        ErrorCode.Forbidden);
+                }
+
+                var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
+                var todayDayOfWeek = philippinesNow.DayOfWeek;
+
+                var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == todayDayOfWeek);
+
+                if (todaySchedule == null)
+                {
+                    return Result<CreateParkingLogResponse>.Failure(
+                        "Entry denied: No class or work schedule submitted for today.",
+                        ErrorCode.Forbidden);
+                }
+
+                if (!_scheduleService.CanEnter(philippinesNow, todaySchedule))
+                {
+                    return Result<CreateParkingLogResponse>.Failure(
+                        "Entry denied: Entry time does not align with authorized schedule.",
+                        ErrorCode.BadRequest);
+                }
+
+                var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todaySchedule.EndTime);
+                maximumExitTimeUtc = scheduleEndTimeUtc.AddMinutes(30);
+            }
         }
 
         var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard.UserProfileId);

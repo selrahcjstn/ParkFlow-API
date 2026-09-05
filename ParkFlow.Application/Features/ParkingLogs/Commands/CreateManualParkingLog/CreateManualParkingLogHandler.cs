@@ -100,7 +100,8 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
                 request.PlateNumber,
                 request.Brand ?? "Unknown",
                 qrCodeHash,
-                request.VehicleType
+                request.VehicleType,
+                verificationStatus: CorVerificationStatus.Verified
             );
 
             await _vehicleRepository.AddAsync(vehicle);
@@ -150,6 +151,13 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
 
         DateTime? maximumExitTimeUtc = null;
 
+        if (admin == null && vehicle.VerificationStatus != CorVerificationStatus.Verified)
+        {
+            return Result<CreateParkingLogResponse>.Failure(
+                "Entry denied: Vehicle is unverified or pending admin approval.",
+                ErrorCode.Forbidden);
+        }
+
         if (isStudentOrPersonnel)
         {
             var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
@@ -162,7 +170,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             {
                 var docName = student != null ? "Student COR" : "Personnel ID / Registration";
                 return Result<CreateParkingLogResponse>.Failure(
-                    $"Entry denied: {docName} document is missing or unverified.",
+                    $"Entry denied: {docName} document is unverified or pending admin approval.",
                     ErrorCode.Forbidden);
             }
 
