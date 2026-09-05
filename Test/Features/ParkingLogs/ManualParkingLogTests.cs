@@ -59,7 +59,7 @@ public class ManualParkingLogTests
         var guardUserId = Guid.NewGuid();
         var guardProfileId = Guid.NewGuid();
 
-        var vehicle = new Vehicle(ownerId, "ABC-1234", "Toyota", "hashed_qr", VehicleType.Car);
+        var vehicle = new Vehicle(ownerId, "ABC-1234", "Toyota", "hashed_qr", VehicleType.Car, verificationStatus: CorVerificationStatus.Verified);
         var vehicleIdProperty = typeof(BaseEntity).GetProperty("Id");
         vehicleIdProperty?.SetValue(vehicle, Guid.NewGuid());
         await _vehicleRepository.AddAsync(vehicle);
@@ -119,7 +119,7 @@ public class ManualParkingLogTests
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assert
-        Assert.True(result.IsSuccess);
+        Assert.True(result.IsSuccess, result.Message);
         Assert.NotNull(result.Data);
         Assert.Equal("ABC-1234", result.Data.PlateNumber);
         Assert.Equal("Manual", result.Data.EntryMethod);

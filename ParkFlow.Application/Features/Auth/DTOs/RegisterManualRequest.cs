@@ -2,7 +2,7 @@ namespace ParkFlow.Application.Features.Auth.DTOs;
 
 public record RegisterManualRequest(
     string Email,
-    string Password,
+    string? Password = null,
     string? FirstName = null,
     string? LastName = null,
     string? MiddleName = null,
@@ -11,7 +11,8 @@ public record RegisterManualRequest(
     string? Status = null,
     RegisterStudentDto? Student = null,
     RegisterPersonnelDto? Personnel = null,
-    RegisterGuardDto? Guard = null);
+    RegisterGuardDto? Guard = null,
+    bool IsAdminCreated = false);
 
 public record RegisterStudentDto(
     string? StudentNumber,

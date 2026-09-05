@@ -19,6 +19,7 @@ public class CreateGuardAccountHandler : IRequestHandler<CreateGuardAccountComma
 	private readonly IGuardRepository _guardRepository;
 	private readonly IPasswordHasher _passwordHasher;
 	private readonly IValidator<CreateGuardAccountCommand> _validator;
+	private readonly IEmailService? _emailService;
 
 	public CreateGuardAccountHandler(
 		IUserAccountRepository userAccountRepository,
@@ -26,7 +27,8 @@ public class CreateGuardAccountHandler : IRequestHandler<CreateGuardAccountComma
 		IUserProfileRepository userProfileRepository,
 		IGuardRepository guardRepository,
 		IPasswordHasher passwordHasher,
-		IValidator<CreateGuardAccountCommand> validator)
+		IValidator<CreateGuardAccountCommand> validator,
+		IEmailService? emailService = null)
 	{
 		_userAccountRepository = userAccountRepository;
 		_authIdentityRepository = authIdentityRepository;
@@ -34,6 +36,7 @@ public class CreateGuardAccountHandler : IRequestHandler<CreateGuardAccountComma
 		_guardRepository = guardRepository;
 		_passwordHasher = passwordHasher;
 		_validator = validator;
+		_emailService = emailService;
 	}
 
 	public async Task<Result<Guid>> Handle(CreateGuardAccountCommand request, CancellationToken cancellationToken)
@@ -50,7 +53,11 @@ public class CreateGuardAccountHandler : IRequestHandler<CreateGuardAccountComma
 		if (existingUser != null)
 			return Result<Guid>.Failure("User account with this email already exists.", ErrorCode.Conflict);
 
-		var hashedPassword = _passwordHasher.HashPassword(request.Account.Password);
+		var plainPassword = string.IsNullOrWhiteSpace(request.Account.Password)
+			? PasswordGenerator.GenerateTemporaryPassword()
+			: request.Account.Password;
+
+		var hashedPassword = _passwordHasher.HashPassword(plainPassword);
 		var user = new UserAccount(hashedPassword, request.Account.PhoneNumber);
 		user.Verify(); // Guard accounts are verified upon provision
 		user.UpdateOnboardingStep(OnboardingStep.Done); // Guards bypass onboarding steps
@@ -69,12 +76,21 @@ public class CreateGuardAccountHandler : IRequestHandler<CreateGuardAccountComma
 
 		await _userProfileRepository.AddAsync(userProfile);
 
-		var existingGuard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
-		if (existingGuard != null)
-			return Result<Guid>.Failure("Guard already exists for this profile.", ErrorCode.Conflict);
-
 		var guard = new Guard(userProfile, request.AssignedGate);
 		await _guardRepository.AddAsync(guard);
+
+		if (_emailService != null)
+		{
+			try
+			{
+				var emailSubject = "Welcome to ParkFlow - Security Guard Account Credentials";
+				var emailBody = $@"Hello {request.Profile.FirstName}, your ParkFlow Security Guard account has been created.\nEmail: {request.Account.Email}\nTemporary Password: {plainPassword}";
+				await _emailService.SendEmailAsync(request.Account.Email, emailSubject, emailBody);
+			}
+			catch
+			{
+			}
+		}
 
 		return Result<Guid>.Success(user.Id, "Guard account created successfully.");
 	}

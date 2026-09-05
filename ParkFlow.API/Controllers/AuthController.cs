@@ -47,7 +47,8 @@ public class AuthController : ControllerBase
             request.Status,
             request.Student,
             request.Personnel,
-            request.Guard);
+            request.Guard,
+            request.IsAdminCreated);
 
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);

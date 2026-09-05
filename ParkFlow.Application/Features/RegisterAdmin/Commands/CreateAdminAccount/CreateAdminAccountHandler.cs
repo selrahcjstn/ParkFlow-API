@@ -21,6 +21,7 @@ public class CreateAdminAccountHandler : IRequestHandler<CreateAdminAccountComma
 	private readonly IPasswordHasher _passwordHasher;
 	private readonly IValidator<CreateAdminAccountCommand> _validator;
 	private readonly IConfiguration _configuration;
+	private readonly IEmailService? _emailService;
 
 	public CreateAdminAccountHandler(
 		IUserAccountRepository userAccountRepository,
@@ -29,7 +30,8 @@ public class CreateAdminAccountHandler : IRequestHandler<CreateAdminAccountComma
 		IAdminRepository adminRepository,
 		IPasswordHasher passwordHasher,
 		IValidator<CreateAdminAccountCommand> validator,
-		IConfiguration configuration)
+		IConfiguration configuration,
+		IEmailService? emailService = null)
 	{
 		_userAccountRepository = userAccountRepository;
 		_authIdentityRepository = authIdentityRepository;
@@ -38,6 +40,7 @@ public class CreateAdminAccountHandler : IRequestHandler<CreateAdminAccountComma
 		_passwordHasher = passwordHasher;
 		_validator = validator;
 		_configuration = configuration;
+		_emailService = emailService;
 	}
 
 	public async Task<Result<Guid>> Handle(CreateAdminAccountCommand request, CancellationToken cancellationToken)
@@ -79,7 +82,11 @@ public class CreateAdminAccountHandler : IRequestHandler<CreateAdminAccountComma
 		if (existingUser != null)
 			return Result<Guid>.Failure("User account with this email already exists.", ErrorCode.Conflict);
 
-		var hashedPassword = _passwordHasher.HashPassword(request.Account.Password);
+		var plainPassword = string.IsNullOrWhiteSpace(request.Account.Password)
+			? PasswordGenerator.GenerateTemporaryPassword()
+			: request.Account.Password;
+
+		var hashedPassword = _passwordHasher.HashPassword(plainPassword);
 		var user = new UserAccount(hashedPassword, request.Account.PhoneNumber);
 		user.Verify(); // Admin accounts are verified upon provision
 		user.UpdateOnboardingStep(OnboardingStep.Done); // Admins bypass onboarding steps
@@ -104,6 +111,19 @@ public class CreateAdminAccountHandler : IRequestHandler<CreateAdminAccountComma
 
 		var admin = new Admin(userProfile, request.RoleLevel);
 		await _adminRepository.AddAsync(admin);
+
+		if (_emailService != null)
+		{
+			try
+			{
+				var emailSubject = "Welcome to ParkFlow - Administrator Account Credentials";
+				var emailBody = $@"Hello {request.Profile.FirstName}, your ParkFlow Admin account has been created.\nEmail: {request.Account.Email}\nTemporary Password: {plainPassword}";
+				await _emailService.SendEmailAsync(request.Account.Email, emailSubject, emailBody);
+			}
+			catch
+			{
+			}
+		}
 
 		return Result<Guid>.Success(user.Id, "Admin account created successfully.");
 	}

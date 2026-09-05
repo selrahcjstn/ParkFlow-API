@@ -73,7 +73,11 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
         if (existingUser != null)
             return Result<string>.Failure("User account with this email already exists.", ErrorCode.Conflict);
 
-        var hashedPassword = _passwordHasher.HashPassword(request.Password);
+        var plainPassword = (request.IsAdminCreated || string.IsNullOrWhiteSpace(request.Password))
+            ? PasswordGenerator.GenerateTemporaryPassword()
+            : request.Password;
+
+        var hashedPassword = _passwordHasher.HashPassword(plainPassword);
         var phoneNumber = !string.IsNullOrWhiteSpace(request.PhoneNumber) ? request.PhoneNumber.Trim() : null;
         var user = new UserAccount(hashedPassword, phoneNumber);
 
@@ -82,7 +86,7 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
         if (isFullRegistration)
         {
             user.Verify();
-            user.UpdateOnboardingStep(OnboardingStep.Profile);
+            user.UpdateOnboardingStep(OnboardingStep.Done);
         }
 
         if (string.Equals(request.Status, "Suspended", StringComparison.OrdinalIgnoreCase))
@@ -158,7 +162,8 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
 
         var token = _jwtService.GenerateToken(user, resolvedRole);
 
-        if (_emailService != null)
+        // ONLY send credentials email when account is created by an ADMIN
+        if (_emailService != null && request.IsAdminCreated)
         {
             try
             {
@@ -195,7 +200,7 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
           <td style='padding:36px 40px;'>
             <p style='font-size:15px;line-height:1.6;color:#1e293b;margin:0 0 16px;'>Hello <strong>{fullName}</strong>,</p>
             <p style='font-size:14px;line-height:1.6;color:#475569;margin:0 0 24px;'>
-              Your <strong>{roleDisplayName}</strong> account for the BulSU ParkFlow campus parking system has been successfully registered by the administration.
+              Your <strong>{roleDisplayName}</strong> account for the BulSU ParkFlow campus parking system has been successfully created by the administration.
             </p>
 
             <!-- Credential Box -->
@@ -205,7 +210,7 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
                 <strong style='color:#0f172a;'>Registered Email:</strong> <span style='font-family:monospace;font-weight:700;color:#0f766e;'>{normalizedEmail}</span>
               </div>
               <div style='font-size:14px;color:#334155;'>
-                <strong style='color:#0f172a;'>Temporary Password:</strong> <code style='background-color:#e2e8f0;padding:4px 10px;border-radius:6px;font-family:monospace;font-size:16px;font-weight:800;color:#0f172a;letter-spacing:1px;'>{request.Password}</code>
+                <strong style='color:#0f172a;'>Temporary Password:</strong> <code style='background-color:#e2e8f0;padding:4px 10px;border-radius:6px;font-family:monospace;font-size:16px;font-weight:800;color:#0f766e;letter-spacing:1px;'>{plainPassword}</code>
               </div>
             </div>
 

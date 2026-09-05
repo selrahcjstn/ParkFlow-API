@@ -7,7 +7,10 @@ public class RegisterManualAccountValidator : AbstractValidator<RegisterManualAc
     public RegisterManualAccountValidator()
     {
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
-        RuleFor(x => x.Password).NotEmpty().MinimumLength(6);
+        When(x => !x.IsAdminCreated, () =>
+        {
+            RuleFor(x => x.Password).NotEmpty().MinimumLength(6);
+        });
 
         When(x => !string.IsNullOrWhiteSpace(x.FirstName), () =>
         {

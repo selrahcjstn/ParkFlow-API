@@ -12,11 +12,12 @@ public class CreateGuardAccountValidator : AbstractValidator<CreateGuardAccountC
             .EmailAddress()
             .WithMessage("Email must be a valid email address.");
 
-        RuleFor(x => x.Account.Password)
-            .NotEmpty()
-            .WithMessage("Password is required.")
-            .MinimumLength(8)
-            .WithMessage("Password must be at least 8 characters long.");
+        When(x => !string.IsNullOrWhiteSpace(x.Account.Password), () =>
+        {
+            RuleFor(x => x.Account.Password)
+                .MinimumLength(8)
+                .WithMessage("Password must be at least 8 characters long.");
+        });
 
         RuleFor(x => x.Account.PhoneNumber)
             .NotEmpty()

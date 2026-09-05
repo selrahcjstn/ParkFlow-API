@@ -6,7 +6,7 @@ namespace ParkFlow.Application.Features.Auth.Commands.RegisterManualAccount;
 
 public record RegisterManualAccountCommand(
     string Email,
-    string Password,
+    string? Password = null,
     string? FirstName = null,
     string? LastName = null,
     string? MiddleName = null,
@@ -15,4 +15,5 @@ public record RegisterManualAccountCommand(
     string? Status = null,
     RegisterStudentDto? Student = null,
     RegisterPersonnelDto? Personnel = null,
-    RegisterGuardDto? Guard = null) : IRequest<Result<string>>;
+    RegisterGuardDto? Guard = null,
+    bool IsAdminCreated = false) : IRequest<Result<string>>;
