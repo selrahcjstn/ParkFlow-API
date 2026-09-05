@@ -32,7 +32,8 @@ public class ParkingReservationController : ControllerBase
         DateTime ReservationDate,
         string StartTime,
         string EndTime,
-        string Reason);
+        string Reason,
+        string? NotifyEmail = null);
 
     public record ReviewReservationRequest(string? Notes);
 
@@ -59,7 +60,8 @@ public class ParkingReservationController : ControllerBase
             request.ReservationDate,
             startTime,
             endTime,
-            request.Reason);
+            request.Reason,
+            request.NotifyEmail);
 
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);

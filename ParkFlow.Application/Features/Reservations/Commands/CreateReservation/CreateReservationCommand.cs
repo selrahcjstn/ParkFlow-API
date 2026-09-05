@@ -9,4 +9,5 @@ public record CreateReservationCommand(
     DateTime ReservationDate,
     TimeSpan StartTime,
     TimeSpan EndTime,
-    string Reason) : IRequest<Result<ParkingReservationDto>>;
+    string Reason,
+    string? NotifyEmail = null) : IRequest<Result<ParkingReservationDto>>;
