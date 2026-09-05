@@ -7,28 +7,61 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
-    name: Deploy to EC2
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Pull latest code and restart API on EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            echo ">>> Pulling latest code..."
-            cd ~/ParkFlow-API
-            git pull origin main
+    - name: Checkout Code
+      uses: actions/checkout@v4
 
-            echo ">>> Stopping existing API process..."
-            pkill -f "dotnet" || true
-            sleep 3
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        include-prerelease: true
 
-            echo ">>> Starting API..."
-            nohup dotnet run --project ParkFlow.API/ParkFlow.API.csproj > ~/api.log 2>&1 &
+    - name: Publish API Application
+      run: |
+        dotnet restore ParkFlow.API/ParkFlow.API.csproj
+        dotnet publish ParkFlow.API/ParkFlow.API.csproj -c Release -r linux-x64 --self-contained true -o ./publish
 
-            sleep 5
-            echo ">>> Deploy complete. Check logs: tail -f ~/api.log"
+    - name: Stop Live Application Service
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          sudo systemctl stop parkflow || true
+
+    - name: Purge Stale Application Binaries
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          mkdir -p /home/ubuntu/app/publish
+          find /home/ubuntu/app/publish/ -maxdepth 1 -type f ! -name 'appsettings.Production.json' -delete
+
+    - name: Deploy Fresh Binaries via SCP
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "./publish/*"
+        target: "/home/ubuntu/app/publish"
+        strip_components: 1
+
+    - name: Initialize and Start Service
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          chmod +x /home/ubuntu/app/publish/ParkFlow.API
+          sudo systemctl daemon-reload
+          sudo systemctl start parkflow
+          sudo systemctl status parkflow --no-pager -l
