@@ -24,12 +24,18 @@ namespace ParkFlow.Application.Features.SystemAnnouncements.Commands.UpdateSyste
                 return Result<SystemAnnouncementDto>.Failure("Announcement message is required.", ErrorCode.BadRequest);
             }
 
+            if (!string.IsNullOrWhiteSpace(request.Title) && request.Title.Trim().Length > 60)
+            {
+                return Result<SystemAnnouncementDto>.Failure("Announcement title/header cannot exceed 60 characters.", ErrorCode.BadRequest);
+            }
+
             var existing = await _repository.GetActiveAsync();
 
             if (existing == null)
             {
                 existing = new SystemAnnouncement(
                     request.CreatedBy,
+                    request.Title.Trim(),
                     request.Message.Trim(),
                     request.IconType,
                     request.IsActive
@@ -39,6 +45,7 @@ namespace ParkFlow.Application.Features.SystemAnnouncements.Commands.UpdateSyste
             else
             {
                 existing.Update(
+                    request.Title.Trim(),
                     request.Message.Trim(),
                     request.IconType,
                     request.IsActive
@@ -49,6 +56,7 @@ namespace ParkFlow.Application.Features.SystemAnnouncements.Commands.UpdateSyste
             var dto = new SystemAnnouncementDto
             {
                 Id = existing.Id,
+                Title = existing.Title,
                 Message = existing.Message,
                 IconType = existing.IconType,
                 IsActive = existing.IsActive,

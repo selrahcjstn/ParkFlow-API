@@ -28,6 +28,7 @@ namespace ParkFlow.Application.Features.SystemAnnouncements.Queries.GetActiveSys
             var dto = new SystemAnnouncementDto
             {
                 Id = announcement.Id,
+                Title = announcement.Title,
                 Message = announcement.Message,
                 IconType = announcement.IconType,
                 IsActive = announcement.IsActive,

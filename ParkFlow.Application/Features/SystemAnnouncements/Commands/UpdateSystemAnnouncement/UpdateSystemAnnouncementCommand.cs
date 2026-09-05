@@ -7,6 +7,7 @@ namespace ParkFlow.Application.Features.SystemAnnouncements.Commands.UpdateSyste
 {
     public record UpdateSystemAnnouncementCommand(
         Guid CreatedBy,
+        string Title,
         string Message,
         string IconType = "caution",
         bool IsActive = true

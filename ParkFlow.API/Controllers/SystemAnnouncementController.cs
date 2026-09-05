@@ -11,7 +11,7 @@ using ParkFlow.Application.Interfaces;
 
 namespace ParkFlow.API.Controllers;
 
-public record UpdateSystemAnnouncementRequest(string Message, string IconType = "caution", bool IsActive = true);
+public record UpdateSystemAnnouncementRequest(string Title, string Message, string IconType = "caution", bool IsActive = true);
 
 [Route("api/system-announcement")]
 [ApiController]
@@ -50,6 +50,7 @@ public class SystemAnnouncementController : ControllerBase
 
         var command = new UpdateSystemAnnouncementCommand(
             userId,
+            request.Title,
             request.Message,
             request.IconType,
             request.IsActive
@@ -72,6 +73,7 @@ public class SystemAnnouncementController : ControllerBase
 
         var command = new UpdateSystemAnnouncementCommand(
             userId,
+            "System Notice",
             "No active system message.",
             "info",
             false
