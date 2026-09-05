@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
+using ParkFlow.Application.Features.Users.Commands.AdminRequestResetOtp;
 using ParkFlow.Application.Features.Users.Commands.ForgotPasswordUserAccount;
 using ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 using ParkFlow.Application.Features.Users.Commands.MicrosoftAuthUserAccount;
@@ -115,6 +116,22 @@ namespace ParkFlow.API.Controllers
                 : BadRequest(result);
         }
 
+        [Authorize]
+        [HttpPost("admin-request-reset-otp")]
+        public async Task<ActionResult<Result<string>>> AdminRequestResetOtp([FromBody] AdminRequestResetOtpRequestDTO request)
+        {
+            var adminUserId = _userContext.GetUserId();
+            var command = new AdminRequestResetOtpCommand(adminUserId, request.TargetEmail, request.AdminEmail);
+
+            var result = await _mediator.Send(command);
+            if (result.IsSuccess)
+                return Ok(result);
+
+            return result.ErrorCode == ErrorCode.NotFound
+                ? NotFound(result)
+                : BadRequest(result);
+        }
+
         [HttpPost("verify-reset-code")]
         public async Task<ActionResult<Result<string>>> VerifyResetCode(VerifyResetPasswordCodeRequest request)
         {
@@ -179,4 +196,5 @@ namespace ParkFlow.API.Controllers
     }
 
     public record UpdateUserStatusRequest(string Status);
+    public record AdminRequestResetOtpRequestDTO(string TargetEmail, string? AdminEmail);
 }
