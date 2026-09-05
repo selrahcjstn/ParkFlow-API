@@ -6,8 +6,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Feedbacks.Commands.CreateFeedback;
+using ParkFlow.Application.Features.Feedbacks.Commands.ReplyToFeedback;
 using ParkFlow.Application.Features.Feedbacks.Commands.UpdateFeedbackStatus;
 using ParkFlow.Application.Features.Feedbacks.Queries.GetFeedbacks;
+using ParkFlow.Application.Features.Feedbacks.Queries.GetMyFeedbacks;
 using ParkFlow.Application.Features.Feedbacks.DTOs;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Enums;
@@ -16,6 +18,7 @@ namespace ParkFlow.API.Controllers;
 
 public record CreateFeedbackRequest(string Category, int Rating, string Description, string? AttachmentUrl);
 public record UpdateFeedbackStatusRequest(FeedbackStatus Status, string? AdminNotes);
+public record ReplyToFeedbackRequest(string ReplyMessage, decimal? InvoiceAmount = null, string? InvoiceDescription = null, bool MarkResolved = false);
 
 [Route("api/feedbacks")]
 [ApiController]
@@ -54,6 +57,21 @@ public class FeedbackController : ControllerBase
     }
 
     /// <summary>
+    /// Returns current logged-in user's submitted feedback history and admin replies.
+    /// </summary>
+    [HttpGet("my-feedbacks")]
+    [Authorize]
+    public async Task<ActionResult<Result<IEnumerable<FeedbackDto>>>> GetMyFeedbacks()
+    {
+        var userId = _userContext.GetUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized(Result<IEnumerable<FeedbackDto>>.Failure("User not identified.", ErrorCode.Unauthorized));
+
+        var result = await _mediator.Send(new GetMyFeedbacksQuery(userId));
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>
     /// Returns all feedback items for Admin management.
     /// </summary>
     [HttpGet]
@@ -63,6 +81,27 @@ public class FeedbackController : ControllerBase
         [FromQuery] int? status = null)
     {
         var result = await _mediator.Send(new GetFeedbacksQuery(category, status));
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>
+    /// Sends an admin reply/answer (and optional invoice) to feedback sender.
+    /// </summary>
+    [HttpPost("{id:guid}/reply")]
+    [Authorize]
+    public async Task<ActionResult<Result<FeedbackDto>>> ReplyToFeedback(
+        [FromRoute] Guid id,
+        [FromBody] ReplyToFeedbackRequest request)
+    {
+        var command = new ReplyToFeedbackCommand(
+            id,
+            request.ReplyMessage,
+            request.InvoiceAmount,
+            request.InvoiceDescription,
+            request.MarkResolved
+        );
+
+        var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }
 
