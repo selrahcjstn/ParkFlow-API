@@ -12,13 +12,16 @@ namespace ParkFlow.Application.Features.Feedbacks.Queries.GetFeedbacks
     public class GetFeedbacksHandler : IRequestHandler<GetFeedbacksQuery, Result<IEnumerable<FeedbackDto>>>
     {
         private readonly IFeedbackRepository _feedbackRepository;
+        private readonly IUserProfileRepository _userProfileRepository;
         private readonly IUserAccountRepository _userAccountRepository;
 
         public GetFeedbacksHandler(
             IFeedbackRepository feedbackRepository,
+            IUserProfileRepository userProfileRepository,
             IUserAccountRepository userAccountRepository)
         {
             _feedbackRepository = feedbackRepository;
+            _userProfileRepository = userProfileRepository;
             _userAccountRepository = userAccountRepository;
         }
 
@@ -29,8 +32,9 @@ namespace ParkFlow.Application.Features.Feedbacks.Queries.GetFeedbacks
 
             foreach (var f in feedbacks)
             {
-                var fullName = f.UserProfile != null ? $"{f.UserProfile.FirstName} {f.UserProfile.LastName}".Trim() : "User";
+                var profile = await _userProfileRepository.GetByUserIdAsync(f.UserId);
                 var account = await _userAccountRepository.GetByIdAsync(f.UserId);
+                var fullName = profile != null ? $"{profile.FirstName} {profile.LastName}".Trim() : "User";
 
                 dtos.Add(new FeedbackDto
                 {

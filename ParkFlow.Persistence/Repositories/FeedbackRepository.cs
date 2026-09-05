@@ -27,15 +27,12 @@ namespace ParkFlow.Persistence.Repositories
         public async Task<Feedback?> GetByIdAsync(Guid id)
         {
             return await _context.Feedbacks
-                .Include(f => f.UserProfile)
                 .FirstOrDefaultAsync(f => f.Id == id);
         }
 
         public async Task<IEnumerable<Feedback>> GetAllAsync(string? category = null, int? status = null)
         {
-            var query = _context.Feedbacks
-                .Include(f => f.UserProfile)
-                .AsQueryable();
+            var query = _context.Feedbacks.AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(category) && category.ToLower() != "all")
             {
@@ -55,7 +52,6 @@ namespace ParkFlow.Persistence.Repositories
         public async Task<IEnumerable<Feedback>> GetByUserIdAsync(Guid userId)
         {
             return await _context.Feedbacks
-                .Include(f => f.UserProfile)
                 .Where(f => f.UserId == userId)
                 .OrderByDescending(f => f.CreatedAt)
                 .ToListAsync();
