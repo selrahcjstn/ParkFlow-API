@@ -29,6 +29,7 @@ namespace ParkFlow.Persistence
             services.AddScoped<IDashboardRepository, DashboardRepository>();
             services.AddScoped<IParkingReservationRepository, ParkingReservationRepository>();
             services.AddScoped<IFeedbackRepository, FeedbackRepository>();
+            services.AddScoped<ISystemAnnouncementRepository, SystemAnnouncementRepository>();
             return services;
         }
     }
