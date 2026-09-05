@@ -48,13 +48,8 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
                 corSubmission = newSubmission;
             }
 
-            if (corSubmission == null)
-            {
-                return Result<UploadFileResponse>.Failure("COR submission record not found.", ErrorCode.NotFound);
-            }
-
-            // Delete previous document if it exists
-            if (!string.IsNullOrWhiteSpace(corSubmission.CorDocumentUrl))
+            // Delete previous document if submission exists
+            if (corSubmission != null && !string.IsNullOrWhiteSpace(corSubmission.CorDocumentUrl))
             {
                 var oldPublicId = CloudinaryUrlParser.ExtractPublicId(corSubmission.CorDocumentUrl);
                 if (!string.IsNullOrWhiteSpace(oldPublicId))
@@ -76,12 +71,15 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
                 ? await _cloudinaryService.UploadPdfAsync(request.File, "parkflow/cor")
                 : await _cloudinaryService.UploadImageAsync(request.File, "parkflow/cor");
 
-            // Update database record
-            corSubmission.UpdateSubmission(null, secureUrl, null);
-            await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
+            // Update database record if submission exists
+            if (corSubmission != null)
+            {
+                corSubmission.UpdateSubmission(null, secureUrl, null);
+                await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
+            }
 
             var response = new UploadFileResponse(secureUrl, publicId);
-            return Result<UploadFileResponse>.Success(response, "COR document updated successfully.");
+            return Result<UploadFileResponse>.Success(response, "COR document uploaded successfully.");
         }
         catch (Exception ex)
         {

@@ -48,21 +48,19 @@ public class UploadOrcrDocumentHandler : IRequestHandler<UploadOrcrDocumentComma
                 corSubmission = newSubmission;
             }
 
-            if (corSubmission == null)
-            {
-                return Result<UploadFileResponse>.Failure("COR submission record not found.", ErrorCode.NotFound);
-            }
-
             var isPdf = request.File.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
             var (secureUrl, publicId) = isPdf
                 ? await _cloudinaryService.UploadPdfAsync(request.File, "parkflow/orcr")
                 : await _cloudinaryService.UploadImageAsync(request.File, "parkflow/orcr");
 
-            corSubmission.UpdateSubmission(null, null, null, orcrDocumentUrl: secureUrl);
-            await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
+            if (corSubmission != null)
+            {
+                corSubmission.UpdateSubmission(null, null, null, orcrDocumentUrl: secureUrl);
+                await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
+            }
 
             var response = new UploadFileResponse(secureUrl, publicId);
-            return Result<UploadFileResponse>.Success(response, "OR/CR document updated successfully.");
+            return Result<UploadFileResponse>.Success(response, "OR/CR document uploaded successfully.");
         }
         catch (Exception ex)
         {

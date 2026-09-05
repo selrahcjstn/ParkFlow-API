@@ -213,7 +213,7 @@ public class UploadFileSpecificHandlersTests
     }
 
     [Fact]
-    public async Task UploadCorDocumentHandler_ShouldReturnNotFoundIfSubmissionDoesNotExist()
+    public async Task UploadCorDocumentHandler_ShouldSucceedEvenIfSubmissionDoesNotExist()
     {
         // Arrange
         var emptyUserContext = new FakeUserContext { UserId = Guid.Empty };
@@ -225,8 +225,7 @@ public class UploadFileSpecificHandlersTests
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assert
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorCode.NotFound, result.ErrorCode);
+        Assert.True(result.IsSuccess);
     }
 
     [Fact]

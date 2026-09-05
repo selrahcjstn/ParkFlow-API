@@ -48,18 +48,16 @@ public class UploadMotorPictureHandler : IRequestHandler<UploadMotorPictureComma
                 corSubmission = newSubmission;
             }
 
-            if (corSubmission == null)
-            {
-                return Result<UploadFileResponse>.Failure("COR submission record not found.", ErrorCode.NotFound);
-            }
-
             var (secureUrl, publicId) = await _cloudinaryService.UploadImageAsync(request.File, "parkflow/motor-pictures");
 
-            corSubmission.UpdateSubmission(null, null, null, motorPictureUrl: secureUrl);
-            await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
+            if (corSubmission != null)
+            {
+                corSubmission.UpdateSubmission(null, null, null, motorPictureUrl: secureUrl);
+                await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
+            }
 
             var response = new UploadFileResponse(secureUrl, publicId);
-            return Result<UploadFileResponse>.Success(response, "Motor picture updated successfully.");
+            return Result<UploadFileResponse>.Success(response, "Vehicle picture uploaded successfully.");
         }
         catch (Exception ex)
         {
