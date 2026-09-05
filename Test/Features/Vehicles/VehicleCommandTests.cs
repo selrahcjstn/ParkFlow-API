@@ -393,8 +393,7 @@ public class VehicleCommandTests
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assert
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorCode.BadRequest, result.ErrorCode);
+        Assert.True(result.IsSuccess);
         Assert.Contains("Vehicle is already the primary vehicle", result.Message);
     }
 }
