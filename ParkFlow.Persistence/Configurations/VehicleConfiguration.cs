@@ -28,6 +28,15 @@ public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
 			.IsRequired()
 			.HasMaxLength(256);
 
+		entity.Property(e => e.OrcrDocumentUrl)
+			.HasMaxLength(1000);
+
+		entity.Property(e => e.VehiclePictureUrl)
+			.HasMaxLength(1000);
+
+		entity.Property(e => e.VerificationStatus)
+			.HasDefaultValue(Domain.Enums.CorVerificationStatus.Pending);
+
 		entity.HasOne(e => e.Owner)
 			.WithMany()
 			.HasForeignKey(e => e.OwnerId)

@@ -82,6 +82,10 @@ public class VehicleController : ControllerBase
         return this.ToActionResult(result);
     }
 
+public record ValidateVehicleRequest(
+    CorVerificationStatus VerificationStatus
+);
+
     [Authorize]
     [HttpPost("{id:guid}/set-primary")]
     public async Task<ActionResult<Result<Guid>>> SetPrimary(Guid id)
@@ -93,5 +97,26 @@ public class VehicleController : ControllerBase
         var command = new SetPrimaryVehicleCommand(id, ownerId);
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
+    }
+
+    [Authorize]
+    [HttpPatch("{id:guid}/validate")]
+    public async Task<ActionResult<Result<Guid>>> ValidateVehicle(Guid id, [FromBody] ValidateVehicleRequest request, [FromServices] IVehicleRepository vehicleRepository)
+    {
+        var vehicle = await vehicleRepository.GetByIdAsync(id);
+        if (vehicle == null)
+            return NotFound(Result<Guid>.Failure("Vehicle not found.", ErrorCode.NotFound));
+
+        vehicle.UpdateVerificationStatus(request.VerificationStatus);
+        await vehicleRepository.UpdateAsync(vehicle);
+
+        return Ok(Result<Guid>.Success(vehicle.Id, $"Vehicle verification status updated to {request.VerificationStatus}."));
+    }
+
+    [Authorize]
+    [HttpPost("{id:guid}/validate")]
+    public async Task<ActionResult<Result<Guid>>> ValidateVehiclePost(Guid id, [FromBody] ValidateVehicleRequest request, [FromServices] IVehicleRepository vehicleRepository)
+    {
+        return await ValidateVehicle(id, request, vehicleRepository);
     }
 }

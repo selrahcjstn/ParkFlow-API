@@ -12,6 +12,10 @@ public class Vehicle : BaseEntity
     public VehicleType VehicleType { get; private set; }
     public bool IsPrimary { get; private set; }
 
+    public string? OrcrDocumentUrl { get; private set; }
+    public string? VehiclePictureUrl { get; private set; }
+    public CorVerificationStatus VerificationStatus { get; private set; } = CorVerificationStatus.Pending;
+
     public ICollection<ParkingLog> ParkingLogs { get; private set; } = [];
 
     private Vehicle() { }
@@ -21,7 +25,10 @@ public class Vehicle : BaseEntity
         string plateNumber,
         string brand,
         string qrCodeHash,
-        VehicleType vehicleType)
+        VehicleType vehicleType,
+        string? orcrDocumentUrl = null,
+        string? vehiclePictureUrl = null,
+        CorVerificationStatus verificationStatus = CorVerificationStatus.Pending)
     {
         OwnerId = ownerId;
         PlateNumber = plateNumber;
@@ -29,6 +36,9 @@ public class Vehicle : BaseEntity
         QrCodeHash = qrCodeHash;
         VehicleType = vehicleType;
         IsPrimary = false;
+        OrcrDocumentUrl = orcrDocumentUrl;
+        VehiclePictureUrl = vehiclePictureUrl;
+        VerificationStatus = verificationStatus;
     }
 
     public void SetPrimary(bool isPrimary)
@@ -39,6 +49,17 @@ public class Vehicle : BaseEntity
     public void MarkAsPrimary()
     {
         IsPrimary = true;
+    }
+
+    public void UpdateDocuments(string? orcrDocumentUrl, string? vehiclePictureUrl)
+    {
+        OrcrDocumentUrl = orcrDocumentUrl;
+        VehiclePictureUrl = vehiclePictureUrl;
+    }
+
+    public void UpdateVerificationStatus(CorVerificationStatus status)
+    {
+        VerificationStatus = status;
     }
 
     public void Update(string plateNumber, string brand, VehicleType vehicleType)

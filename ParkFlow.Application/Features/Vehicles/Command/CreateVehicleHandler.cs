@@ -3,6 +3,7 @@ using FluentValidation;
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Vehicles.Command;
 
@@ -43,7 +44,15 @@ public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result
         var qrCodeHash = HashQrBytes(qrBytes);
 
         var isPrimary = !existingVehicles.Any();
-        var vehicle = new Vehicle(request.OwnerId, request.PlateNumber, request.Brand, qrCodeHash, request.VehicleType);
+        var vehicle = new Vehicle(
+            request.OwnerId,
+            request.PlateNumber,
+            request.Brand,
+            qrCodeHash,
+            request.VehicleType,
+            request.OrcrDocumentUrl,
+            request.VehiclePictureUrl,
+            CorVerificationStatus.Pending);
         if (isPrimary)
         {
             vehicle.SetPrimary(true);

@@ -8,5 +8,7 @@ public record CreateVehicleCommand(
     Guid OwnerId,
     string PlateNumber,
     string Brand,
-    VehicleType VehicleType
+    VehicleType VehicleType,
+    string? OrcrDocumentUrl = null,
+    string? VehiclePictureUrl = null
 ) : IRequest<Result<Guid>>;

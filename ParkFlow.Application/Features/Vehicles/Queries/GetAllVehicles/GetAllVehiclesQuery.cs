@@ -15,7 +15,11 @@ public record AdminVehicleDto(
     string QrCodeHash,
     VehicleType VehicleType,
     string Status,
-    bool IsPrimary
+    bool IsPrimary,
+    string? OrcrDocumentUrl = null,
+    string? VehiclePictureUrl = null,
+    CorVerificationStatus VerificationStatus = CorVerificationStatus.Pending,
+    DateTime CreatedAt = default
 );
 
 public record GetAllVehiclesQuery() : IRequest<Result<IEnumerable<AdminVehicleDto>>>;

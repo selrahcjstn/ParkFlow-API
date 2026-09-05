@@ -48,7 +48,11 @@ public class GetAllVehiclesHandler : IRequestHandler<GetAllVehiclesQuery, Result
                 vehicle.QrCodeHash,
                 vehicle.VehicleType,
                 status,
-                vehicle.IsPrimary
+                vehicle.IsPrimary,
+                vehicle.OrcrDocumentUrl,
+                vehicle.VehiclePictureUrl,
+                vehicle.VerificationStatus,
+                vehicle.CreatedAt
             ));
         }
 
