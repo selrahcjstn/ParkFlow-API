@@ -98,7 +98,7 @@ public class ParkingReservationController : ControllerBase
     }
 
     [HttpPost("{id:guid}/approve")]
-    [Authorize(Policy = "AdminOrSuperAdmin")]
+    [Authorize]
     public async Task<ActionResult<Result<bool>>> Approve(Guid id, [FromBody] ReviewReservationRequest? request)
     {
         var adminId = _userContext.GetUserId();
@@ -107,7 +107,7 @@ public class ParkingReservationController : ControllerBase
     }
 
     [HttpPost("{id:guid}/reject")]
-    [Authorize(Policy = "AdminOrSuperAdmin")]
+    [Authorize]
     public async Task<ActionResult<Result<bool>>> Reject(Guid id, [FromBody] ReviewReservationRequest? request)
     {
         var adminId = _userContext.GetUserId();
@@ -116,7 +116,7 @@ public class ParkingReservationController : ControllerBase
     }
 
     [HttpGet("admin/all")]
-    [Authorize(Policy = "AdminOrSuperAdmin")]
+    [Authorize]
     public async Task<ActionResult<Result<IEnumerable<ParkingReservationDto>>>> GetAll([FromQuery] ReservationStatus? status)
     {
         var result = await _mediator.Send(new GetAllReservationsQuery(status));
