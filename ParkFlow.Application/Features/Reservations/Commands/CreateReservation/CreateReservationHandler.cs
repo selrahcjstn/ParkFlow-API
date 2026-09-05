@@ -12,15 +12,18 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
     private readonly IParkingReservationRepository _reservationRepository;
     private readonly IUserAccountRepository _userRepository;
     private readonly IValidator<CreateReservationCommand> _validator;
+    private readonly ISignalRNotificationSender _notificationSender;
 
     public CreateReservationHandler(
         IParkingReservationRepository reservationRepository,
         IUserAccountRepository userRepository,
-        IValidator<CreateReservationCommand> validator)
+        IValidator<CreateReservationCommand> validator,
+        ISignalRNotificationSender notificationSender)
     {
         _reservationRepository = reservationRepository;
         _userRepository = userRepository;
         _validator = validator;
+        _notificationSender = notificationSender;
     }
 
     public async Task<Result<ParkingReservationDto>> Handle(CreateReservationCommand request, CancellationToken cancellationToken)
@@ -69,6 +72,15 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
             ApprovedByAdminId = reservation.ApprovedByAdminId,
             CreatedAt = reservation.CreatedAt
         };
+
+        try
+        {
+            await _notificationSender.SendToAllAsync("ReservationUpdated", dto);
+        }
+        catch
+        {
+            // Ignore SignalR broadcast error to prevent request failure
+        }
 
         return Result<ParkingReservationDto>.Success(dto, "Parking reservation created successfully.");
     }

@@ -7,10 +7,14 @@ namespace ParkFlow.Application.Features.Reservations.Commands.ApproveReservation
 public class ApproveReservationHandler : IRequestHandler<ApproveReservationCommand, Result<bool>>
 {
     private readonly IParkingReservationRepository _reservationRepository;
+    private readonly ISignalRNotificationSender _notificationSender;
 
-    public ApproveReservationHandler(IParkingReservationRepository reservationRepository)
+    public ApproveReservationHandler(
+        IParkingReservationRepository reservationRepository,
+        ISignalRNotificationSender notificationSender)
     {
         _reservationRepository = reservationRepository;
+        _notificationSender = notificationSender;
     }
 
     public async Task<Result<bool>> Handle(ApproveReservationCommand request, CancellationToken cancellationToken)
@@ -24,6 +28,13 @@ public class ApproveReservationHandler : IRequestHandler<ApproveReservationComma
             reservation.Approve(request.AdminId, request.Notes);
             await _reservationRepository.UpdateAsync(reservation);
             await _reservationRepository.SaveChangesAsync();
+
+            try
+            {
+                await _notificationSender.SendToAllAsync("ReservationUpdated", new { id = reservation.Id, status = "Approved" });
+            }
+            catch {}
+
             return Result<bool>.Success(true, "Reservation approved successfully.");
         }
         catch (InvalidOperationException ex)

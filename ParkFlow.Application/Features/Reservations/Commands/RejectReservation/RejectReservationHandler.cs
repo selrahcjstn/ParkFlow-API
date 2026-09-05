@@ -7,10 +7,14 @@ namespace ParkFlow.Application.Features.Reservations.Commands.RejectReservation;
 public class RejectReservationHandler : IRequestHandler<RejectReservationCommand, Result<bool>>
 {
     private readonly IParkingReservationRepository _reservationRepository;
+    private readonly ISignalRNotificationSender _notificationSender;
 
-    public RejectReservationHandler(IParkingReservationRepository reservationRepository)
+    public RejectReservationHandler(
+        IParkingReservationRepository reservationRepository,
+        ISignalRNotificationSender notificationSender)
     {
         _reservationRepository = reservationRepository;
+        _notificationSender = notificationSender;
     }
 
     public async Task<Result<bool>> Handle(RejectReservationCommand request, CancellationToken cancellationToken)
@@ -24,6 +28,13 @@ public class RejectReservationHandler : IRequestHandler<RejectReservationCommand
             reservation.Reject(request.AdminId, request.Notes);
             await _reservationRepository.UpdateAsync(reservation);
             await _reservationRepository.SaveChangesAsync();
+
+            try
+            {
+                await _notificationSender.SendToAllAsync("ReservationUpdated", new { id = reservation.Id, status = "Rejected" });
+            }
+            catch {}
+
             return Result<bool>.Success(true, "Reservation rejected successfully.");
         }
         catch (InvalidOperationException ex)
