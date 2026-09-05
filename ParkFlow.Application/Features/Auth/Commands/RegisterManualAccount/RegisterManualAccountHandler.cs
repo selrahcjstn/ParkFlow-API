@@ -170,31 +170,66 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
                                       resolvedRole.Equals("guard", StringComparison.OrdinalIgnoreCase) ? "Security Guard" :
                                       resolvedRole.Equals("personnel", StringComparison.OrdinalIgnoreCase) ? "University Staff" : "User Account";
 
-                var emailSubject = "Welcome to ParkFlow - Your Account Credentials";
+                var emailSubject = "Welcome to ParkFlow - Your BulSU Account Credentials";
                 var emailBody = $@"
-                <div style='font-family:-apple-system,BlinkMacSystemFont,""Segoe UI"",Roboto,sans-serif;max-width:600px;margin:0 auto;padding:24px;background-color:#f8fafc;color:#1e293b;'>
-                  <div style='background-color:#ffffff;border-radius:12px;padding:32px;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);'>
-                    <div style='text-align:center;margin-bottom:24px;'>
-                      <div style='display:inline-block;padding:12px 20px;background-color:#10b981;border-radius:8px;color:#ffffff;font-weight:800;font-size:20px;letter-spacing:1px;'>
-                        PARKFLOW
-                      </div>
-                    </div>
-                    <h2 style='color:#0f172a;margin-top:0;font-size:20px;font-weight:700;text-align:center;'>Account Created Successfully</h2>
-                    <p style='font-size:15px;line-height:1.6;color:#475569;'>Hello <strong>{fullName}</strong>,</p>
-                    <p style='font-size:15px;line-height:1.6;color:#475569;'>Your <strong>{roleDisplayName}</strong> account for the BulSU ParkFlow campus parking system has been registered by the administration.</p>
+<!DOCTYPE html>
+<html>
+<head><meta charset='utf-8'></head>
+<body style='margin:0;padding:0;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,""Segoe UI"",Roboto,Helvetica,Arial,sans-serif;'>
+  <table width='100%' cellpadding='0' cellspacing='0' style='background-color:#f1f5f9;padding:40px 16px;'>
+    <tr><td align='center'>
+      <table width='600' cellpadding='0' cellspacing='0' style='background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.08);border:1px solid #e2e8f0;'>
+        <!-- BulSU Maroon & Dark Emerald Header -->
+        <tr>
+          <td style='background:linear-gradient(135deg, #7f1d1d 0%, #0f172a 60%, #0f766e 100%);border-top:4px solid #f59e0b;padding:36px 40px;text-align:center;'>
+            <div style='display:inline-block;padding:4px 14px;background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.4);border-radius:20px;color:#fbbf24;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;'>
+              BULACAN STATE UNIVERSITY
+            </div>
+            <h1 style='color:#ffffff;font-size:24px;font-weight:800;margin:0;letter-spacing:-0.5px;'>ParkFlow Account Credentials</h1>
+            <p style='color:rgba(255,255,255,0.85);font-size:13px;margin:6px 0 0;'>Official Campus Parking & Access Management Portal</p>
+          </td>
+        </tr>
 
-                    <div style='background-color:#f1f5f9;border-left:4px solid #10b981;padding:16px 20px;margin:24px 0;border-radius:6px;'>
-                      <div style='font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;'>Your Account Login Credentials</div>
-                      <div style='font-size:14px;color:#334155;margin-bottom:8px;'><strong>Registered Email:</strong> {normalizedEmail}</div>
-                      <div style='font-size:14px;color:#334155;'><strong>Initial Password:</strong> <code style='background:#e2e8f0;padding:4px 8px;border-radius:4px;font-family:monospace;font-size:15px;font-weight:700;color:#0f172a;'>{request.Password}</code></div>
-                    </div>
+        <!-- Body Content -->
+        <tr>
+          <td style='padding:36px 40px;'>
+            <p style='font-size:15px;line-height:1.6;color:#1e293b;margin:0 0 16px;'>Hello <strong>{fullName}</strong>,</p>
+            <p style='font-size:14px;line-height:1.6;color:#475569;margin:0 0 24px;'>
+              Your <strong>{roleDisplayName}</strong> account for the BulSU ParkFlow campus parking system has been successfully registered by the administration.
+            </p>
 
-                    <p style='font-size:14px;line-height:1.6;color:#64748b;'>For security, please log in to the ParkFlow Mobile App using these credentials and update your password under Account Settings.</p>
-                    <div style='margin-top:28px;padding-top:20px;border-top:1px solid #e2e8f0;text-align:center;font-size:12px;color:#94a3b8;'>
-                      © {DateTime.UtcNow.Year} Bulacan State University Security Office. All rights reserved.
-                    </div>
-                  </div>
-                </div>";
+            <!-- Credential Box -->
+            <div style='background-color:#f8fafc;border-left:4px solid #10b981;border-radius:8px;padding:20px 24px;margin:24px 0;border-top:1px solid #e2e8f0;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;'>
+              <div style='font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;'>Official Account Credentials</div>
+              <div style='font-size:14px;color:#334155;margin-bottom:10px;'>
+                <strong style='color:#0f172a;'>Registered Email:</strong> <span style='font-family:monospace;font-weight:700;color:#0f766e;'>{normalizedEmail}</span>
+              </div>
+              <div style='font-size:14px;color:#334155;'>
+                <strong style='color:#0f172a;'>Temporary Password:</strong> <code style='background-color:#e2e8f0;padding:4px 10px;border-radius:6px;font-family:monospace;font-size:16px;font-weight:800;color:#0f172a;letter-spacing:1px;'>{request.Password}</code>
+              </div>
+            </div>
+
+            <p style='font-size:13px;line-height:1.6;color:#64748b;margin:0 0 24px;'>
+              For security, please log in to the <strong>ParkFlow Mobile App</strong> using these credentials, set up your vehicle profile, and update your account password under Settings.
+            </p>
+
+            <div style='text-align:center;margin-top:28px;padding-top:20px;border-top:1px solid #e2e8f0;'>
+              <p style='font-size:12px;color:#94a3b8;margin:0;'>Bulacan State University • Office of Security & Safety</p>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style='background-color:#f8fafc;padding:20px 40px;text-align:center;border-top:1px solid #e2e8f0;'>
+            <p style='font-size:11px;color:#94a3b8;margin:0;'>© {DateTime.UtcNow.Year} Bulacan State University ParkFlow System. All rights reserved.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>";
 
                 await _emailService.SendEmailAsync(normalizedEmail, emailSubject, emailBody);
             }
