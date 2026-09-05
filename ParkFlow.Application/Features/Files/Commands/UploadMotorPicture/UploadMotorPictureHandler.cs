@@ -14,15 +14,18 @@ public class UploadMotorPictureHandler : IRequestHandler<UploadMotorPictureComma
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly ICloudinaryService _cloudinaryService;
     private readonly IUserContext _userContext;
+    private readonly IVehicleRepository? _vehicleRepository;
 
     public UploadMotorPictureHandler(
         ICorSubmissionRepository corSubmissionRepository,
         ICloudinaryService cloudinaryService,
-        IUserContext userContext)
+        IUserContext userContext,
+        IVehicleRepository? vehicleRepository = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _cloudinaryService = cloudinaryService;
         _userContext = userContext;
+        _vehicleRepository = vehicleRepository;
     }
 
     public async Task<Result<UploadFileResponse>> Handle(UploadMotorPictureCommand request, CancellationToken cancellationToken)
@@ -54,6 +57,16 @@ public class UploadMotorPictureHandler : IRequestHandler<UploadMotorPictureComma
             {
                 corSubmission.UpdateSubmission(null, null, null, motorPictureUrl: secureUrl);
                 await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
+
+                if (_vehicleRepository != null)
+                {
+                    var vehicles = await _vehicleRepository.GetByOwnerIdAsync(corSubmission.UserAccountId);
+                    foreach (var v in vehicles)
+                    {
+                        v.UpdateDocuments(orcrDocumentUrl: null, vehiclePictureUrl: secureUrl);
+                        await _vehicleRepository.UpdateAsync(v);
+                    }
+                }
             }
 
             var response = new UploadFileResponse(secureUrl, publicId);

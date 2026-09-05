@@ -61,13 +61,21 @@ public class ListCorSubmissionsHandler : IRequestHandler<ListCorSubmissionsQuery
                 sched.EndTime
             )).ToList();
 
+            var effectiveOrcr = !string.IsNullOrWhiteSpace(s.OrcrDocumentUrl) && !s.OrcrDocumentUrl.Equals("pending", StringComparison.OrdinalIgnoreCase)
+                ? s.OrcrDocumentUrl
+                : (!string.IsNullOrWhiteSpace(primaryVehicle?.OrcrDocumentUrl) ? primaryVehicle!.OrcrDocumentUrl! : s.CorDocumentUrl);
+
+            var effectiveMotor = !string.IsNullOrWhiteSpace(s.MotorPictureUrl) && !s.MotorPictureUrl.Equals("pending", StringComparison.OrdinalIgnoreCase)
+                ? s.MotorPictureUrl
+                : (!string.IsNullOrWhiteSpace(primaryVehicle?.VehiclePictureUrl) ? primaryVehicle!.VehiclePictureUrl! : s.CorDocumentUrl);
+
             dtos.Add(new CorSubmissionDto(
                 s.Id,
                 s.UserAccountId,
                 s.AcademicTerm,
                 s.CorDocumentUrl,
-                s.OrcrDocumentUrl,
-                s.MotorPictureUrl,
+                effectiveOrcr,
+                effectiveMotor,
                 s.VerificationStatus,
                 fullName,
                 email,

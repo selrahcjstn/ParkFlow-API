@@ -47,13 +47,21 @@ public class GetMyCorSubmissionHandler : IRequestHandler<GetMyCorSubmissionQuery
         var vehiclePlate = primaryVehicle?.PlateNumber ?? "N/A";
         var vehicleType = primaryVehicle != null ? primaryVehicle.VehicleType.ToString() : "N/A";
 
+        var effectiveOrcr = !string.IsNullOrWhiteSpace(submission.OrcrDocumentUrl) && !submission.OrcrDocumentUrl.Equals("pending", StringComparison.OrdinalIgnoreCase)
+            ? submission.OrcrDocumentUrl
+            : (!string.IsNullOrWhiteSpace(primaryVehicle?.OrcrDocumentUrl) ? primaryVehicle!.OrcrDocumentUrl! : submission.CorDocumentUrl);
+
+        var effectiveMotor = !string.IsNullOrWhiteSpace(submission.MotorPictureUrl) && !submission.MotorPictureUrl.Equals("pending", StringComparison.OrdinalIgnoreCase)
+            ? submission.MotorPictureUrl
+            : (!string.IsNullOrWhiteSpace(primaryVehicle?.VehiclePictureUrl) ? primaryVehicle!.VehiclePictureUrl! : submission.CorDocumentUrl);
+
         var dto = new CorSubmissionDto(
             submission.Id,
             submission.UserAccountId,
             submission.AcademicTerm,
             submission.CorDocumentUrl,
-            submission.OrcrDocumentUrl,
-            submission.MotorPictureUrl,
+            effectiveOrcr,
+            effectiveMotor,
             submission.VerificationStatus,
             fullName,
             email,

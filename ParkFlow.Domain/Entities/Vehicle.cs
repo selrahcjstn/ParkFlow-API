@@ -53,8 +53,10 @@ public class Vehicle : BaseEntity
 
     public void UpdateDocuments(string? orcrDocumentUrl, string? vehiclePictureUrl)
     {
-        OrcrDocumentUrl = orcrDocumentUrl;
-        VehiclePictureUrl = vehiclePictureUrl;
+        if (orcrDocumentUrl != null)
+            OrcrDocumentUrl = orcrDocumentUrl;
+        if (vehiclePictureUrl != null)
+            VehiclePictureUrl = vehiclePictureUrl;
     }
 
     public void UpdateVerificationStatus(CorVerificationStatus status)

@@ -14,15 +14,18 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly ICloudinaryService _cloudinaryService;
     private readonly IUserContext _userContext;
+    private readonly IVehicleRepository? _vehicleRepository;
 
     public UploadCorDocumentHandler(
         ICorSubmissionRepository corSubmissionRepository,
         ICloudinaryService cloudinaryService,
-        IUserContext userContext)
+        IUserContext userContext,
+        IVehicleRepository? vehicleRepository = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _cloudinaryService = cloudinaryService;
         _userContext = userContext;
+        _vehicleRepository = vehicleRepository;
     }
 
     public async Task<Result<UploadFileResponse>> Handle(UploadCorDocumentCommand request, CancellationToken cancellationToken)
@@ -76,6 +79,16 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
             {
                 corSubmission.UpdateSubmission(null, secureUrl, null);
                 await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
+
+                if (_vehicleRepository != null)
+                {
+                    var vehicles = await _vehicleRepository.GetByOwnerIdAsync(corSubmission.UserAccountId);
+                    foreach (var v in vehicles)
+                    {
+                        v.UpdateVerificationStatus(ParkFlow.Domain.Enums.CorVerificationStatus.Pending);
+                        await _vehicleRepository.UpdateAsync(v);
+                    }
+                }
             }
 
             var response = new UploadFileResponse(secureUrl, publicId);

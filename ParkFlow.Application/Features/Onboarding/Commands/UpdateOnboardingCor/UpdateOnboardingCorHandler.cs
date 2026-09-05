@@ -12,15 +12,18 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IValidator<UpdateOnboardingCorCommand> _validator;
+    private readonly IVehicleRepository? _vehicleRepository;
 
     public UpdateOnboardingCorHandler(
         ICorSubmissionRepository corSubmissionRepository,
         IUserAccountRepository userAccountRepository,
-        IValidator<UpdateOnboardingCorCommand> validator)
+        IValidator<UpdateOnboardingCorCommand> validator,
+        IVehicleRepository? vehicleRepository = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _userAccountRepository = userAccountRepository;
         _validator = validator;
+        _vehicleRepository = vehicleRepository;
     }
 
     public async Task<Result<Guid>> Handle(UpdateOnboardingCorCommand request, CancellationToken cancellationToken)
@@ -69,6 +72,17 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
         {
             existing.UpdateSubmission(request.AcademicTerm, corUrl, CorVerificationStatus.Pending, orcrUrl, motorUrl);
             await _corSubmissionRepository.UpdateCorSubmissionAsync(existing);
+        }
+
+        if (_vehicleRepository != null)
+        {
+            var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.UserId);
+            foreach (var v in userVehicles)
+            {
+                v.UpdateDocuments(orcrDocumentUrl: orcrUrl, vehiclePictureUrl: motorUrl);
+                v.UpdateVerificationStatus(CorVerificationStatus.Pending);
+                await _vehicleRepository.UpdateAsync(v);
+            }
         }
 
         var user = await _userAccountRepository.GetByIdAsync(request.UserId);

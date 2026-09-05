@@ -14,15 +14,18 @@ public class UploadOrcrDocumentHandler : IRequestHandler<UploadOrcrDocumentComma
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly ICloudinaryService _cloudinaryService;
     private readonly IUserContext _userContext;
+    private readonly IVehicleRepository? _vehicleRepository;
 
     public UploadOrcrDocumentHandler(
         ICorSubmissionRepository corSubmissionRepository,
         ICloudinaryService cloudinaryService,
-        IUserContext userContext)
+        IUserContext userContext,
+        IVehicleRepository? vehicleRepository = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _cloudinaryService = cloudinaryService;
         _userContext = userContext;
+        _vehicleRepository = vehicleRepository;
     }
 
     public async Task<Result<UploadFileResponse>> Handle(UploadOrcrDocumentCommand request, CancellationToken cancellationToken)
@@ -57,6 +60,16 @@ public class UploadOrcrDocumentHandler : IRequestHandler<UploadOrcrDocumentComma
             {
                 corSubmission.UpdateSubmission(null, null, null, orcrDocumentUrl: secureUrl);
                 await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
+
+                if (_vehicleRepository != null)
+                {
+                    var vehicles = await _vehicleRepository.GetByOwnerIdAsync(corSubmission.UserAccountId);
+                    foreach (var v in vehicles)
+                    {
+                        v.UpdateDocuments(orcrDocumentUrl: secureUrl, vehiclePictureUrl: null);
+                        await _vehicleRepository.UpdateAsync(v);
+                    }
+                }
             }
 
             var response = new UploadFileResponse(secureUrl, publicId);
