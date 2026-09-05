@@ -91,8 +91,8 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
             try
             {
                 var reservationDate = reservation.ReservationDate.ToString("MMMM dd, yyyy");
-                var startTime = reservation.StartTime.ToString(@"hh\:mm tt");
-                var endTime = reservation.EndTime.ToString(@"hh\:mm tt");
+                var startTime = DateTime.Today.Add(reservation.StartTime).ToString("hh:mm tt");
+                var endTime = DateTime.Today.Add(reservation.EndTime).ToString("hh:mm tt");
 
                 var subject = $"📢 Special Parking Schedule Notice – {reservationDate}";
                 var htmlBody = $@"
