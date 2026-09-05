@@ -25,6 +25,7 @@ namespace ParkFlow.Persistence
         public DbSet<EmailOtp> EmailOtps { get; set; }
         public DbSet<PasswordHistory> PasswordHistories { get; set; }
         public DbSet<ParkingReservation> ParkingReservations { get; set; }
+        public DbSet<Feedback> Feedbacks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
