@@ -112,24 +112,32 @@ public record ValidateVehicleRequest(
         if (vehicle == null)
             return NotFound(Result<Guid>.Failure("Vehicle not found.", ErrorCode.NotFound));
 
-        vehicle.UpdateVerificationStatus(request.VerificationStatus);
-        await vehicleRepository.UpdateAsync(vehicle);
-
-        if (request.VerificationStatus == CorVerificationStatus.Verified)
+        var userVehicles = await vehicleRepository.GetByOwnerIdAsync(vehicle.OwnerId);
+        foreach (var v in userVehicles)
         {
-            var user = await userAccountRepository.GetByIdAsync(vehicle.OwnerId);
-            if (user != null)
+            v.UpdateVerificationStatus(request.VerificationStatus);
+            await vehicleRepository.UpdateAsync(v);
+        }
+
+        var user = await userAccountRepository.GetByIdAsync(vehicle.OwnerId);
+        if (user != null)
+        {
+            if (request.VerificationStatus == CorVerificationStatus.Verified)
             {
                 user.Verify();
-                await userAccountRepository.UpdateAsync(user);
             }
-
-            var submission = await corSubmissionRepository.GetLatestByUserIdAsync(vehicle.OwnerId);
-            if (submission != null)
+            else if (request.VerificationStatus == CorVerificationStatus.Rejected)
             {
-                submission.UpdateSubmission(null, null, CorVerificationStatus.Verified);
-                await corSubmissionRepository.UpdateCorSubmissionAsync(submission);
+                user.UpdateStatus(AccountStatus.PendingVerification);
             }
+            await userAccountRepository.UpdateAsync(user);
+        }
+
+        var submission = await corSubmissionRepository.GetLatestByUserIdAsync(vehicle.OwnerId);
+        if (submission != null)
+        {
+            submission.UpdateSubmission(null, null, request.VerificationStatus);
+            await corSubmissionRepository.UpdateCorSubmissionAsync(submission);
         }
 
         return Ok(Result<Guid>.Success(vehicle.Id, $"Vehicle verification status updated to {request.VerificationStatus}."));
