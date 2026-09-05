@@ -204,26 +204,40 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             ReferenceNumber = referenceNumber
         };
 
-        if (isViolation)
+        if (vehicle.OwnerId != Guid.Empty)
         {
             var guardMiddle = string.IsNullOrWhiteSpace(userProfile.MiddleName) ? "" : $" {userProfile.MiddleName}";
             var guardName = $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}";
 
             var notificationDto = new HasViolationNotificationDto
             {
-                ReferenceNumber = referenceNumber!,
-                RefNumber = referenceNumber!,
+                ReferenceNumber = referenceNumber ?? response.ReferenceNumber ?? $"EXIT-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
+                RefNumber = referenceNumber ?? response.ReferenceNumber ?? $"EXIT-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
                 IssuedDate = exitTime,
                 IssuedTime = exitTime,
                 IssuedBy = guardName,
                 OverstayHours = overstayTime,
                 PlateNumber = vehicle.PlateNumber,
                 Amount = penaltyFee,
-                ViolationType = violationType ?? "Overstay",
+                ViolationType = violationType ?? (isViolation ? "Overstay" : "Normal Exit"),
                 IsViolation = isViolation
             };
 
-            await _notificationSender.SendEventNotificationAsync(vehicle.OwnerId.ToString(), notificationDto);
+            try
+            {
+                await _notificationSender.SendEventNotificationAsync(vehicle.OwnerId.ToString(), notificationDto);
+                await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ParkingSessionUpdated", response);
+                await _notificationSender.SendToAllAsync("ParkingSessionUpdated", response);
+
+                if (isViolation)
+                {
+                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReceiveViolation", notificationDto);
+                }
+            }
+            catch
+            {
+                // Ignore SignalR dispatch failure
+            }
         }
 
         return Result<ExitParkingLogResponse>.Success(response, "Exit Confirmed");
