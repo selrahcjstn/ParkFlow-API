@@ -49,7 +49,7 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
             await _emailOtpRepository.AddAsync(emailOtp);
 
             // Send the OTP via email
-            var subject = "SAS ParkFlow - Email Verification OTP Code";
+            var subject = "ParkFlow - Email Verification OTP Code";
             var htmlBody = $@"
 <!DOCTYPE html>
 <html>
@@ -62,7 +62,7 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
         <tr>
           <td style='background:linear-gradient(135deg, #7f1d1d 0%, #0f172a 60%, #0f766e 100%);border-top:4px solid #f59e0b;padding:32px 36px;text-align:center;'>
             <div style='display:inline-block;padding:4px 14px;background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.4);border-radius:20px;color:#fbbf24;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;'>
-              SAS PARKING MANAGEMENT
+              PARKFLOW MANAGEMENT
             </div>
             <h1 style='color:#ffffff;font-size:22px;font-weight:800;margin:0;'>ParkFlow Email Verification</h1>
             <p style='color:rgba(255,255,255,0.85);font-size:13px;margin:6px 0 0;'>One-Time Password (OTP) Authorization</p>
@@ -73,7 +73,7 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
         <tr>
           <td style='padding:32px 36px;'>
             <p style='font-size:14px;line-height:1.6;color:#334155;margin:0 0 20px;'>
-              You requested a One-Time Password (OTP) to verify your email address on the SAS ParkFlow system.
+              You requested a One-Time Password (OTP) to verify your email address on the ParkFlow system.
             </p>
 
             <div style='background-color:#f8fafc;border-left:4px solid #f59e0b;border-radius:8px;padding:24px;text-align:center;margin:24px 0;border-top:1px solid #e2e8f0;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;'>
@@ -86,7 +86,7 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
             </p>
 
             <div style='text-align:center;margin-top:24px;padding-top:18px;border-top:1px solid #e2e8f0;'>
-              <p style='font-size:11px;color:#94a3b8;margin:0;'>SAS • Office of Security & Safety</p>
+              <p style='font-size:11px;color:#94a3b8;margin:0;'>ParkFlow • Office of Security & Safety</p>
             </div>
           </td>
         </tr>
@@ -94,7 +94,7 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
         <!-- Footer -->
         <tr>
           <td style='background-color:#f8fafc;padding:18px 36px;text-align:center;border-top:1px solid #e2e8f0;'>
-            <p style='font-size:11px;color:#94a3b8;margin:0;'>© {DateTime.UtcNow.Year} SAS ParkFlow System. All rights reserved.</p>
+            <p style='font-size:11px;color:#94a3b8;margin:0;'>© {DateTime.UtcNow.Year} ParkFlow System. All rights reserved.</p>
           </td>
         </tr>
       </table>

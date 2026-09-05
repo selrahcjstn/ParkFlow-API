@@ -64,7 +64,7 @@ public class ForgotPasswordUserAccountHandler
         await _userAccountRepository.UpdateAsync(user);
 
         // Send reset code via email
-        var subject = "SAS ParkFlow - Password Reset Request";
+        var subject = "ParkFlow - Password Reset Request";
         var htmlBody = $@"
 <!DOCTYPE html>
 <html>
@@ -77,7 +77,7 @@ public class ForgotPasswordUserAccountHandler
         <tr>
           <td style='background:linear-gradient(135deg, #7f1d1d 0%, #0f172a 60%, #0f766e 100%);border-top:4px solid #f59e0b;padding:32px 36px;text-align:center;'>
             <div style='display:inline-block;padding:4px 14px;background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.4);border-radius:20px;color:#fbbf24;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;'>
-              SAS PARKING MANAGEMENT
+              PARKFLOW MANAGEMENT
             </div>
             <h1 style='color:#ffffff;font-size:22px;font-weight:800;margin:0;'>Password Reset Verification</h1>
             <p style='color:rgba(255,255,255,0.85);font-size:13px;margin:6px 0 0;'>ParkFlow Account Security</p>
@@ -88,7 +88,7 @@ public class ForgotPasswordUserAccountHandler
         <tr>
           <td style='padding:32px 36px;'>
             <p style='font-size:14px;line-height:1.6;color:#334155;margin:0 0 20px;'>
-              We received a request to reset your password for your SAS ParkFlow account.
+              We received a request to reset your password for your ParkFlow account.
             </p>
 
             <div style='background-color:#f8fafc;border-left:4px solid #dc2626;border-radius:8px;padding:24px;text-align:center;margin:24px 0;border-top:1px solid #e2e8f0;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;'>
@@ -101,7 +101,7 @@ public class ForgotPasswordUserAccountHandler
             </p>
 
             <div style='text-align:center;margin-top:24px;padding-top:18px;border-top:1px solid #e2e8f0;'>
-              <p style='font-size:11px;color:#94a3b8;margin:0;'>SAS • Office of Security & Safety</p>
+              <p style='font-size:11px;color:#94a3b8;margin:0;'>ParkFlow • Office of Security & Safety</p>
             </div>
           </td>
         </tr>
@@ -109,7 +109,7 @@ public class ForgotPasswordUserAccountHandler
         <!-- Footer -->
         <tr>
           <td style='background-color:#f8fafc;padding:18px 36px;text-align:center;border-top:1px solid #e2e8f0;'>
-            <p style='font-size:11px;color:#94a3b8;margin:0;'>© {DateTime.UtcNow.Year} SAS ParkFlow System. All rights reserved.</p>
+            <p style='font-size:11px;color:#94a3b8;margin:0;'>© {DateTime.UtcNow.Year} ParkFlow System. All rights reserved.</p>
           </td>
         </tr>
       </table>
