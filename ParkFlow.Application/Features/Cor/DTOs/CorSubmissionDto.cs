@@ -3,6 +3,12 @@ using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Cor.DTOs;
 
+public record CorScheduleItemDto(
+    DayOfWeek DayOfWeek,
+    TimeSpan StartTime,
+    TimeSpan EndTime
+);
+
 public record CorSubmissionDto(
     Guid Id,
     Guid UserAccountId,
@@ -15,5 +21,6 @@ public record CorSubmissionDto(
     string Email,
     string VehiclePlate,
     string VehicleType,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    List<CorScheduleItemDto>? Schedules = null
 );

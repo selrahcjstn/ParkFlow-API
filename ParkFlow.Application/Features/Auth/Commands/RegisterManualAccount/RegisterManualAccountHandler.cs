@@ -33,11 +33,11 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
         IStudentRepository studentRepository,
         IPersonnelRepository personnelRepository,
         IGuardRepository guardRepository,
-        ICorSubmissionRepository corSubmissionRepository,
-        IParkingScheduleRepository parkingScheduleRepository,
         IPasswordHasher passwordHasher,
         IJwtService jwtService,
         IValidator<RegisterManualAccountCommand> validator,
+        ICorSubmissionRepository? corSubmissionRepository = null,
+        IParkingScheduleRepository? parkingScheduleRepository = null,
         IEmailService? emailService = null)
     {
         _userAccountRepository = userAccountRepository;
@@ -82,7 +82,7 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
         if (isFullRegistration)
         {
             user.Verify();
-            user.UpdateOnboardingStep(OnboardingStep.Done);
+            user.UpdateOnboardingStep(OnboardingStep.Profile);
         }
 
         if (string.Equals(request.Status, "Suspended", StringComparison.OrdinalIgnoreCase))
@@ -153,24 +153,6 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
 
                 var personnel = new Personnel(userProfile.Id, idCard, dept);
                 await _personnelRepository.AddAsync(personnel);
-            }
-
-            // Admin created account -> Auto-verify COR status & create default schedule
-            var autoCor = new CorSubmission(
-                user.Id,
-                "Academic Year 2026-2027",
-                "https://parkflow.bulsu.edu.ph/admin-auto-verified",
-                null,
-                null,
-                CorVerificationStatus.Verified);
-
-            await _corSubmissionRepository.AddCorSubmissionAsync(autoCor);
-
-            var defaultDays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday };
-            foreach (var day in defaultDays)
-            {
-                var sched = new ParkingSchedule(autoCor.Id, day, new TimeSpan(6, 0, 0), new TimeSpan(22, 0, 0));
-                await _parkingScheduleRepository.AddAsync(sched);
             }
         }
 

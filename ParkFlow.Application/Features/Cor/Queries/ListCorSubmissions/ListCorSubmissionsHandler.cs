@@ -14,13 +14,16 @@ public class ListCorSubmissionsHandler : IRequestHandler<ListCorSubmissionsQuery
 {
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IVehicleRepository _vehicleRepository;
+    private readonly IParkingScheduleRepository _parkingScheduleRepository;
 
     public ListCorSubmissionsHandler(
         ICorSubmissionRepository corSubmissionRepository,
-        IVehicleRepository vehicleRepository)
+        IVehicleRepository vehicleRepository,
+        IParkingScheduleRepository parkingScheduleRepository)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _vehicleRepository = vehicleRepository;
+        _parkingScheduleRepository = parkingScheduleRepository;
     }
 
     public async Task<Result<IEnumerable<CorSubmissionDto>>> Handle(ListCorSubmissionsQuery request, CancellationToken cancellationToken)
@@ -34,7 +37,9 @@ public class ListCorSubmissionsHandler : IRequestHandler<ListCorSubmissionsQuery
         var vehicles = await _vehicleRepository.GetByOwnerIdsAsync(userIds);
         var vehiclesList = vehicles.ToList();
 
-        var dtos = submissionsList.Select(s =>
+        var dtos = new List<CorSubmissionDto>();
+
+        foreach (var s in submissionsList)
         {
             var userProfile = s.UserAccount?.UserProfile;
             var fullName = userProfile != null 
@@ -49,7 +54,14 @@ public class ListCorSubmissionsHandler : IRequestHandler<ListCorSubmissionsQuery
             var vehiclePlate = primaryVehicle?.PlateNumber ?? "N/A";
             var vehicleType = primaryVehicle != null ? primaryVehicle.VehicleType.ToString() : "N/A";
 
-            return new CorSubmissionDto(
+            var rawSchedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(s.Id);
+            var scheduleDtos = rawSchedules.Select(sched => new CorScheduleItemDto(
+                sched.DayOfWeek,
+                sched.StartTime,
+                sched.EndTime
+            )).ToList();
+
+            dtos.Add(new CorSubmissionDto(
                 s.Id,
                 s.UserAccountId,
                 s.AcademicTerm,
@@ -61,9 +73,10 @@ public class ListCorSubmissionsHandler : IRequestHandler<ListCorSubmissionsQuery
                 email,
                 vehiclePlate,
                 vehicleType,
-                s.CreatedAt
-            );
-        });
+                s.CreatedAt,
+                scheduleDtos
+            ));
+        }
 
         return Result<IEnumerable<CorSubmissionDto>>.Success(dtos, "COR submissions retrieved.");
     }

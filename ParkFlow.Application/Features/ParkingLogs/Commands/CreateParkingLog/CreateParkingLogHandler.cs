@@ -40,7 +40,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         IScheduleService scheduleService,
         IParkingLogRoleService parkingLogRoleService,
         ISignalRNotificationSender signalRNotificationSender,
-        IParkingReservationRepository reservationRepository)
+        IParkingReservationRepository? reservationRepository = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;

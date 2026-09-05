@@ -44,7 +44,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
         IParkingLogRoleService parkingLogRoleService,
         IValidator<ExitManualParkingLogCommand> validator,
         ISignalRNotificationSender notificationSender,
-        IParkingReservationRepository reservationRepository)
+        IParkingReservationRepository? reservationRepository = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
