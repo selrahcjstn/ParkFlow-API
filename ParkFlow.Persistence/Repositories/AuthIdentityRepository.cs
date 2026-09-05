@@ -39,6 +39,10 @@ public class AuthIdentityRepository(AppDbContext appDbContext) : IAuthIdentityRe
                 .ThenInclude(u => u.AuthIdentities)
             .Include(i => i.UserAccount)
                 .ThenInclude(u => u.UserProfile)
+                    .ThenInclude(p => p!.Admin)
+
+            .Include(i => i.UserAccount)
+                .ThenInclude(u => u.UserProfile)
                     .ThenInclude(p => p!.Student)
 
             .Include(i => i.UserAccount)
