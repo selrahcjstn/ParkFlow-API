@@ -8,31 +8,40 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to EC2 via SSH
+    name: Deploy to EC2 via AWS SSM
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -e
-            echo "==> Pulling latest code..."
-            cd ~/ParkFlow-API
-            git pull origin main
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-            echo "==> Stopping existing dotnet process..."
-            pkill -f "dotnet" || true
-            sleep 3
+      - name: Run deploy script on EC2 via SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["cd ~/ParkFlow-API && git pull origin main && pkill -f dotnet || true && sleep 3 && nohup dotnet run --project ParkFlow.API/ParkFlow.API.csproj > ~/api.log 2>&1 &"]' \
+            --query "Command.CommandId" \
+            --output text)
 
-            echo "==> Starting API in background..."
-            nohup dotnet run --project ParkFlow.API/ParkFlow.API.csproj > ~/api.log 2>&1 &
+          echo "SSM Command ID: $COMMAND_ID"
+          sleep 30
 
-            echo "==> Waiting for API to boot..."
-            sleep 20
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+            --query "Status" \
+            --output text)
 
-            echo "==> Checking if running..."
-            pgrep -f "dotnet" && echo "API is running!" || echo "WARNING: dotnet not found in process list"
+          OUTPUT=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+            --query "StandardOutputContent" \
+            --output text)
+
+          echo "Status: $STATUS"
+          echo "Output: $OUTPUT"
