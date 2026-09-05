@@ -22,6 +22,7 @@ public class ParkingReservationRepository : IParkingReservationRepository
     public async Task<ParkingReservation?> GetByIdAsync(Guid id)
     {
         return await _context.ParkingReservations
+            .Include(r => r.Vehicle)
             .Include(r => r.UserAccount)
                 .ThenInclude(u => u.UserProfile)
             .Include(r => r.UserAccount)
@@ -32,6 +33,7 @@ public class ParkingReservationRepository : IParkingReservationRepository
     public async Task<IEnumerable<ParkingReservation>> GetByUserIdAsync(Guid userId)
     {
         return await _context.ParkingReservations
+            .Include(r => r.Vehicle)
             .Include(r => r.UserAccount)
                 .ThenInclude(u => u.UserProfile)
             .Include(r => r.UserAccount)
@@ -44,6 +46,7 @@ public class ParkingReservationRepository : IParkingReservationRepository
     public async Task<ParkingReservation?> GetByReferenceNumberAsync(string referenceNumber)
     {
         return await _context.ParkingReservations
+            .Include(r => r.Vehicle)
             .Include(r => r.UserAccount)
                 .ThenInclude(u => u.UserProfile)
             .Include(r => r.UserAccount)
@@ -54,6 +57,7 @@ public class ParkingReservationRepository : IParkingReservationRepository
     public async Task<IEnumerable<ParkingReservation>> GetAllAsync(ReservationStatus? status = null)
     {
         var query = _context.ParkingReservations
+            .Include(r => r.Vehicle)
             .Include(r => r.UserAccount)
                 .ThenInclude(u => u.UserProfile)
             .Include(r => r.UserAccount)

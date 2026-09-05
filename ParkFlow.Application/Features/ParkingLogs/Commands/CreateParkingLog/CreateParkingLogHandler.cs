@@ -23,6 +23,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     private readonly IScheduleService _scheduleService;
     private readonly IParkingLogRoleService _parkingLogRoleService;
     private readonly ISignalRNotificationSender _signalRNotificationSender;
+    private readonly IParkingReservationRepository _reservationRepository;
 
     public CreateParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -38,7 +39,8 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         IParkingService parkingService,
         IScheduleService scheduleService,
         IParkingLogRoleService parkingLogRoleService,
-        ISignalRNotificationSender signalRNotificationSender)
+        ISignalRNotificationSender signalRNotificationSender,
+        IParkingReservationRepository reservationRepository)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
@@ -54,11 +56,30 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         _scheduleService = scheduleService;
         _parkingLogRoleService = parkingLogRoleService;
         _signalRNotificationSender = signalRNotificationSender;
+        _reservationRepository = reservationRepository;
     }
 
     public async Task<Result<CreateParkingLogResponse>> Handle(CreateParkingLogCommand request, CancellationToken cancellationToken)
     {
         var vehicle = await _vehicleRepository.GetByQrCodeHashAsync(request.QrCodeHash);
+
+        if (vehicle == null)
+        {
+            // Try resolving by Reservation Reference Number
+            var reservationPass = await _reservationRepository.GetByReferenceNumberAsync(request.QrCodeHash);
+            if (reservationPass != null)
+            {
+                if (reservationPass.VehicleId.HasValue)
+                {
+                    vehicle = await _vehicleRepository.GetByIdAsync(reservationPass.VehicleId.Value);
+                }
+                else
+                {
+                    var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(reservationPass.UserId);
+                    vehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
+                }
+            }
+        }
 
         if (vehicle == null)
             return Result<CreateParkingLogResponse>.Failure("Invalid QR code. Vehicle not found.", ErrorCode.NotFound);
@@ -112,7 +133,20 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
 
         DateTime? maximumExitTimeUtc = null;
 
-        if (isStudentOrPersonnel)
+        var userReservations = await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId);
+        var utcNow = DateTime.UtcNow;
+        var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
+        var todayReservation = userReservations.FirstOrDefault(r => 
+            (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
+            r.ReservationDate.Date == philippinesNow.Date &&
+            r.Status == ReservationStatus.Approved);
+
+        if (todayReservation != null)
+        {
+            var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todayReservation.EndTime);
+            maximumExitTimeUtc = resEndTimeUtc.AddMinutes(30);
+        }
+        else if (isStudentOrPersonnel)
         {
             var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
 
@@ -129,9 +163,6 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             }
 
             var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-
-            var utcNow = DateTime.UtcNow;
-            var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
             var todayDayOfWeek = philippinesNow.DayOfWeek;
 
             var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == todayDayOfWeek);

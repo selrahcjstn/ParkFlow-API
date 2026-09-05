@@ -13,6 +13,8 @@ using ParkFlow.Application.Features.Reservations.Queries.GetReservationById;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Enums;
 
+using ParkFlow.Application.Features.Reservations.Queries.VerifyReservationScan;
+
 namespace ParkFlow.API.Controllers;
 
 [Route("api/parking-reservations")]
@@ -33,9 +35,19 @@ public class ParkingReservationController : ControllerBase
         string StartTime,
         string EndTime,
         string Reason,
-        string? NotifyEmail = null);
+        string? NotifyEmail = null,
+        ReservationType Type = ReservationType.Normal,
+        Guid? VehicleId = null);
 
     public record ReviewReservationRequest(string? Notes);
+    public record VerifyScanRequest(string QrCode);
+
+    [HttpPost("verify-scan")]
+    public async Task<ActionResult<Result<VerifyReservationScanResponse>>> VerifyScan([FromBody] VerifyScanRequest request)
+    {
+        var result = await _mediator.Send(new VerifyReservationScanQuery(request.QrCode));
+        return this.ToActionResult(result);
+    }
 
     [HttpPost]
     [Authorize]
@@ -61,7 +73,9 @@ public class ParkingReservationController : ControllerBase
             startTime,
             endTime,
             request.Reason,
-            request.NotifyEmail);
+            request.NotifyEmail,
+            request.Type,
+            request.VehicleId);
 
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);

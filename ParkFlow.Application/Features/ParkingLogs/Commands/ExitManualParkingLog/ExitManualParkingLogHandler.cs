@@ -26,6 +26,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
     private readonly IParkingLogRoleService _parkingLogRoleService;
     private readonly IValidator<ExitManualParkingLogCommand> _validator;
     private readonly ISignalRNotificationSender _notificationSender;
+    private readonly IParkingReservationRepository _reservationRepository;
 
     public ExitManualParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -42,7 +43,8 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
         IViolationService violationService,
         IParkingLogRoleService parkingLogRoleService,
         IValidator<ExitManualParkingLogCommand> validator,
-        ISignalRNotificationSender notificationSender)
+        ISignalRNotificationSender notificationSender,
+        IParkingReservationRepository reservationRepository)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
@@ -59,6 +61,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
         _parkingLogRoleService = parkingLogRoleService;
         _validator = validator;
         _notificationSender = notificationSender;
+        _reservationRepository = reservationRepository;
     }
 
     public async Task<Result<ExitParkingLogResponse>> Handle(ExitManualParkingLogCommand request, CancellationToken cancellationToken)
@@ -145,7 +148,19 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
             }
         }
 
-        if (!isViolation)
+        var userReservations = await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId);
+        var specialRes = userReservations.FirstOrDefault(r => 
+            (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
+            r.ReservationDate.Date == philippinesNow.Date &&
+            r.Status == ReservationStatus.Approved &&
+            r.Type == ReservationType.Special);
+
+        if (specialRes != null)
+        {
+            penaltyFee = 0m;
+        }
+
+        if (!isViolation && specialRes == null)
         {
             var existingViolation = await _violationRepository.GetByLogIdAsync(active.Id);
             if (existingViolation != null)

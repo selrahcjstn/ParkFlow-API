@@ -11,6 +11,7 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
 {
     private readonly IParkingReservationRepository _reservationRepository;
     private readonly IUserAccountRepository _userRepository;
+    private readonly IVehicleRepository _vehicleRepository;
     private readonly IValidator<CreateReservationCommand> _validator;
     private readonly ISignalRNotificationSender _notificationSender;
     private readonly IEmailService _emailService;
@@ -18,12 +19,14 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
     public CreateReservationHandler(
         IParkingReservationRepository reservationRepository,
         IUserAccountRepository userRepository,
+        IVehicleRepository vehicleRepository,
         IValidator<CreateReservationCommand> validator,
         ISignalRNotificationSender notificationSender,
         IEmailService emailService)
     {
         _reservationRepository = reservationRepository;
         _userRepository = userRepository;
+        _vehicleRepository = vehicleRepository;
         _validator = validator;
         _notificationSender = notificationSender;
         _emailService = emailService;
@@ -42,6 +45,21 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
         if (user == null)
             return Result<ParkingReservationDto>.Failure("User not found.", ErrorCode.NotFound);
 
+        // Find vehicle to bind (user's primary vehicle if vehicleId not specified)
+        Guid? assignedVehicleId = request.VehicleId;
+        Vehicle? assignedVehicle = null;
+
+        if (assignedVehicleId.HasValue)
+        {
+            assignedVehicle = await _vehicleRepository.GetByIdAsync(assignedVehicleId.Value);
+        }
+        else
+        {
+            var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.UserId);
+            assignedVehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
+            assignedVehicleId = assignedVehicle?.Id;
+        }
+
         // Generate Reference Number: RES-YYYYMMDD-XXXX
         var randomPart = new Random().Next(1000, 9999);
         var refNum = $"RES-{request.ReservationDate:yyyyMMdd}-{randomPart}";
@@ -52,7 +70,9 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
             request.ReservationDate,
             request.StartTime,
             request.EndTime,
-            request.Reason
+            request.Reason,
+            request.Type,
+            assignedVehicleId
         );
 
         if (!string.IsNullOrWhiteSpace(request.NotifyEmail))
@@ -75,6 +95,11 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
             EndTime = reservation.EndTime,
             Reason = reservation.Reason,
             Status = reservation.Status,
+            Type = reservation.Type,
+            VehicleId = reservation.VehicleId,
+            PlateNumber = assignedVehicle?.PlateNumber,
+            Brand = assignedVehicle?.Brand,
+            VehicleQrCodeHash = assignedVehicle?.QrCodeHash,
             AdminNotes = reservation.AdminNotes,
             ApprovedAt = reservation.ApprovedAt,
             ApprovedByAdminId = reservation.ApprovedByAdminId,

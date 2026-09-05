@@ -18,6 +18,10 @@ public class ParkingReservation : BaseEntity
     public DateTime? ApprovedAt { get; private set; }
     public Guid? ApprovedByAdminId { get; private set; }
 
+    public ReservationType Type { get; private set; } = ReservationType.Normal;
+    public Guid? VehicleId { get; private set; }
+    public Vehicle? Vehicle { get; private set; }
+
     private ParkingReservation() { } // For EF Core
 
     public ParkingReservation(
@@ -26,7 +30,9 @@ public class ParkingReservation : BaseEntity
         DateTime reservationDate,
         TimeSpan startTime,
         TimeSpan endTime,
-        string reason)
+        string reason,
+        ReservationType type = ReservationType.Normal,
+        Guid? vehicleId = null)
     {
         if (userId == Guid.Empty)
             throw new ArgumentException("UserId is required.", nameof(userId));
@@ -44,6 +50,8 @@ public class ParkingReservation : BaseEntity
         EndTime = endTime;
         Reason = reason.Trim();
         Status = ReservationStatus.Pending;
+        Type = type;
+        VehicleId = vehicleId;
     }
 
     public void SetAdminNotes(string? notes)

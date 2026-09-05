@@ -30,5 +30,13 @@ public class ParkingReservationConfiguration : IEntityTypeConfiguration<ParkingR
             .WithMany()
             .HasForeignKey(r => r.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Property(r => r.Type)
+            .HasDefaultValue(Domain.Enums.ReservationType.Normal);
+
+        builder.HasOne(r => r.Vehicle)
+            .WithMany()
+            .HasForeignKey(r => r.VehicleId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
