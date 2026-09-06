@@ -99,7 +99,7 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
         else
         {
             statusMessage = reservation.Type == ReservationType.Special 
-                ? "Verified Special Reservation Pass (₱0 / No Fees)" 
+                ? "Verified Special Reservation Pass" 
                 : "Verified Standard Reservation Pass";
         }
 
@@ -110,7 +110,7 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
             ReservationId = reservation.Id,
             ReferenceNumber = reservation.ReferenceNumber,
             Type = reservation.Type,
-            TypeName = reservation.Type == ReservationType.Special ? "Special (No Fees)" : "Normal",
+            TypeName = reservation.Type == ReservationType.Special ? "Special Pass" : "Normal",
             Status = reservation.Status,
             ReservationDate = reservation.ReservationDate,
             StartTime = reservation.StartTime.ToString(@"hh\:mm"),
