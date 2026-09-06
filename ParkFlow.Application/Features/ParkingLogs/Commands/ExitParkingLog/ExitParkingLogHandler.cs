@@ -27,6 +27,8 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
     private readonly IValidator<ExitParkingLogCommand> _validator;
     private readonly ISignalRNotificationSender _notificationSender;
     private readonly IParkingReservationRepository _reservationRepository;
+    private readonly IUserAccountRepository? _userAccountRepository;
+    private readonly IEmailService? _emailService;
 
     public ExitParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -44,7 +46,9 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         IParkingLogRoleService parkingLogRoleService,
         IValidator<ExitParkingLogCommand> validator,
         ISignalRNotificationSender notificationSender,
-        IParkingReservationRepository reservationRepository)
+        IParkingReservationRepository reservationRepository,
+        IUserAccountRepository? userAccountRepository = null,
+        IEmailService? emailService = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
@@ -62,6 +66,8 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         _validator = validator;
         _notificationSender = notificationSender;
         _reservationRepository = reservationRepository;
+        _userAccountRepository = userAccountRepository;
+        _emailService = emailService;
     }
 
     public async Task<Result<ExitParkingLogResponse>> Handle(ExitParkingLogCommand request, CancellationToken cancellationToken)
@@ -237,6 +243,71 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             catch
             {
                 // Ignore SignalR dispatch failure
+            }
+
+            // Gmail Email Notification on Exit ONLY
+            if (_userAccountRepository != null && _emailService != null)
+            {
+                try
+                {
+                    var ownerAccount = await _userAccountRepository.GetByIdAsync(vehicle.OwnerId);
+                    if (ownerAccount != null && !string.IsNullOrWhiteSpace(ownerAccount.PrimaryEmail))
+                    {
+                        var exitPhTime = ParkingTimeHelper.ConvertUtcToPhilippinesTime(actualExitTime);
+                        var entryPhTime = ParkingTimeHelper.ConvertUtcToPhilippinesTime(active.EntryTime);
+                        var subject = $"ParkFlow Exit Pass Notice - Vehicle [{vehicle.PlateNumber}]";
+
+                        var penaltyText = penaltyFee > 0m 
+                            ? $"<span style=\"color: #dc2626; font-weight: bold;\">₱{penaltyFee:0.00} (Overstay Citation)</span>" 
+                            : "<span style=\"color: #16a34a; font-weight: bold;\">₱0.00 (Cleared)</span>";
+
+                        var bodyHtml = $@"
+                            <div style=""font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 14px; background-color: #ffffff;"">
+                              <div style=""background: linear-gradient(135deg, #d22730 0%, #991b1b 100%); padding: 18px 24px; border-radius: 10px 10px 0 0; text-align: center;"">
+                                <h2 style=""color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.5px;"">ParkFlow Parking Exit Receipt</h2>
+                                <p style=""color: #fecdd3; margin: 4px 0 0; font-size: 12px; font-weight: 600;"">Official Gate Exit Notice</p>
+                              </div>
+                              <div style=""padding: 24px;"">
+                                <p style=""font-size: 15px; color: #1e293b; margin-top: 0;"">Hello <strong>{ownerProfile.FirstName} {ownerProfile.LastName}</strong>,</p>
+                                <p style=""font-size: 14px; color: #475569; line-height: 1.5;"">
+                                  Your registered vehicle <strong>{vehicle.PlateNumber} ({vehicle.Brand})</strong> has successfully logged an exit from the campus parking facility.
+                                </p>
+
+                                <div style=""background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #d22730; padding: 16px; margin: 20px 0; border-radius: 8px;"">
+                                  <table style=""width: 100%; border-collapse: collapse; font-size: 13.5px;"">
+                                    <tr>
+                                      <td style=""padding: 6px 0; color: #64748b;"">Plate Number:</td>
+                                      <td style=""padding: 6px 0; font-weight: bold; color: #0f172a; text-align: right;"">{vehicle.PlateNumber}</td>
+                                    </tr>
+                                    <tr>
+                                      <td style=""padding: 6px 0; color: #64748b;"">Entry Time:</td>
+                                      <td style=""padding: 6px 0; color: #0f172a; text-align: right;"">{entryPhTime:MMMM dd, yyyy · hh:mm tt}</td>
+                                    </tr>
+                                    <tr>
+                                      <td style=""padding: 6px 0; color: #64748b;"">Exit Time:</td>
+                                      <td style=""padding: 6px 0; color: #0f172a; text-align: right;"">{exitPhTime:MMMM dd, yyyy · hh:mm tt}</td>
+                                    </tr>
+                                    <tr>
+                                      <td style=""padding: 6px 0; color: #64748b;"">Overstay Penalty Fee:</td>
+                                      <td style=""padding: 6px 0; text-align: right;"">{penaltyText}</td>
+                                    </tr>
+                                  </table>
+                                </div>
+
+                                <p style=""font-size: 12.5px; color: #64748b; margin-bottom: 0; line-height: 1.5; text-align: center;"">
+                                  Thank you for utilizing ParkFlow Campus Smart Parking Services.<br/>
+                                  <span style=""font-size: 11px; color: #94a3b8;"">This is an automated system notification. Please do not reply directly to this email.</span>
+                                </p>
+                              </div>
+                            </div>";
+
+                        await _emailService.SendEmailAsync(ownerAccount.PrimaryEmail, subject, bodyHtml);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ExitParkingLogHandler] Email notice failed: {ex.Message}");
+                }
             }
         }
 
