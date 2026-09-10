@@ -192,6 +192,9 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
 
         var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);
 
+        var guardMiddle = string.IsNullOrWhiteSpace(userProfile.MiddleName) ? "" : $" {userProfile.MiddleName}";
+        var guardName = $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}";
+
         var response = new ExitParkingLogResponse
         {
             FirstName = ownerProfile.FirstName,
@@ -206,14 +209,13 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
             ExitTime = actualExitTime,
             OverstayTime = overstayTime,
             PenaltyFee = penaltyFee,
-            ReferenceNumber = referenceNumber
+            ReferenceNumber = referenceNumber,
+            GuardName = guardName,
+            IssuedBy = guardName
         };
 
         if (vehicle.OwnerId != Guid.Empty)
         {
-            var guardMiddle = string.IsNullOrWhiteSpace(userProfile.MiddleName) ? "" : $" {userProfile.MiddleName}";
-            var guardName = $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}";
-
             var notificationDto = new HasViolationNotificationDto
             {
                 ReferenceNumber = referenceNumber ?? response.ReferenceNumber ?? $"EXIT-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}",

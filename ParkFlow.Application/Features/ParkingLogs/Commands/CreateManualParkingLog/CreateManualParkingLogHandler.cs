@@ -206,6 +206,9 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
 
         var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);
 
+        var guardMiddle = string.IsNullOrWhiteSpace(userProfile.MiddleName) ? "" : $" {userProfile.MiddleName}";
+        var guardName = $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}";
+
         var response = new CreateParkingLogResponse
         {
             FirstName = ownerProfile.FirstName,
@@ -221,7 +224,9 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             EntryTime = parkingLog.EntryTime,
             EntryDate = parkingLog.EntryTime.Date,
             MaximumExitTime = maximumExitTimeUtc,
-            EntryMethod = parkingLog.EntryMethod.ToString()
+            EntryMethod = parkingLog.EntryMethod.ToString(),
+            GuardName = guardName,
+            IssuedBy = guardName
         };
 
         try

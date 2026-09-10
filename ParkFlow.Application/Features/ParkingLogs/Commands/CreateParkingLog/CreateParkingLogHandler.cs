@@ -143,8 +143,15 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
 
         if (todayReservation != null)
         {
-            var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todayReservation.EndTime);
-            maximumExitTimeUtc = resEndTimeUtc.AddMinutes(30);
+            if (todayReservation.Type == ReservationType.Special)
+            {
+                maximumExitTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, new TimeSpan(23, 59, 59));
+            }
+            else
+            {
+                var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todayReservation.EndTime);
+                maximumExitTimeUtc = resEndTimeUtc.AddMinutes(30);
+            }
         }
         else
         {
@@ -200,6 +207,9 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
 
         var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);
 
+        var guardMiddle = string.IsNullOrWhiteSpace(userProfile.MiddleName) ? "" : $" {userProfile.MiddleName}";
+        var guardName = $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}";
+
         var response = new CreateParkingLogResponse
         {
             FirstName = ownerProfile.FirstName,
@@ -215,7 +225,9 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             EntryTime = parkingLog.EntryTime,
             EntryDate = parkingLog.EntryTime.Date,
             MaximumExitTime = maximumExitTimeUtc,
-            EntryMethod = parkingLog.EntryMethod.ToString()
+            EntryMethod = parkingLog.EntryMethod.ToString(),
+            GuardName = guardName,
+            IssuedBy = guardName
         };
 
         try

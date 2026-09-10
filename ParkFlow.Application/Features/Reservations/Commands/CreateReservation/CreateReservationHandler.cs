@@ -4,6 +4,7 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Reservations.DTOs;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Reservations.Commands.CreateReservation;
 
@@ -64,12 +65,16 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
         var randomPart = new Random().Next(1000, 9999);
         var refNum = $"RES-{request.ReservationDate:yyyyMMdd}-{randomPart}";
 
+        var endTimeToUse = request.Type == ReservationType.Special
+            ? new TimeSpan(23, 59, 59)
+            : request.EndTime;
+
         var reservation = new ParkingReservation(
             request.UserId,
             refNum,
             request.ReservationDate,
             request.StartTime,
-            request.EndTime,
+            endTimeToUse,
             request.Reason,
             request.Type,
             assignedVehicleId
