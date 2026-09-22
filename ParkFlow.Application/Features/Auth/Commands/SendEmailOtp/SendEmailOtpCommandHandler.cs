@@ -37,6 +37,9 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
 
         try
         {
+            // Invalidate any previous active OTPs for this email address
+            await _emailOtpRepository.InvalidateActiveOtpsForEmailAsync(request.Email);
+
             // Generate a random 6-digit OTP code
             var random = new Random();
             var otpCode = random.Next(100000, 999999).ToString();

@@ -7,5 +7,6 @@ public interface IEmailOtpRepository
 {
     Task AddAsync(EmailOtp emailOtp);
     Task<EmailOtp?> GetLatestOtpByEmailAsync(string email);
+    Task InvalidateActiveOtpsForEmailAsync(string email);
     Task UpdateAsync(EmailOtp emailOtp);
 }

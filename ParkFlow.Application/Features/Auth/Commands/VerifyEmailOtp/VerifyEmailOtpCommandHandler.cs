@@ -45,19 +45,20 @@ public class VerifyEmailOtpCommandHandler : IRequestHandler<VerifyEmailOtpComman
             return Result<bool>.Failure(false, "Verification code not found for this email.", ErrorCode.NotFound);
         }
 
+        if (emailOtp.IsUsed)
+        {
+            return Result<bool>.Failure(false, "Verification code has already been used. Please request a new code.", ErrorCode.BadRequest);
+        }
+
+        var expiresAtUtc = DateTime.SpecifyKind(emailOtp.ExpiresAt, DateTimeKind.Utc);
+        if (expiresAtUtc <= DateTime.UtcNow)
+        {
+            return Result<bool>.Failure(false, "Verification code has expired. Please request a new code.", ErrorCode.Gone);
+        }
+
         if (emailOtp.OtpCode != request.OtpCode)
         {
             return Result<bool>.Failure(false, "Invalid verification code.", ErrorCode.BadRequest);
-        }
-
-        if (emailOtp.IsUsed)
-        {
-            return Result<bool>.Failure(false, "Verification code has already been used.", ErrorCode.BadRequest);
-        }
-
-        if (emailOtp.ExpiresAt <= DateTime.UtcNow)
-        {
-            return Result<bool>.Failure(false, "Verification code has expired.", ErrorCode.Gone);
         }
 
         emailOtp.MarkAsUsed();

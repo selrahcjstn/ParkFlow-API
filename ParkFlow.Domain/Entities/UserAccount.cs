@@ -119,7 +119,8 @@ public class UserAccount : BaseEntity
         if (PasswordResetTokenHash is null || PasswordResetTokenExpiresAt is null)
             return false;
 
-        if (PasswordResetTokenExpiresAt.Value < utcNow)
+        var expiresAtUtc = DateTime.SpecifyKind(PasswordResetTokenExpiresAt.Value, DateTimeKind.Utc);
+        if (expiresAtUtc < utcNow)
             return false;
 
         return PasswordResetTokenHash == resetTokenHash;

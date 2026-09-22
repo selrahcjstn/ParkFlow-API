@@ -41,6 +41,17 @@ public class FakeEmailOtpRepository : IEmailOtpRepository
         }
         return Task.CompletedTask;
     }
+
+    public Task InvalidateActiveOtpsForEmailAsync(string email)
+    {
+        var now = DateTime.UtcNow;
+        var activeOtps = Otps.Where(o => o.Email == email && !o.IsUsed && o.ExpiresAt > now).ToList();
+        foreach (var otp in activeOtps)
+        {
+            otp.MarkAsUsed();
+        }
+        return Task.CompletedTask;
+    }
 }
 
 public class FakeAuthIdentityRepository : IAuthIdentityRepository

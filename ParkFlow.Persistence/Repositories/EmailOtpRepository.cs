@@ -29,6 +29,24 @@ public class EmailOtpRepository : IEmailOtpRepository
             .FirstOrDefaultAsync();
     }
 
+    public async Task InvalidateActiveOtpsForEmailAsync(string email)
+    {
+        var normalizedEmail = email.ToLower();
+        var activeOtps = await _appDbContext.EmailOtps
+            .Where(e => e.Email.ToLower() == normalizedEmail && !e.IsUsed && e.ExpiresAt > System.DateTime.UtcNow)
+            .ToListAsync();
+
+        foreach (var otp in activeOtps)
+        {
+            otp.MarkAsUsed();
+        }
+
+        if (activeOtps.Any())
+        {
+            await _appDbContext.SaveChangesAsync();
+        }
+    }
+
     public async Task UpdateAsync(EmailOtp emailOtp)
     {
         _appDbContext.EmailOtps.Update(emailOtp);
