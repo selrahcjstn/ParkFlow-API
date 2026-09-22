@@ -21,8 +21,12 @@ public class PersonnelRepository : IPersonnelRepository
 
     public async Task UpdateAsync(Personnel personnel)
     {
-        personnel.UserProfile = null!;
-        _context.Personnel.Update(personnel);
+        var entry = _context.Entry(personnel);
+        if (entry.State == EntityState.Detached)
+        {
+            personnel.UserProfile = null!;
+            _context.Personnel.Update(personnel);
+        }
         await _context.SaveChangesAsync();
     }
 

@@ -21,8 +21,12 @@ public class StudentRepository : IStudentRepository
 
     public async Task UpdateAsync(Student student)
     {
-        student.UserProfile = null!;
-        _context.Students.Update(student);
+        var entry = _context.Entry(student);
+        if (entry.State == EntityState.Detached)
+        {
+            student.UserProfile = null!;
+            _context.Students.Update(student);
+        }
         await _context.SaveChangesAsync();
     }
 

@@ -47,7 +47,6 @@ public class VehicleRepository : IVehicleRepository
     public async Task<IEnumerable<Vehicle>> GetByOwnerIdAsync(Guid ownerId)
     {
         return await _appDbContext.Set<Vehicle>()
-            .AsNoTracking()
             .Where(v => v.OwnerId == ownerId)
             .ToListAsync();
     }
@@ -77,7 +76,11 @@ public class VehicleRepository : IVehicleRepository
 
     public async Task UpdateAsync(Vehicle vehicle)
     {
-        _appDbContext.Set<Vehicle>().Update(vehicle);
+        var entry = _appDbContext.Entry(vehicle);
+        if (entry.State == EntityState.Detached)
+        {
+            _appDbContext.Set<Vehicle>().Update(vehicle);
+        }
         await _appDbContext.SaveChangesAsync();
     }
 }

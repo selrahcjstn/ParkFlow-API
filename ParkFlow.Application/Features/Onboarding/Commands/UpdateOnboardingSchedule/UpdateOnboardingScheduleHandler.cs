@@ -51,7 +51,7 @@ public class UpdateOnboardingScheduleHandler : IRequestHandler<UpdateOnboardingS
         var user = await _userAccountRepository.GetByIdAsync(request.UserId);
         if (user != null)
         {
-            user.UpdateOnboardingStep(OnboardingStep.Schedule);
+            user.UpdateOnboardingStep(OnboardingStep.Done);
             await _userAccountRepository.UpdateAsync(user);
         }
 

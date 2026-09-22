@@ -34,18 +34,21 @@ public class UserProfileRepository : IUserProfileRepository
             .Include(p => p.UserAccount)
             .Include(p => p.Student)
             .Include(p => p.Personnel)
-            .AsNoTracking()
             .FirstOrDefaultAsync(p => p.UserAccountId == userId);
     }
 
     public async Task UpdateAsync(UserProfile profile)
     {
-        profile.UserAccount = null!;
-        profile.Student = null!;
-        profile.Personnel = null!;
-        profile.Guard = null!;
-        profile.Admin = null!;
-        _appDbContext.UserProfiles.Update(profile);
+        var entry = _appDbContext.Entry(profile);
+        if (entry.State == EntityState.Detached)
+        {
+            profile.UserAccount = null!;
+            profile.Student = null!;
+            profile.Personnel = null!;
+            profile.Guard = null!;
+            profile.Admin = null!;
+            _appDbContext.UserProfiles.Update(profile);
+        }
         await _appDbContext.SaveChangesAsync();
     }
 }
