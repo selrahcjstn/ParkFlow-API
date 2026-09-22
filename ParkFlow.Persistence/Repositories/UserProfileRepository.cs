@@ -41,6 +41,10 @@ public class UserProfileRepository : IUserProfileRepository
     public async Task UpdateAsync(UserProfile profile)
     {
         profile.UserAccount = null!;
+        profile.Student = null!;
+        profile.Personnel = null!;
+        profile.Guard = null!;
+        profile.Admin = null!;
         _appDbContext.UserProfiles.Update(profile);
         await _appDbContext.SaveChangesAsync();
     }

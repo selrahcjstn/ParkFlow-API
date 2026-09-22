@@ -288,6 +288,7 @@ public class RegRoleStudentRepository : IStudentRepository
     public List<Student> Students { get; } = new();
     public Task AddAsync(Student student) { Students.Add(student); return Task.CompletedTask; }
     public Task UpdateAsync(Student student) => Task.CompletedTask;
+    public Task DeleteAsync(Student student) { Students.Remove(student); return Task.CompletedTask; }
     public Task<Student?> GetByUserProfileIdAsync(Guid userProfileId) =>
         Task.FromResult(Students.FirstOrDefault(s => s.UserProfileId == userProfileId));
     public Task<Student?> GetByStudentNumberAsync(string studentNumber) =>
@@ -299,6 +300,7 @@ public class RegRolePersonnelRepository : IPersonnelRepository
     public List<Personnel> PersonnelList { get; } = new();
     public Task AddAsync(Personnel personnel) { PersonnelList.Add(personnel); return Task.CompletedTask; }
     public Task UpdateAsync(Personnel personnel) => Task.CompletedTask;
+    public Task DeleteAsync(Personnel personnel) { PersonnelList.Remove(personnel); return Task.CompletedTask; }
     public Task<Personnel?> GetByUserProfileIdAsync(Guid userProfileId) =>
         Task.FromResult(PersonnelList.FirstOrDefault(p => p.UserProfileId == userProfileId));
     public Task<Personnel?> GetByIdCardNumberAsync(string idCardNumber) =>

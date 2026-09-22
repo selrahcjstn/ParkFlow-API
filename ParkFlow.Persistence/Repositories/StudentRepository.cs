@@ -21,7 +21,14 @@ public class StudentRepository : IStudentRepository
 
     public async Task UpdateAsync(Student student)
     {
+        student.UserProfile = null!;
         _context.Students.Update(student);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Student student)
+    {
+        _context.Students.Remove(student);
         await _context.SaveChangesAsync();
     }
 

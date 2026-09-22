@@ -8,4 +8,5 @@ public interface IPersonnelRepository
     Task<Personnel?> GetByIdCardNumberAsync(string idCardNumber);
     Task AddAsync(Personnel personnel);
     Task UpdateAsync(Personnel personnel);
+    Task DeleteAsync(Personnel personnel);
 }

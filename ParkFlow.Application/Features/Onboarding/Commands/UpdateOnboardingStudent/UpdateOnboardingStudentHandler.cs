@@ -11,17 +11,20 @@ public class UpdateOnboardingStudentHandler : IRequestHandler<UpdateOnboardingSt
 {
     private readonly IUserProfileRepository _userProfileRepository;
     private readonly IStudentRepository _studentRepository;
+    private readonly IPersonnelRepository _personnelRepository;
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IValidator<UpdateOnboardingStudentCommand> _validator;
 
     public UpdateOnboardingStudentHandler(
         IUserProfileRepository userProfileRepository,
         IStudentRepository studentRepository,
+        IPersonnelRepository personnelRepository,
         IUserAccountRepository userAccountRepository,
         IValidator<UpdateOnboardingStudentCommand> validator)
     {
         _userProfileRepository = userProfileRepository;
         _studentRepository = studentRepository;
+        _personnelRepository = personnelRepository;
         _userAccountRepository = userAccountRepository;
         _validator = validator;
     }
@@ -43,6 +46,13 @@ public class UpdateOnboardingStudentHandler : IRequestHandler<UpdateOnboardingSt
         if (existingStudentByNumber != null && existingStudentByNumber.UserProfileId != profile.Id)
         {
             return Result<Guid>.Failure("Student number already exists.", ErrorCode.Conflict);
+        }
+
+        // Remove any conflicting personnel record if role was changed during onboarding
+        var existingPersonnel = await _personnelRepository.GetByUserProfileIdAsync(profile.Id);
+        if (existingPersonnel != null)
+        {
+            await _personnelRepository.DeleteAsync(existingPersonnel);
         }
 
         var existingStudent = await _studentRepository.GetByUserProfileIdAsync(profile.Id);

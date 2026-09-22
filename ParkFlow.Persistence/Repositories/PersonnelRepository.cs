@@ -21,7 +21,14 @@ public class PersonnelRepository : IPersonnelRepository
 
     public async Task UpdateAsync(Personnel personnel)
     {
+        personnel.UserProfile = null!;
         _context.Personnel.Update(personnel);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Personnel personnel)
+    {
+        _context.Personnel.Remove(personnel);
         await _context.SaveChangesAsync();
     }
 
