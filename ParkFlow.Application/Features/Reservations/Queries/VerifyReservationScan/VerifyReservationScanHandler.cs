@@ -74,7 +74,10 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
 
         if (reservation == null)
         {
-            return Result<VerifyReservationScanResponse>.Failure("No reservation found for this QR code.", ErrorCode.NotFound);
+            var notFoundMsg = vehicle != null
+                ? $"No active reservation found for vehicle ({vehicle.PlateNumber})."
+                : "No reservation found for this QR code.";
+            return Result<VerifyReservationScanResponse>.Failure(notFoundMsg, ErrorCode.NotFound);
         }
 
         var driverProfile = await _userProfileRepository.GetByUserIdAsync(reservation.UserId);
