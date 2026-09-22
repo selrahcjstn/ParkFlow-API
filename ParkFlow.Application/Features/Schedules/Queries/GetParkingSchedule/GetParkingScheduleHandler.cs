@@ -18,14 +18,13 @@ public class GetParkingScheduleHandler : IRequestHandler<GetParkingScheduleQuery
     public async Task<Result<IEnumerable<ParkingScheduleResponseDto>>> Handle(GetParkingScheduleQuery request, CancellationToken cancellationToken)
     {
         var schedules = await _parkingScheduleRepository.GetByUserIdAsync(request.UserId);
-        var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
 
         var dtoList = schedules.Select(s => new ParkingScheduleResponseDto
         {
             AcademicTerm = s.CorSubmission?.AcademicTerm ?? string.Empty,
             DayOfWeek = s.DayOfWeek,
-            StartTime = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, s.StartTime),
-            EndTime = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, s.EndTime)
+            StartTime = s.StartTime,
+            EndTime = s.EndTime
         }).ToList();
 
         return Result<IEnumerable<ParkingScheduleResponseDto>>.Success(dtoList, "Parking schedules retrieved successfully.");
