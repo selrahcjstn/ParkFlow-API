@@ -13,17 +13,20 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IValidator<ValidateCorSubmissionCommand> _validator;
+    private readonly INotificationService? _notificationService;
 
     public ValidateCorSubmissionHandler(
         ICorSubmissionRepository corSubmissionRepository,
         IUserAccountRepository userAccountRepository,
         IVehicleRepository vehicleRepository,
-        IValidator<ValidateCorSubmissionCommand> validator)
+        IValidator<ValidateCorSubmissionCommand> validator,
+        INotificationService? notificationService = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _userAccountRepository = userAccountRepository;
         _vehicleRepository = vehicleRepository;
         _validator = validator;
+        _notificationService = notificationService;
     }
 
     public async Task<Result<Guid>> Handle(ValidateCorSubmissionCommand request, CancellationToken cancellationToken)
@@ -75,6 +78,31 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
             {
                 vehicle.UpdateVerificationStatus(request.VerificationStatus);
                 await _vehicleRepository.UpdateAsync(vehicle);
+            }
+
+            if (_notificationService != null)
+            {
+                var isApproved = request.VerificationStatus == CorVerificationStatus.Verified;
+                var title = isApproved ? "Schedule & COR Verified" : "Schedule & COR Verification Declined";
+                var subtitle = isApproved ? "Pass Activated" : "Resubmission Required";
+                var body = isApproved
+                    ? "Your submitted Certificate of Registration (COR) and duty schedule have been verified by security administration."
+                    : "Your COR document was declined by security administration. Please re-upload clear documentation.";
+                var actionRoute = isApproved ? "/(settings)/schedule" : "/(settings)/setup-schedule";
+                var actionText = isApproved ? "View Pass Details" : "Resubmit COR Document";
+                var type = isApproved ? "approved" : "rejected";
+
+                await _notificationService.CreateAndSendNotificationAsync(
+                    user.Id,
+                    title,
+                    body,
+                    type: type,
+                    subtitle: subtitle,
+                    actionRoute: actionRoute,
+                    actionText: actionText,
+                    priority: "high",
+                    issuer: "ParkFlow Document Desk"
+                );
             }
         }
 

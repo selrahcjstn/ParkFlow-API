@@ -9,15 +9,18 @@ public class ApproveReservationHandler : IRequestHandler<ApproveReservationComma
     private readonly IParkingReservationRepository _reservationRepository;
     private readonly ISignalRNotificationSender _notificationSender;
     private readonly IEmailService _emailService;
+    private readonly INotificationService? _notificationService;
 
     public ApproveReservationHandler(
         IParkingReservationRepository reservationRepository,
         ISignalRNotificationSender notificationSender,
-        IEmailService emailService)
+        IEmailService emailService,
+        INotificationService? notificationService = null)
     {
         _reservationRepository = reservationRepository;
         _notificationSender = notificationSender;
         _emailService = emailService;
+        _notificationService = notificationService;
     }
 
     public async Task<Result<bool>> Handle(ApproveReservationCommand request, CancellationToken cancellationToken)
@@ -42,11 +45,31 @@ public class ApproveReservationHandler : IRequestHandler<ApproveReservationComma
             await _reservationRepository.UpdateAsync(reservation);
             await _reservationRepository.SaveChangesAsync();
 
-            try
+            if (_notificationService != null && reservation.UserId != Guid.Empty)
             {
-                await _notificationSender.SendToAllAsync("ReservationUpdated", new { id = reservation.Id, status = "Approved" });
+                var resDateStr = reservation.ReservationDate.ToString("MMM dd, yyyy");
+                await _notificationService.CreateAndSendNotificationAsync(
+                    reservation.UserId,
+                    "Parking Reservation Approved",
+                    $"Your reservation [{reservation.ReferenceNumber}] for {resDateStr} has been approved by administration.",
+                    type: "approved",
+                    subtitle: "Permit Pass Issued",
+                    referenceCode: reservation.ReferenceNumber,
+                    actionRoute: "/(settings)/schedule",
+                    actionText: "View Reservation",
+                    priority: "medium",
+                    issuer: "ParkFlow Security Admin",
+                    signalRData: new { id = reservation.Id, status = "Approved" }
+                );
             }
-            catch { }
+            else
+            {
+                try
+                {
+                    await _notificationSender.SendToUserAsync(reservation.UserId.ToString(), "ReservationUpdated", new { id = reservation.Id, status = "Approved" });
+                }
+                catch { }
+            }
 
             // Send email notification to the applicant
             try

@@ -24,6 +24,7 @@ public static class DependencyInjection
 
         // SignalR
         services.AddScoped<ISignalRNotificationSender, SignalRNotificationSender>();
+        services.AddScoped<INotificationService, ParkFlow.Infrastructure.Services.NotificationService>();
         services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, CustomUserIdProvider>();
 
         // Cloudinary

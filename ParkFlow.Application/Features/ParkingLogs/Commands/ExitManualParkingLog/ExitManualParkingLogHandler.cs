@@ -29,6 +29,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
     private readonly IParkingReservationRepository? _reservationRepository;
     private readonly IUserAccountRepository? _userAccountRepository;
     private readonly IEmailService? _emailService;
+    private readonly INotificationService? _notificationService;
 
     public ExitManualParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -48,7 +49,8 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
         ISignalRNotificationSender notificationSender,
         IParkingReservationRepository? reservationRepository = null,
         IUserAccountRepository? userAccountRepository = null,
-        IEmailService? emailService = null)
+        IEmailService? emailService = null,
+        INotificationService? notificationService = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
@@ -68,6 +70,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
         _reservationRepository = reservationRepository;
         _userAccountRepository = userAccountRepository;
         _emailService = emailService;
+        _notificationService = notificationService;
     }
 
     public async Task<Result<ExitParkingLogResponse>> Handle(ExitManualParkingLogCommand request, CancellationToken cancellationToken)
@@ -230,20 +233,49 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
                 IsViolation = isViolation
             };
 
-            try
+            if (_notificationService != null)
             {
-                await _notificationSender.SendEventNotificationAsync(vehicle.OwnerId.ToString(), notificationDto);
-                await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ParkingSessionUpdated", response);
-                await _notificationSender.SendToAllAsync("ParkingSessionUpdated", response);
+                var notifTitle = isViolation ? "Parking Violation Issued on Exit" : "Vehicle Exit Recorded";
+                var notifType = isViolation ? "overdue" : "approved";
+                var notifBody = isViolation
+                    ? $"Citation [{violationType ?? "Overstay Citation"}] recorded for vehicle [{vehicle.PlateNumber}] upon exit scan. Fine: ₱{penaltyFee:0.00}. Issued by {guardName}."
+                    : $"Vehicle [{vehicle.PlateNumber}] exit confirmed at campus gate. Issued by {guardName}.";
+                var actionRoute = isViolation ? "/(settings)/violations" : "/(users)/(tabs)/history";
+                var actionText = isViolation ? "Pay Citation" : "View Log History";
 
-                if (isViolation)
-                {
-                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReceiveViolation", notificationDto);
-                }
+                await _notificationService.CreateAndSendNotificationAsync(
+                    vehicle.OwnerId,
+                    notifTitle,
+                    notifBody,
+                    type: notifType,
+                    subtitle: $"Issued by: {guardName}",
+                    referenceCode: referenceNumber ?? response.ReferenceNumber,
+                    vehiclePlate: vehicle.PlateNumber,
+                    actionRoute: actionRoute,
+                    actionText: actionText,
+                    priority: isViolation ? "high" : "low",
+                    issuer: guardName,
+                    driverName: $"{ownerProfile.FirstName} {ownerProfile.LastName}".Trim(),
+                    driverRole: roleDetails.Role,
+                    vehicleBrand: vehicle.Brand,
+                    signalRData: response
+                );
             }
-            catch
+            else
             {
-                // Ignore SignalR dispatch failure
+                try
+                {
+                    await _notificationSender.SendEventNotificationAsync(vehicle.OwnerId.ToString(), notificationDto);
+                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ParkingSessionUpdated", response);
+                    if (isViolation)
+                    {
+                        await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReceiveViolation", notificationDto);
+                    }
+                }
+                catch
+                {
+                    // Ignore SignalR dispatch failure
+                }
             }
 
             // Gmail Email Notification on Exit ONLY

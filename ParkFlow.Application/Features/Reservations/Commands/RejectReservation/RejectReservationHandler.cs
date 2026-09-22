@@ -9,15 +9,18 @@ public class RejectReservationHandler : IRequestHandler<RejectReservationCommand
     private readonly IParkingReservationRepository _reservationRepository;
     private readonly ISignalRNotificationSender _notificationSender;
     private readonly IEmailService _emailService;
+    private readonly INotificationService? _notificationService;
 
     public RejectReservationHandler(
         IParkingReservationRepository reservationRepository,
         ISignalRNotificationSender notificationSender,
-        IEmailService emailService)
+        IEmailService emailService,
+        INotificationService? notificationService = null)
     {
         _reservationRepository = reservationRepository;
         _notificationSender = notificationSender;
         _emailService = emailService;
+        _notificationService = notificationService;
     }
 
     public async Task<Result<bool>> Handle(RejectReservationCommand request, CancellationToken cancellationToken)
@@ -42,11 +45,32 @@ public class RejectReservationHandler : IRequestHandler<RejectReservationCommand
             await _reservationRepository.UpdateAsync(reservation);
             await _reservationRepository.SaveChangesAsync();
 
-            try
+            if (_notificationService != null && reservation.UserId != Guid.Empty)
             {
-                await _notificationSender.SendToAllAsync("ReservationUpdated", new { id = reservation.Id, status = "Rejected" });
+                var resDateStr = reservation.ReservationDate.ToString("MMM dd, yyyy");
+                var reason = string.IsNullOrWhiteSpace(request.Notes) ? "No reason specified." : request.Notes;
+                await _notificationService.CreateAndSendNotificationAsync(
+                    reservation.UserId,
+                    "Parking Reservation Declined",
+                    $"Your reservation [{reservation.ReferenceNumber}] for {resDateStr} was declined. Reason: {reason}",
+                    type: "rejected",
+                    subtitle: "Request Declined",
+                    referenceCode: reservation.ReferenceNumber,
+                    actionRoute: "/(settings)/schedule",
+                    actionText: "View Reservation",
+                    priority: "medium",
+                    issuer: "ParkFlow Security Admin",
+                    signalRData: new { id = reservation.Id, status = "Rejected" }
+                );
             }
-            catch { }
+            else
+            {
+                try
+                {
+                    await _notificationSender.SendToUserAsync(reservation.UserId.ToString(), "ReservationUpdated", new { id = reservation.Id, status = "Rejected" });
+                }
+                catch { }
+            }
 
             // Send email notification to the applicant
             try

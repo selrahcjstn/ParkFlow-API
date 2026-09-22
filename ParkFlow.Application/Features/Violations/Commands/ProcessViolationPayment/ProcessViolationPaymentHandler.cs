@@ -16,6 +16,7 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
     private readonly IParkingLogRepository _parkingLogRepository;
     private readonly IValidator<ProcessViolationPaymentCommand> _validator;
     private readonly ISignalRNotificationSender _notificationSender;
+    private readonly INotificationService? _notificationService;
 
     public ProcessViolationPaymentHandler(
         IViolationRepository violationRepository,
@@ -23,7 +24,8 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
         IGuardRepository guardRepository,
         IParkingLogRepository parkingLogRepository,
         IValidator<ProcessViolationPaymentCommand> validator,
-        ISignalRNotificationSender notificationSender)
+        ISignalRNotificationSender notificationSender,
+        INotificationService? notificationService = null)
     {
         _violationRepository = violationRepository;
         _userProfileRepository = userProfileRepository;
@@ -31,6 +33,7 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
         _parkingLogRepository = parkingLogRepository;
         _validator = validator;
         _notificationSender = notificationSender;
+        _notificationService = notificationService;
     }
 
     public async Task<Result<ViolationPaymentReceiptDto>> Handle(ProcessViolationPaymentCommand request, CancellationToken cancellationToken)
@@ -109,23 +112,42 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
             GuardName = guardName
         };
 
-        // Broadcast real-time payment notification so all connected clients (guards and users) update history in real time
-        try
+        var notificationData = new
         {
-            var notificationData = new
-            {
-                ReferenceNumber = violation.ReferenceNumber,
-                PlateNumber = vehicle?.PlateNumber ?? "N/A",
-                IsPaid = true,
-                SettlementStatus = "Settled",
-                PaidAt = receipt.PaidAt
-            };
-            await _notificationSender.SendToAllAsync("PaymentProcessed", notificationData);
-            await _notificationSender.SendToAllAsync("paymentprocessed", notificationData);
+            ReferenceNumber = violation.ReferenceNumber,
+            PlateNumber = vehicle?.PlateNumber ?? "N/A",
+            IsPaid = true,
+            SettlementStatus = "Settled",
+            PaidAt = receipt.PaidAt,
+            Amount = violation.PenaltyFee
+        };
+
+        if (_notificationService != null && vehicle?.OwnerId != null && vehicle.OwnerId != Guid.Empty)
+        {
+            await _notificationService.CreateAndSendNotificationAsync(
+                vehicle.OwnerId,
+                "Violation Citation Paid",
+                $"Payment of ₱{violation.PenaltyFee:0.00} for citation [{violation.ReferenceNumber}] was processed. Clearance verified.",
+                type: "approved",
+                subtitle: "Account Status Cleared",
+                referenceCode: violation.ReferenceNumber,
+                vehiclePlate: vehicle.PlateNumber,
+                actionRoute: "/(settings)/violations",
+                actionText: "View Violations History",
+                issuer: "ParkFlow Financial Desk",
+                signalRData: notificationData
+            );
         }
-        catch
+        else
         {
-            // Non-blocking if SignalR fails
+            try
+            {
+                if (vehicle?.OwnerId != null && vehicle.OwnerId != Guid.Empty)
+                {
+                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "PaymentProcessed", notificationData);
+                }
+            }
+            catch { }
         }
 
         return Result<ViolationPaymentReceiptDto>.Success(

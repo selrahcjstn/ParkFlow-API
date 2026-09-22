@@ -25,6 +25,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
     private readonly IScheduleService _scheduleService;
     private readonly IParkingLogRoleService _parkingLogRoleService;
     private readonly ISignalRNotificationSender _signalRNotificationSender;
+    private readonly INotificationService? _notificationService;
 
     public CreateManualParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -41,7 +42,8 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         IParkingService parkingService,
         IScheduleService scheduleService,
         IParkingLogRoleService parkingLogRoleService,
-        ISignalRNotificationSender signalRNotificationSender)
+        ISignalRNotificationSender signalRNotificationSender,
+        INotificationService? notificationService = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
@@ -58,6 +60,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         _scheduleService = scheduleService;
         _parkingLogRoleService = parkingLogRoleService;
         _signalRNotificationSender = signalRNotificationSender;
+        _notificationService = notificationService;
     }
 
     public async Task<Result<CreateParkingLogResponse>> Handle(CreateManualParkingLogCommand request, CancellationToken cancellationToken)
@@ -229,17 +232,38 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             IssuedBy = guardName
         };
 
-        try
+        if (_notificationService != null && vehicle.OwnerId != Guid.Empty)
         {
-            await _signalRNotificationSender.SendToAllAsync("ParkingSessionUpdated", response);
-            if (vehicle.OwnerId != Guid.Empty)
-            {
-                await _signalRNotificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ParkingSessionUpdated", response);
-            }
+            await _notificationService.CreateAndSendNotificationAsync(
+                vehicle.OwnerId,
+                "Manual Parking Entry Recorded",
+                $"Vehicle [{vehicle.PlateNumber}] manual entry pass validated by {guardName}.",
+                type: "reminder",
+                subtitle: $"Issued by: {guardName}",
+                vehiclePlate: vehicle.PlateNumber,
+                vehicleBrand: vehicle.Brand,
+                actionRoute: "/(users)/(tabs)/home",
+                actionText: "View Session Status",
+                priority: "medium",
+                issuer: guardName,
+                driverName: $"{ownerProfile.FirstName} {ownerProfile.LastName}".Trim(),
+                driverRole: roleDetails.Role,
+                signalRData: response
+            );
         }
-        catch
+        else
         {
-            // Ignore SignalR dispatch failure
+            try
+            {
+                if (vehicle.OwnerId != Guid.Empty)
+                {
+                    await _signalRNotificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ParkingSessionUpdated", response);
+                }
+            }
+            catch
+            {
+                // Ignore SignalR dispatch failure
+            }
         }
 
         return Result<CreateParkingLogResponse>.Success(response, "Entry Confirmed");
