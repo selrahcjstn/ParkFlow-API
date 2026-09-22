@@ -21,3 +21,9 @@ ParkFlow is a parking management system designed to simplify and organize parkin
 
 ## Notes
 A simple backend project focused on Clean Architecture principles.
+
+## Runtime Configuration
+- `ASPNETCORE_URLS`: Optional server bind URL(s). If omitted, the API defaults to `http://0.0.0.0:5000`.
+- `Cors__AllowedOrigins`: Optional comma-separated/array configuration for trusted browser origins (for example, admin web app hosts).  
+  - When set, CORS allows only the configured origins with credentials support.
+  - When not set, CORS falls back to non-credentialed `AllowAnyOrigin` for compatibility.
