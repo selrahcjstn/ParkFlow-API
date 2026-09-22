@@ -17,5 +17,7 @@ public record UserProfileDto(
     int? YearLevel = null,
     string? Section = null,
     string? Department = null,
-    CorVerificationStatus? CorVerificationStatus = null
+    CorVerificationStatus? CorVerificationStatus = null,
+    string? RejectionReason = null,
+    string? RejectedTarget = null
 );

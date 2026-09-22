@@ -29,6 +29,9 @@ public class CorSubmissionConfiguration : IEntityTypeConfiguration<CorSubmission
         entity.Property(e => e.MotorPictureUrl)
             .HasMaxLength(2048);
 
+        entity.Property(e => e.RejectionReason)
+            .HasMaxLength(1000);
+
         entity.HasOne(e => e.UserAccount)
             .WithOne()
             .HasForeignKey<CorSubmission>(e => e.UserAccountId)

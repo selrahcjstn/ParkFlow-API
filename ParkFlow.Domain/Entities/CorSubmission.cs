@@ -14,6 +14,7 @@ public class CorSubmission : BaseEntity
     public string? MotorPictureUrl { get; private set; }
 
     public CorVerificationStatus VerificationStatus { get; private set; }
+    public string? RejectionReason { get; private set; }
 
     private CorSubmission() { }
 
@@ -23,7 +24,8 @@ public class CorSubmission : BaseEntity
         string corDocumentUrl,
         string? orcrDocumentUrl = null,
         string? motorPictureUrl = null,
-        CorVerificationStatus verificationStatus = CorVerificationStatus.NotSubmitted)
+        CorVerificationStatus verificationStatus = CorVerificationStatus.NotSubmitted,
+        string? rejectionReason = null)
     {
         UserAccountId = userAccountId;
         AcademicTerm = academicTerm;
@@ -32,6 +34,7 @@ public class CorSubmission : BaseEntity
         MotorPictureUrl = motorPictureUrl;
 
         VerificationStatus = verificationStatus;
+        RejectionReason = rejectionReason;
     }
 
     public void UpdateSubmission(
@@ -39,7 +42,8 @@ public class CorSubmission : BaseEntity
         string? corDocumentUrl,
         CorVerificationStatus? verificationStatus,
         string? orcrDocumentUrl = null,
-        string? motorPictureUrl = null)
+        string? motorPictureUrl = null,
+        string? rejectionReason = null)
     {
         if (!string.IsNullOrWhiteSpace(academicTerm))
             AcademicTerm = academicTerm;
@@ -54,6 +58,21 @@ public class CorSubmission : BaseEntity
             MotorPictureUrl = motorPictureUrl;
 
         if (verificationStatus.HasValue)
+        {
             VerificationStatus = verificationStatus.Value;
+            if (verificationStatus.Value == CorVerificationStatus.Rejected)
+            {
+                if (!string.IsNullOrWhiteSpace(rejectionReason))
+                    RejectionReason = rejectionReason;
+            }
+            else
+            {
+                RejectionReason = null;
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(rejectionReason))
+        {
+            RejectionReason = rejectionReason;
+        }
     }
 }

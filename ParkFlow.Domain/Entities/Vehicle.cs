@@ -15,6 +15,7 @@ public class Vehicle : BaseEntity
     public string? OrcrDocumentUrl { get; private set; }
     public string? VehiclePictureUrl { get; private set; }
     public CorVerificationStatus VerificationStatus { get; private set; } = CorVerificationStatus.Pending;
+    public string? RejectionReason { get; private set; }
 
     public ICollection<ParkingLog> ParkingLogs { get; private set; } = [];
 
@@ -28,7 +29,8 @@ public class Vehicle : BaseEntity
         VehicleType vehicleType,
         string? orcrDocumentUrl = null,
         string? vehiclePictureUrl = null,
-        CorVerificationStatus verificationStatus = CorVerificationStatus.Pending)
+        CorVerificationStatus verificationStatus = CorVerificationStatus.Pending,
+        string? rejectionReason = null)
     {
         OwnerId = ownerId;
         PlateNumber = plateNumber;
@@ -39,6 +41,7 @@ public class Vehicle : BaseEntity
         OrcrDocumentUrl = orcrDocumentUrl;
         VehiclePictureUrl = vehiclePictureUrl;
         VerificationStatus = verificationStatus;
+        RejectionReason = rejectionReason;
     }
 
     public void SetPrimary(bool isPrimary)
@@ -59,9 +62,18 @@ public class Vehicle : BaseEntity
             VehiclePictureUrl = vehiclePictureUrl;
     }
 
-    public void UpdateVerificationStatus(CorVerificationStatus status)
+    public void UpdateVerificationStatus(CorVerificationStatus status, string? rejectionReason = null)
     {
         VerificationStatus = status;
+        if (status == CorVerificationStatus.Rejected)
+        {
+            if (!string.IsNullOrWhiteSpace(rejectionReason))
+                RejectionReason = rejectionReason;
+        }
+        else
+        {
+            RejectionReason = null;
+        }
     }
 
     public void Update(string plateNumber, string brand, VehicleType vehicleType)

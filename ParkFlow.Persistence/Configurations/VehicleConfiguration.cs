@@ -37,6 +37,9 @@ public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
 		entity.Property(e => e.VerificationStatus)
 			.HasDefaultValue(Domain.Enums.CorVerificationStatus.Pending);
 
+		entity.Property(e => e.RejectionReason)
+			.HasMaxLength(1000);
+
 		entity.HasOne(e => e.Owner)
 			.WithMany()
 			.HasForeignKey(e => e.OwnerId)

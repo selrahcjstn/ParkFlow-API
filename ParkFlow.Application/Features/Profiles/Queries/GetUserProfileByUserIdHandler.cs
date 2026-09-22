@@ -10,13 +10,16 @@ public class GetUserProfileByUserIdHandler : IRequestHandler<GetUserProfileByUse
 {
     private readonly IUserProfileRepository _userProfileRepository;
     private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IVehicleRepository? _vehicleRepository;
 
     public GetUserProfileByUserIdHandler(
         IUserProfileRepository userProfileRepository,
-        ICorSubmissionRepository corSubmissionRepository)
+        ICorSubmissionRepository corSubmissionRepository,
+        IVehicleRepository? vehicleRepository = null)
     {
         _userProfileRepository = userProfileRepository;
         _corSubmissionRepository = corSubmissionRepository;
+        _vehicleRepository = vehicleRepository;
     }
 
     public async Task<Result<UserProfileDto>> Handle(GetUserProfileByUserIdQuery request, CancellationToken cancellationToken)
@@ -31,6 +34,26 @@ public class GetUserProfileByUserIdHandler : IRequestHandler<GetUserProfileByUse
 
         var latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(profile.UserAccountId);
         var corStatus = latestCor?.VerificationStatus ?? CorVerificationStatus.NotSubmitted;
+
+        string? rejectionReason = null;
+        string? rejectedTarget = null;
+
+        if (latestCor != null && latestCor.VerificationStatus == CorVerificationStatus.Rejected)
+        {
+            rejectionReason = latestCor.RejectionReason;
+            rejectedTarget = "documents";
+        }
+        else if (_vehicleRepository != null)
+        {
+            var vehicles = await _vehicleRepository.GetByOwnerIdAsync(profile.UserAccountId);
+            var rejectedVehicle = vehicles.FirstOrDefault(v => v.VerificationStatus == CorVerificationStatus.Rejected);
+            if (rejectedVehicle != null)
+            {
+                corStatus = CorVerificationStatus.Rejected;
+                rejectionReason = rejectedVehicle.RejectionReason;
+                rejectedTarget = "vehicle";
+            }
+        }
 
         var dto = new UserProfileDto(
             profile.Id,
@@ -47,7 +70,9 @@ public class GetUserProfileByUserIdHandler : IRequestHandler<GetUserProfileByUse
             YearLevel: profile.Student?.YearLevel,
             Section: profile.Student?.Section,
             Department: profile.Personnel?.Department,
-            CorVerificationStatus: corStatus
+            CorVerificationStatus: corStatus,
+            RejectionReason: rejectionReason,
+            RejectedTarget: rejectedTarget
             );
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");
