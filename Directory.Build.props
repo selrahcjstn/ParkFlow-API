@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- Disable NuGet vulnerability auditing during local development to speed up dotnet build/run -->
+    <NuGetAudit Condition="'$(Configuration)' != 'Release'">false</NuGetAudit>
+  </PropertyGroup>
+</Project>

@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ParkFlow.Application\ParkFlow.Application.csproj" />
     <ProjectReference Include="..\ParkFlow.Domain\ParkFlow.Domain.csproj" />
+    <ProjectReference Include="..\ParkFlow.Infrastructure\ParkFlow.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -50,6 +50,17 @@ public class FakeCloudinaryService : ICloudinaryService
         DeletedPublicIds.Add(publicId);
         return Task.CompletedTask;
     }
+
+    public string? GetAuthenticatedDownloadUrl(string fileUrlOrPublicId, bool attachment = false)
+    {
+        return $"https://res.cloudinary.com/test/raw/download?public_id={fileUrlOrPublicId}";
+    }
+
+    public Task<(Stream Stream, string ContentType, string FileName)?> GetDocumentStreamAsync(string fileUrlOrPublicId, bool attachment = false)
+    {
+        Stream stream = new MemoryStream(Encoding.UTF8.GetBytes("%PDF-1.4 Fake PDF"));
+        return Task.FromResult<(Stream Stream, string ContentType, string FileName)?>((stream, "application/pdf", "fake.pdf"));
+    }
 }
 
 public class FakeUserContext : IUserContext
