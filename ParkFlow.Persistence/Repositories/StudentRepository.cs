@@ -45,8 +45,10 @@ public class StudentRepository : IStudentRepository
 
     public async Task<Student?> GetByStudentNumberAsync(string studentNumber)
     {
+        if (string.IsNullOrWhiteSpace(studentNumber)) return null;
+        var trimmed = studentNumber.Trim();
         return await _context.Students
             .Include(s => s.UserProfile)
-            .FirstOrDefaultAsync(x => x.StudentNumber == studentNumber);
+            .FirstOrDefaultAsync(x => x.StudentNumber == trimmed || EF.Functions.ILike(x.StudentNumber, trimmed));
     }
 }

@@ -85,6 +85,24 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         }
 
         if (vehicle == null)
+        {
+            var studentNumber = ExtractStudentNumber(request.QrCodeHash);
+            if (!string.IsNullOrEmpty(studentNumber))
+            {
+                var scannedStudent = await _studentRepository.GetByStudentNumberAsync(studentNumber);
+                if (scannedStudent != null)
+                {
+                    var profile = scannedStudent.UserProfile ?? await _userProfileRepository.GetByIdAsync(scannedStudent.UserProfileId);
+                    if (profile != null)
+                    {
+                        var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(profile.UserAccountId);
+                        vehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
+                    }
+                }
+            }
+        }
+
+        if (vehicle == null)
             return Result<CreateParkingLogResponse>.Failure("Invalid QR code. Vehicle not found.", ErrorCode.NotFound);
 
         var hasActiveViolation = await _violationRepository.HasActiveViolationAsync(vehicle.Id);
@@ -268,5 +286,20 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         }
 
         return Result<CreateParkingLogResponse>.Success(response, "Entry Confirmed");
+    }
+
+    private static string? ExtractStudentNumber(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+        var trimmed = input.Trim();
+        if (trimmed.Contains(','))
+        {
+            var parts = trimmed.Split(',');
+            if (parts.Length >= 2)
+            {
+                return parts[0].Trim();
+            }
+        }
+        return trimmed;
     }
 }

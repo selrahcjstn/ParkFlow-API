@@ -85,6 +85,41 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
 
         var vehicle = await _vehicleRepository.GetByQrCodeHashAsync(request.QrCodeHash);
 
+        if (vehicle == null && _reservationRepository != null)
+        {
+            var reservationPass = await _reservationRepository.GetByReferenceNumberAsync(request.QrCodeHash);
+            if (reservationPass != null)
+            {
+                if (reservationPass.VehicleId.HasValue)
+                {
+                    vehicle = await _vehicleRepository.GetByIdAsync(reservationPass.VehicleId.Value);
+                }
+                else
+                {
+                    var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(reservationPass.UserId);
+                    vehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
+                }
+            }
+        }
+
+        if (vehicle == null)
+        {
+            var studentNumber = ExtractStudentNumber(request.QrCodeHash);
+            if (!string.IsNullOrEmpty(studentNumber))
+            {
+                var scannedStudent = await _studentRepository.GetByStudentNumberAsync(studentNumber);
+                if (scannedStudent != null)
+                {
+                    var profile = scannedStudent.UserProfile ?? await _userProfileRepository.GetByIdAsync(scannedStudent.UserProfileId);
+                    if (profile != null)
+                    {
+                        var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(profile.UserAccountId);
+                        vehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
+                    }
+                }
+            }
+        }
+
         if (vehicle == null)
             return Result<ExitParkingLogResponse>.Failure("Invalid QR code. Vehicle not found.", ErrorCode.NotFound);
 
@@ -346,5 +381,20 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         }
 
         return Result<ExitParkingLogResponse>.Success(response, "Exit Confirmed");
+    }
+
+    private static string? ExtractStudentNumber(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+        var trimmed = input.Trim();
+        if (trimmed.Contains(','))
+        {
+            var parts = trimmed.Split(',');
+            if (parts.Length >= 2)
+            {
+                return parts[0].Trim();
+            }
+        }
+        return trimmed;
     }
 }
