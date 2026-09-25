@@ -1,9 +1,11 @@
+using FluentValidation;
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Files.DTOs;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,22 +16,35 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly ICloudinaryService _cloudinaryService;
     private readonly IUserContext _userContext;
+    private readonly IValidator<UploadCorDocumentCommand>? _validator;
     private readonly IVehicleRepository? _vehicleRepository;
 
     public UploadCorDocumentHandler(
         ICorSubmissionRepository corSubmissionRepository,
         ICloudinaryService cloudinaryService,
         IUserContext userContext,
+        IValidator<UploadCorDocumentCommand>? validator = null,
         IVehicleRepository? vehicleRepository = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _cloudinaryService = cloudinaryService;
         _userContext = userContext;
+        _validator = validator;
         _vehicleRepository = vehicleRepository;
     }
 
     public async Task<Result<UploadFileResponse>> Handle(UploadCorDocumentCommand request, CancellationToken cancellationToken)
     {
+        if (_validator != null)
+        {
+            var validationResult = await _validator.ValidateAsync(request, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return Result<UploadFileResponse>.Failure(errors, ErrorCode.BadRequest);
+            }
+        }
+
         try
         {
             CorSubmission? corSubmission = null;
@@ -77,7 +92,7 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
             // Update database record if submission exists
             if (corSubmission != null)
             {
-                corSubmission.UpdateSubmission(null, secureUrl, null);
+                corSubmission.UpdateSubmission(null, secureUrl, ParkFlow.Domain.Enums.CorVerificationStatus.Pending);
                 await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
 
                 if (_vehicleRepository != null)
@@ -96,7 +111,7 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
         }
         catch (Exception ex)
         {
-            return Result<UploadFileResponse>.Failure($"COR document upload failed: {ex.Message}", ErrorCode.ServerError);
+            return Result<UploadFileResponse>.Failure($"COR document upload failed: {ex.Message}", ErrorCode.BadRequest);
         }
     }
 }

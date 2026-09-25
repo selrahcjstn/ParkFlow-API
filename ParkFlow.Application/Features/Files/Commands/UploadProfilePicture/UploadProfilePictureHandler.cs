@@ -1,7 +1,9 @@
+using FluentValidation;
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Files.DTOs;
 using ParkFlow.Application.Interfaces;
+using System.Linq;
 
 namespace ParkFlow.Application.Features.Files.Commands.UploadProfilePicture;
 
@@ -9,15 +11,30 @@ public class UploadProfilePictureHandler : IRequestHandler<UploadProfilePictureC
 {
     private readonly IUserProfileRepository _userProfileRepository;
     private readonly ICloudinaryService _cloudinaryService;
+    private readonly IValidator<UploadProfilePictureCommand>? _validator;
 
-    public UploadProfilePictureHandler(IUserProfileRepository userProfileRepository, ICloudinaryService cloudinaryService)
+    public UploadProfilePictureHandler(
+        IUserProfileRepository userProfileRepository,
+        ICloudinaryService cloudinaryService,
+        IValidator<UploadProfilePictureCommand>? validator = null)
     {
         _userProfileRepository = userProfileRepository;
         _cloudinaryService = cloudinaryService;
+        _validator = validator;
     }
 
     public async Task<Result<UploadFileResponse>> Handle(UploadProfilePictureCommand request, CancellationToken cancellationToken)
     {
+        if (_validator != null)
+        {
+            var validationResult = await _validator.ValidateAsync(request, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return Result<UploadFileResponse>.Failure(errors, ErrorCode.BadRequest);
+            }
+        }
+
         try
         {
             var profile = await _userProfileRepository.GetByUserIdAsync(request.UserId);

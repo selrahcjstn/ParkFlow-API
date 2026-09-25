@@ -19,6 +19,8 @@ public class UploadProfilePictureCommandValidator : AbstractValidator<UploadProf
             .WithMessage("File is required.")
             .Must(file => file != null && file.Length > 0)
             .WithMessage("File cannot be empty.")
+            .Must(file => file != null && file.Length <= 5 * 1024 * 1024)
+            .WithMessage("File size cannot exceed 5MB.")
             .Must(file =>
             {
                 if (file == null) return false;

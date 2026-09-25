@@ -60,7 +60,11 @@ public class CorSubmissionRepository : ICorSubmissionRepository
 
     public async Task UpdateCorSubmissionAsync(CorSubmission corSubmission)
     {
-        _appDbContext.CorSubmissions.Update(corSubmission);
+        var entry = _appDbContext.Entry(corSubmission);
+        if (entry.State == EntityState.Detached)
+        {
+            _appDbContext.CorSubmissions.Update(corSubmission);
+        }
         await _appDbContext.SaveChangesAsync();
     }
 }
