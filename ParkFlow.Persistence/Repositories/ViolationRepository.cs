@@ -92,7 +92,8 @@ public class ViolationRepository : IViolationRepository
     public async Task<IReadOnlyList<Violation>> GetViolationHistoryAsync(
         Guid? userId = null,
         int pageNumber = 1,
-        int pageSize = 15)
+        int pageSize = 15,
+        bool? unpaidOnly = null)
     {
         try
         {
@@ -117,6 +118,9 @@ public class ViolationRepository : IViolationRepository
 
             if (userId.HasValue)
                 query = query.Where(v => v.ParkingLog.Vehicle.OwnerId == userId.Value);
+
+            if (unpaidOnly == true)
+                query = query.Where(v => v.SettlementStatus != global::SettlementStatus.Settled);
 
             return await query
                 .OrderByDescending(v => v.CreatedAt)
@@ -165,12 +169,50 @@ public class ViolationRepository : IViolationRepository
     {
         try
         {
+            var vehicle = await _context.Set<Vehicle>().AsNoTracking().FirstOrDefaultAsync(v => v.Id == vehicleId);
+            var ownerId = vehicle?.OwnerId;
+
             return await _context.Set<Violation>()
-                .AnyAsync(v => v.ParkingLog.VehicleId == vehicleId && v.SettlementStatus != global::SettlementStatus.Settled);
+                .AnyAsync(v => 
+                    (v.ParkingLog.VehicleId == vehicleId || (ownerId.HasValue && v.ParkingLog.Vehicle.OwnerId == ownerId.Value)) && 
+                    v.SettlementStatus != global::SettlementStatus.Settled);
         }
         catch (PostgresException ex) when (ex.SqlState == "42P01")
         {
             return false;
+        }
+    }
+
+    public async Task<bool> HasActiveViolationByUserIdAsync(Guid userId)
+    {
+        try
+        {
+            return await _context.Set<Violation>()
+                .AnyAsync(v => v.ParkingLog.Vehicle.OwnerId == userId && v.SettlementStatus != global::SettlementStatus.Settled);
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            return false;
+        }
+    }
+
+    public async Task<Violation?> GetLatestUnsettledByPlateNumberAsync(string plateNumber)
+    {
+        try
+        {
+            var normalized = plateNumber.Trim().ToLower();
+            return await _context.Set<Violation>()
+                .Include(v => v.ParkingLog)
+                    .ThenInclude(pl => pl.Vehicle)
+                        .ThenInclude(ve => ve.Owner)
+                            .ThenInclude(ua => ua.UserProfile)
+                .Where(v => v.ParkingLog.Vehicle.PlateNumber.ToLower() == normalized && v.SettlementStatus != global::SettlementStatus.Settled)
+                .OrderByDescending(v => v.CreatedAt)
+                .FirstOrDefaultAsync();
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            return null;
         }
     }
 

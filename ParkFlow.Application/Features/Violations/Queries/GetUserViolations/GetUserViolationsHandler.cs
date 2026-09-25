@@ -44,10 +44,8 @@ public class GetUserViolationsHandler
         foreach (var violation in violations)
         {
             var log = violation.ParkingLog;
-            var vehicle = log.Vehicle;
-            var ownerProfile = vehicle.Owner.UserProfile;
-            if (ownerProfile is null)
-                continue;
+            var vehicle = log?.Vehicle;
+            var ownerProfile = vehicle?.Owner?.UserProfile ?? profile;
 
             var admin = await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id);
             var roleDetails = _parkingLogRoleService.GetRoleDetails(
@@ -65,9 +63,9 @@ public class GetUserViolationsHandler
                 RoleName = roleDetails.Role,
 
                 // Vehicle
-                PlateNumber = vehicle.PlateNumber,
-                Brand = vehicle.Brand,
-                VehicleType = vehicle.VehicleType.ToString(),
+                PlateNumber = vehicle?.PlateNumber ?? "N/A",
+                Brand = vehicle?.Brand ?? "N/A",
+                VehicleType = vehicle?.VehicleType.ToString() ?? "N/A",
 
                 // Violation
                 ViolationId = violation.Id,
@@ -78,8 +76,8 @@ public class GetUserViolationsHandler
                 IsPaid = violation.SettlementStatus == global::SettlementStatus.Settled,
 
                 // Session
-                EntryTime = log.EntryTime,
-                ExitTime = log.ExitTime ?? DateTime.UtcNow,
+                EntryTime = log?.EntryTime ?? violation.CreatedAt,
+                ExitTime = log?.ExitTime ?? DateTime.UtcNow,
                 IssuedAt = violation.CreatedAt
             });
         }

@@ -3,6 +3,7 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.History.DTOs;
 using ParkFlow.Application.Features.ParkingLogs.Services;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.History.Queries;
@@ -142,7 +143,9 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 {
                     violationFee = 100.00m;
                 }
-                referenceNumber = $"VIO-LOG-{log.Id.ToString()[..8].ToUpper()}";
+                var newViolation = new Violation(log.Id, violationFee);
+                await _violationRepository.AddAsync(newViolation);
+                referenceNumber = newViolation.ReferenceNumber;
             }
 
             dtoList.Add(new ParkingHistoryResponse

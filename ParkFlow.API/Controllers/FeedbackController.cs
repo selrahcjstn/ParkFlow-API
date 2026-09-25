@@ -8,8 +8,10 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Feedbacks.Commands.CreateFeedback;
 using ParkFlow.Application.Features.Feedbacks.Commands.ReplyToFeedback;
 using ParkFlow.Application.Features.Feedbacks.Commands.UpdateFeedbackStatus;
+using ParkFlow.Application.Features.Feedbacks.Commands.UpdateUserRating;
 using ParkFlow.Application.Features.Feedbacks.Queries.GetFeedbacks;
 using ParkFlow.Application.Features.Feedbacks.Queries.GetMyFeedbacks;
+using ParkFlow.Application.Features.Feedbacks.Queries.GetUserRating;
 using ParkFlow.Application.Features.Feedbacks.DTOs;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Enums;
@@ -17,6 +19,7 @@ using ParkFlow.Domain.Enums;
 namespace ParkFlow.API.Controllers;
 
 public record CreateFeedbackRequest(string Category, int Rating, string Description, string? AttachmentUrl);
+public record UpdateRatingRequest(int Rating);
 public record UpdateFeedbackStatusRequest(FeedbackStatus Status, string? AdminNotes);
 public record ReplyToFeedbackRequest(string ReplyMessage, decimal? InvoiceAmount = null, string? InvoiceDescription = null, bool MarkResolved = false);
 
@@ -68,6 +71,37 @@ public class FeedbackController : ControllerBase
             return Unauthorized(Result<IEnumerable<FeedbackDto>>.Failure("User not identified.", ErrorCode.Unauthorized));
 
         var result = await _mediator.Send(new GetMyFeedbacksQuery(userId));
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>
+    /// Returns current logged-in user's app rating status.
+    /// </summary>
+    [HttpGet("my-rating")]
+    [Authorize]
+    public async Task<ActionResult<Result<UserRatingDto>>> GetMyRating()
+    {
+        var userId = _userContext.GetUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized(Result<UserRatingDto>.Failure("User not identified.", ErrorCode.Unauthorized));
+
+        var result = await _mediator.Send(new GetUserRatingQuery(userId));
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>
+    /// Submits or modifies the current logged-in user's single app rating.
+    /// </summary>
+    [HttpPut("my-rating")]
+    [HttpPost("my-rating")]
+    [Authorize]
+    public async Task<ActionResult<Result<UserRatingDto>>> UpdateMyRating([FromBody] UpdateRatingRequest request)
+    {
+        var userId = _userContext.GetUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized(Result<UserRatingDto>.Failure("User not identified.", ErrorCode.Unauthorized));
+
+        var result = await _mediator.Send(new UpdateUserRatingCommand(userId, request.Rating));
         return this.ToActionResult(result);
     }
 

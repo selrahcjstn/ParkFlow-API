@@ -85,9 +85,28 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         }
 
         if (vehicle == null)
+        {
+            var studentNumber = ExtractStudentNumber(request.QrCodeHash);
+            if (!string.IsNullOrEmpty(studentNumber))
+            {
+                var scannedStudent = await _studentRepository.GetByStudentNumberAsync(studentNumber);
+                if (scannedStudent != null)
+                {
+                    var profile = scannedStudent.UserProfile ?? await _userProfileRepository.GetByIdAsync(scannedStudent.UserProfileId);
+                    if (profile != null)
+                    {
+                        var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(profile.UserAccountId);
+                        vehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
+                    }
+                }
+            }
+        }
+
+        if (vehicle == null)
             return Result<CreateParkingLogResponse>.Failure("Invalid QR code. Vehicle not found.", ErrorCode.NotFound);
 
-        var hasActiveViolation = await _violationRepository.HasActiveViolationAsync(vehicle.Id);
+        var hasActiveViolation = await _violationRepository.HasActiveViolationAsync(vehicle.Id)
+            || await _violationRepository.HasActiveViolationByUserIdAsync(vehicle.OwnerId);
         if (hasActiveViolation)
             return Result<CreateParkingLogResponse>.Failure("Vehicle has active/unpaid violations. Entry denied.", ErrorCode.Forbidden);
 
@@ -268,5 +287,37 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         }
 
         return Result<CreateParkingLogResponse>.Success(response, "Entry Confirmed");
+    }
+
+    private static string? ExtractStudentNumber(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+        var trimmed = input.Trim();
+        var delimiters = new[] { ',', '\n', '\r', ';', '|' };
+        if (delimiters.Any(d => trimmed.Contains(d)))
+        {
+            var parts = trimmed.Split(delimiters, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 1)
+            {
+                return CleanStudentNumber(parts[0]);
+            }
+        }
+        return CleanStudentNumber(trimmed);
+    }
+
+    private static string CleanStudentNumber(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return string.Empty;
+        var cleaned = token.Trim();
+        var colonIdx = cleaned.IndexOf(':');
+        if (colonIdx >= 0 && colonIdx < cleaned.Length - 1)
+        {
+            var prefix = cleaned.Substring(0, colonIdx).ToLowerInvariant();
+            if (prefix.Contains("student") || prefix.Contains("id") || prefix.Contains("no"))
+            {
+                cleaned = cleaned.Substring(colonIdx + 1).Trim();
+            }
+        }
+        return cleaned;
     }
 }

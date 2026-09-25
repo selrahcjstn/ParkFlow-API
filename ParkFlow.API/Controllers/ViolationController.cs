@@ -63,7 +63,8 @@ public class ViolationController : ControllerBase
     [Authorize]
     public async Task<ActionResult<Result<PagedViolationHistoryResponse>>> GetViolationHistory(
         int pageNumber,
-        int pageSize)
+        int pageSize,
+        [FromQuery] bool? unpaidOnly = null)
     {
         var userId = _userContext.GetUserId();
         if (userId == Guid.Empty)
@@ -74,7 +75,7 @@ public class ViolationController : ControllerBase
         if (pageSize < 1) pageSize = 15;
         if (pageSize > 45) pageSize = 45;
 
-        var result = await _mediator.Send(new GetViolationHistoryQuery(userId, pageNumber, pageSize));
+        var result = await _mediator.Send(new GetViolationHistoryQuery(userId, pageNumber, pageSize, unpaidOnly));
 
         if (result.IsSuccess)
             return Ok(result);

@@ -9,6 +9,7 @@ using ParkFlow.Application.Features.ParkingLogs.DTOs;
 using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSessionCount;
 using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSession;
 using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveSessionByVehicleId;
+using ParkFlow.Application.Features.ParkingLogs.Queries.VerifyStudentScan;
 
 namespace ParkFlow.API.Controllers;
 
@@ -21,6 +22,14 @@ public class ParkingLogController : ControllerBase
     public ParkingLogController(IMediator mediator)
     {
         _mediator = mediator;
+    }
+
+    // VERIFY STUDENT SCAN
+    [HttpPost("verify-student-scan")]
+    public async Task<ActionResult<Result<VerifyStudentScanResponse>>> VerifyStudentScan([FromBody] VerifyStudentScanQuery query)
+    {
+        var result = await _mediator.Send(query);
+        return this.ToActionResult(result);
     }
 
     // ENTRY
