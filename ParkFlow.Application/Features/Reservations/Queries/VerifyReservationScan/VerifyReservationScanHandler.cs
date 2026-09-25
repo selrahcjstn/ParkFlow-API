@@ -12,15 +12,18 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
     private readonly IParkingReservationRepository _reservationRepository;
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IUserProfileRepository _userProfileRepository;
+    private readonly IViolationRepository? _violationRepository;
 
     public VerifyReservationScanHandler(
         IParkingReservationRepository reservationRepository,
         IVehicleRepository vehicleRepository,
-        IUserProfileRepository userProfileRepository)
+        IUserProfileRepository userProfileRepository,
+        IViolationRepository? violationRepository = null)
     {
         _reservationRepository = reservationRepository;
         _vehicleRepository = vehicleRepository;
         _userProfileRepository = userProfileRepository;
+        _violationRepository = violationRepository;
     }
 
     public async Task<Result<VerifyReservationScanResponse>> Handle(VerifyReservationScanQuery request, CancellationToken cancellationToken)
@@ -98,6 +101,11 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
         else if (!isToday)
         {
             statusMessage = $"Reservation is for {reservation.ReservationDate:MMMM dd, yyyy}. Not valid today.";
+        }
+        else if (_violationRepository != null && (await _violationRepository.HasActiveViolationByUserIdAsync(reservation.UserId) || (vehicle != null && await _violationRepository.HasActiveViolationAsync(vehicle.Id))))
+        {
+            isValid = false;
+            statusMessage = "Entry denied: User has active/unpaid violations. Please settle pending charges before parking.";
         }
         else
         {

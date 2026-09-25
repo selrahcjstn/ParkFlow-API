@@ -45,37 +45,42 @@ public class GetViolationHistoryHandler
         var violations = await _violationRepository.GetViolationHistoryAsync(
             canViewAll ? null : request.UserId,
             request.PageNumber,
-            request.PageSize);
+            request.PageSize,
+            request.UnpaidOnly);
 
         var items = new List<ViolationHistoryResponse>();
 
         foreach (var violation in violations)
         {
             var log = violation.ParkingLog;
-            var vehicle = log.Vehicle;
-            var ownerProfile = vehicle.Owner.UserProfile;
-            if (ownerProfile is null)
-                continue;
+            var vehicle = log?.Vehicle;
+            var ownerProfile = vehicle?.Owner?.UserProfile;
+            if (ownerProfile == null && vehicle?.OwnerId != null && vehicle.OwnerId != Guid.Empty)
+            {
+                ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
+            }
 
-            var admin = await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id);
-            var roleDetails = _parkingLogRoleService.GetRoleDetails(
-                ownerProfile,
-                ownerProfile.Student,
-                ownerProfile.Personnel,
-                admin);
+            var admin = ownerProfile != null ? await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id) : null;
+            var roleDetails = ownerProfile != null
+                ? _parkingLogRoleService.GetRoleDetails(
+                    ownerProfile,
+                    ownerProfile.Student,
+                    ownerProfile.Personnel,
+                    admin)
+                : null;
 
             items.Add(new ViolationHistoryResponse
             {
                 // Owner
-                FirstName = ownerProfile.FirstName,
-                LastName = ownerProfile.LastName,
-                MiddleName = ownerProfile.MiddleName,
-                RoleName = roleDetails.Role,
+                FirstName = ownerProfile?.FirstName ?? "Registered",
+                LastName = ownerProfile?.LastName ?? "User",
+                MiddleName = ownerProfile?.MiddleName,
+                RoleName = roleDetails?.Role ?? "User",
 
                 // Vehicle
-                PlateNumber = vehicle.PlateNumber,
-                Brand = vehicle.Brand,
-                VehicleType = vehicle.VehicleType.ToString(),
+                PlateNumber = vehicle?.PlateNumber ?? "N/A",
+                Brand = vehicle?.Brand ?? "N/A",
+                VehicleType = vehicle?.VehicleType.ToString() ?? "N/A",
 
                 // Violation
                 ViolationId = violation.Id,
@@ -86,8 +91,8 @@ public class GetViolationHistoryHandler
                 IsPaid = violation.SettlementStatus == global::SettlementStatus.Settled,
 
                 // Session
-                EntryTime = log.EntryTime,
-                ExitTime = log.ExitTime ?? DateTime.UtcNow,
+                EntryTime = log?.EntryTime ?? violation.CreatedAt,
+                ExitTime = log?.ExitTime ?? DateTime.UtcNow,
                 IssuedAt = violation.CreatedAt
             });
         }

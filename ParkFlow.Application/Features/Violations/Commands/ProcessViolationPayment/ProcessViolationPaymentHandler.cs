@@ -18,6 +18,8 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
     private readonly ISignalRNotificationSender _notificationSender;
     private readonly INotificationService? _notificationService;
 
+    private readonly IAdminRepository? _adminRepository;
+
     public ProcessViolationPaymentHandler(
         IViolationRepository violationRepository,
         IUserProfileRepository userProfileRepository,
@@ -25,7 +27,8 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
         IParkingLogRepository parkingLogRepository,
         IValidator<ProcessViolationPaymentCommand> validator,
         ISignalRNotificationSender notificationSender,
-        INotificationService? notificationService = null)
+        INotificationService? notificationService = null,
+        IAdminRepository? adminRepository = null)
     {
         _violationRepository = violationRepository;
         _userProfileRepository = userProfileRepository;
@@ -34,6 +37,7 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
         _validator = validator;
         _notificationSender = notificationSender;
         _notificationService = notificationService;
+        _adminRepository = adminRepository;
     }
 
     public async Task<Result<ViolationPaymentReceiptDto>> Handle(ProcessViolationPaymentCommand request, CancellationToken cancellationToken)
@@ -45,7 +49,7 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
             return Result<ViolationPaymentReceiptDto>.Failure(errors, ErrorCode.BadRequest);
         }
 
-        // 1. Verify that the user processing this payment is a Guard
+        // 1. Verify that the user processing this payment is a Guard or Admin
         var userProfile = await _userProfileRepository.GetByUserIdAsync(request.GuardUserId);
         if (userProfile == null)
         {
@@ -55,19 +59,49 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
         }
 
         var guard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
-        if (guard == null)
+        var admin = _adminRepository != null ? await _adminRepository.GetByUserProfileIdAsync(userProfile.Id) : null;
+        if (guard == null && admin == null)
         {
             return Result<ViolationPaymentReceiptDto>.Failure(
-                "Access Denied: Only guards can verify and process violation payments.",
+                "Access Denied: Only guards or administrators can verify and process violation payments.",
                 ErrorCode.Forbidden);
         }
 
-        // 2. Fetch the violation by ReferenceNumber
-        var violation = await _violationRepository.GetByReferenceNumberAsync(request.ReferenceNumber);
+        // 2. Fetch the violation by ReferenceNumber (or fallback to log id / plate number)
+        var trimmedRef = request.ReferenceNumber.Trim();
+        var violation = await _violationRepository.GetByReferenceNumberAsync(trimmedRef);
+
+        if (violation == null && Guid.TryParse(trimmedRef, out var parsedGuid))
+        {
+            violation = await _violationRepository.GetByIdAsync(parsedGuid)
+                     ?? await _violationRepository.GetByLogIdAsync(parsedGuid);
+        }
+
+        if (violation == null && trimmedRef.StartsWith("VIO-LOG-", StringComparison.OrdinalIgnoreCase))
+        {
+            var logPrefix = trimmedRef.Replace("VIO-LOG-", "", StringComparison.OrdinalIgnoreCase).Trim();
+            var recentLogs = await _parkingLogRepository.GetRecentParkingLogsAsync(100);
+            var matchingLog = recentLogs.FirstOrDefault(l => l.Id.ToString().ToUpper().StartsWith(logPrefix.ToUpper()));
+            if (matchingLog != null)
+            {
+                violation = await _violationRepository.GetByLogIdAsync(matchingLog.Id);
+                if (violation == null)
+                {
+                    violation = new Violation(matchingLog.Id, 100.00m);
+                    await _violationRepository.AddAsync(violation);
+                }
+            }
+        }
+
+        if (violation == null)
+        {
+            violation = await _violationRepository.GetLatestUnsettledByPlateNumberAsync(trimmedRef);
+        }
+
         if (violation == null)
         {
             return Result<ViolationPaymentReceiptDto>.Failure(
-                $"No violation found with reference number '{request.ReferenceNumber}'.",
+                $"No violation found matching reference or vehicle '{request.ReferenceNumber}'.",
                 ErrorCode.NotFound);
         }
 

@@ -132,10 +132,11 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
             if (primaryVehicle != null)
             {
                 hasRegisteredVehicle = true;
-                hasActiveViolation = await _violationRepository.HasActiveViolationAsync(primaryVehicle.Id);
+                hasActiveViolation = await _violationRepository.HasActiveViolationAsync(primaryVehicle.Id)
+                    || await _violationRepository.HasActiveViolationByUserIdAsync(userAccountId);
                 if (hasActiveViolation)
                 {
-                    violationNotice = "Vehicle has active/unpaid violations.";
+                    violationNotice = "Vehicle/User has active/unpaid violations.";
                 }
 
                 var activeLog = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(primaryVehicle.Id);
@@ -259,6 +260,12 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
             isValid = true;
             entryStatus = "CurrentlyParked";
             statusMessage = $"Vehicle ({primaryVehicle.PlateNumber}) is currently parked inside. Ready to exit.";
+        }
+        else if (hasActiveViolation)
+        {
+            isValid = false;
+            entryStatus = "HasViolation";
+            statusMessage = "Entry denied: User has active/unpaid violations. Please settle pending charges before parking.";
         }
 
         var response = new VerifyStudentScanResponse

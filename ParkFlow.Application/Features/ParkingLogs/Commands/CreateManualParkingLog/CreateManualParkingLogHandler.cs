@@ -137,6 +137,16 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
                 ErrorCode.Conflict);
         }
 
+        // 3b. Check active violations
+        var hasActiveViolation = await _violationRepository.HasActiveViolationAsync(vehicle.Id)
+            || await _violationRepository.HasActiveViolationByUserIdAsync(vehicle.OwnerId);
+        if (hasActiveViolation)
+        {
+            return Result<CreateParkingLogResponse>.Failure(
+                "Vehicle/User has active/unpaid violations. Entry denied. Please settle pending charges before parking.",
+                ErrorCode.Forbidden);
+        }
+
         // 4. Check guard exists
         var userProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
         if (userProfile == null)

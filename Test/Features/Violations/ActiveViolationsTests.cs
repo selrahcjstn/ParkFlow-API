@@ -33,18 +33,40 @@ public class FakeViolationRepository : IViolationRepository
     public Task<Violation?> GetByLogIdAsync(Guid logId) => Task.FromResult(Violations.FirstOrDefault(v => v.ParkingLogId == logId));
     public Task<Violation?> GetByReferenceNumberAsync(string referenceNumber) => Task.FromResult(Violations.FirstOrDefault(v => v.ReferenceNumber == referenceNumber));
     public Task<IReadOnlyList<Violation>> GetRecentViolationsAsync(int limit) => Task.FromResult<IReadOnlyList<Violation>>(Violations.Take(limit).ToList());
-    public Task<IReadOnlyList<Violation>> GetViolationHistoryAsync(Guid? userId = null, int pageNumber = 1, int pageSize = 15) => Task.FromResult<IReadOnlyList<Violation>>(Violations.ToList());
+    public Task<IReadOnlyList<Violation>> GetViolationHistoryAsync(Guid? userId = null, int pageNumber = 1, int pageSize = 15, bool? unpaidOnly = null)
+    {
+        var query = Violations.AsEnumerable();
+        if (userId.HasValue)
+        {
+            query = query.Where(v => v.ParkingLog?.Vehicle?.OwnerId == userId.Value);
+        }
+        if (unpaidOnly == true)
+        {
+            query = query.Where(v => v.SettlementStatus != SettlementStatus.Settled);
+        }
+        return Task.FromResult<IReadOnlyList<Violation>>(query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList());
+    }
 
     public Task<IReadOnlyList<Violation>> GetViolationsByUserIdAsync(Guid userId)
     {
         return Task.FromResult<IReadOnlyList<Violation>>(
-            Violations.Where(v => v.ParkingLog.Vehicle.OwnerId == userId).ToList()
+            Violations.Where(v => v.ParkingLog?.Vehicle?.OwnerId == userId).ToList()
         );
     }
 
     public Task<bool> HasActiveViolationAsync(Guid vehicleId)
     {
         return Task.FromResult(HasActiveViolationValue);
+    }
+
+    public Task<bool> HasActiveViolationByUserIdAsync(Guid userId)
+    {
+        return Task.FromResult(HasActiveViolationValue);
+    }
+
+    public Task<Violation?> GetLatestUnsettledByPlateNumberAsync(string plateNumber)
+    {
+        return Task.FromResult(Violations.FirstOrDefault(v => v.SettlementStatus != SettlementStatus.Settled && (v.ParkingLog?.Vehicle?.PlateNumber.Equals(plateNumber, StringComparison.OrdinalIgnoreCase) ?? false)));
     }
 
     public Task UpdateAsync(Violation violation) => Task.CompletedTask;
