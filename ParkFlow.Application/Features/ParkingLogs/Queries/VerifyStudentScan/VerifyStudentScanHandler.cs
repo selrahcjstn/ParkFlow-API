@@ -47,28 +47,33 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
         if (!string.IsNullOrWhiteSpace(request.QrContent))
         {
             var raw = request.QrContent.Trim();
-            if (raw.Contains(','))
+            var delimiters = new[] { ',', '\n', '\r', ';', '|' };
+            if (delimiters.Any(d => raw.Contains(d)))
             {
-                var parts = raw.Split(',');
+                var parts = raw.Split(delimiters, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(p => p.Trim())
+                    .Where(p => !string.IsNullOrEmpty(p))
+                    .ToArray();
+
                 if (parts.Length >= 3)
                 {
-                    studentNumber = parts[0].Trim();
-                    scannedName = parts[1].Trim();
-                    scannedProgram = string.Join(",", parts.Skip(2)).Trim();
+                    studentNumber = CleanStudentNumber(parts[0]);
+                    scannedName = CleanLabel(parts[1]);
+                    scannedProgram = CleanLabel(string.Join(", ", parts.Skip(2)));
                 }
                 else if (parts.Length == 2)
                 {
-                    studentNumber = parts[0].Trim();
-                    scannedName = parts[1].Trim();
+                    studentNumber = CleanStudentNumber(parts[0]);
+                    scannedName = CleanLabel(parts[1]);
                 }
-                else
+                else if (parts.Length == 1)
                 {
-                    studentNumber = parts[0].Trim();
+                    studentNumber = CleanStudentNumber(parts[0]);
                 }
             }
             else if (string.IsNullOrWhiteSpace(studentNumber))
             {
-                studentNumber = raw;
+                studentNumber = CleanStudentNumber(raw);
             }
         }
 
@@ -273,5 +278,33 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
         };
 
         return Result<VerifyStudentScanResponse>.Success(response, statusMessage);
+    }
+
+    private static string CleanStudentNumber(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return string.Empty;
+        var cleaned = token.Trim();
+        var colonIdx = cleaned.IndexOf(':');
+        if (colonIdx >= 0 && colonIdx < cleaned.Length - 1)
+        {
+            var prefix = cleaned.Substring(0, colonIdx).ToLowerInvariant();
+            if (prefix.Contains("student") || prefix.Contains("id") || prefix.Contains("no"))
+            {
+                cleaned = cleaned.Substring(colonIdx + 1).Trim();
+            }
+        }
+        return cleaned;
+    }
+
+    private static string CleanLabel(string token, string? fieldType = null)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return string.Empty;
+        var cleaned = token.Trim();
+        var colonIdx = cleaned.IndexOf(':');
+        if (colonIdx >= 0 && colonIdx < cleaned.Length - 1)
+        {
+            cleaned = cleaned.Substring(colonIdx + 1).Trim();
+        }
+        return cleaned;
     }
 }

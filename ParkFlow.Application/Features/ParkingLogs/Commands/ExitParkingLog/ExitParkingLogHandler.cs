@@ -192,7 +192,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             }
         }
 
-        var userReservations = await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId);
+        var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId) : [];
         var specialRes = userReservations.FirstOrDefault(r => 
             (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
             r.ReservationDate.Date == philippinesNow.Date &&
@@ -387,14 +387,31 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
     {
         if (string.IsNullOrWhiteSpace(input)) return null;
         var trimmed = input.Trim();
-        if (trimmed.Contains(','))
+        var delimiters = new[] { ',', '\n', '\r', ';', '|' };
+        if (delimiters.Any(d => trimmed.Contains(d)))
         {
-            var parts = trimmed.Split(',');
-            if (parts.Length >= 2)
+            var parts = trimmed.Split(delimiters, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 1)
             {
-                return parts[0].Trim();
+                return CleanStudentNumber(parts[0]);
             }
         }
-        return trimmed;
+        return CleanStudentNumber(trimmed);
+    }
+
+    private static string CleanStudentNumber(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return string.Empty;
+        var cleaned = token.Trim();
+        var colonIdx = cleaned.IndexOf(':');
+        if (colonIdx >= 0 && colonIdx < cleaned.Length - 1)
+        {
+            var prefix = cleaned.Substring(0, colonIdx).ToLowerInvariant();
+            if (prefix.Contains("student") || prefix.Contains("id") || prefix.Contains("no"))
+            {
+                cleaned = cleaned.Substring(colonIdx + 1).Trim();
+            }
+        }
+        return cleaned;
     }
 }
