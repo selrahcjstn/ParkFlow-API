@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
@@ -6,6 +7,7 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Feedbacks.DTOs;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Feedbacks.Commands.CreateFeedback
 {
@@ -30,25 +32,83 @@ namespace ParkFlow.Application.Features.Feedbacks.Commands.CreateFeedback
 
         public async Task<Result<FeedbackDto>> Handle(CreateFeedbackCommand request, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(request.Description))
+            if (string.IsNullOrWhiteSpace(request.Description) || request.Description.Trim().Length < 15)
             {
-                return Result<FeedbackDto>.Failure("Description is required.", ErrorCode.BadRequest);
+                return Result<FeedbackDto>.Failure("Please provide a more detailed description (minimum 15 characters required).", ErrorCode.BadRequest);
             }
 
-            if (request.Rating < 1 || request.Rating > 5)
+            // Anti-Spam & Rate Limiting Protections
+            var userFeedbacks = (await _feedbackRepository.GetByUserIdAsync(request.UserId)).ToList();
+            var existingRatingFeedback = userFeedbacks.FirstOrDefault(f => f.Rating >= 1 && f.Rating <= 5);
+
+            int finalRating = request.Rating;
+            if (finalRating < 1 || finalRating > 5)
             {
-                return Result<FeedbackDto>.Failure("Rating must be between 1 and 5 stars.", ErrorCode.BadRequest);
+                if (existingRatingFeedback != null)
+                {
+                    finalRating = existingRatingFeedback.Rating;
+                }
+                else
+                {
+                    return Result<FeedbackDto>.Failure("Please select a satisfaction rating (1 to 5 stars).", ErrorCode.BadRequest);
+                }
+            }
+
+            // 1. Cooldown check: 10-minute cooldown between any two submissions
+            var latest = userFeedbacks.FirstOrDefault();
+            if (latest != null && (DateTime.UtcNow - latest.CreatedAt).TotalMinutes < 10)
+            {
+                var remainingMinutes = (int)Math.Ceiling(10 - (DateTime.UtcNow - latest.CreatedAt).TotalMinutes);
+                return Result<FeedbackDto>.Failure(
+                    $"Please wait {remainingMinutes} more minute(s) before submitting another feedback or inquiry.",
+                    ErrorCode.BadRequest);
+            }
+
+            // 2. Daily limit: Max 3 feedbacks within rolling 24 hours
+            var countLast24Hours = userFeedbacks.Count(f => f.CreatedAt >= DateTime.UtcNow.AddHours(-24));
+            if (countLast24Hours >= 3)
+            {
+                return Result<FeedbackDto>.Failure(
+                    "You have reached the limit of 3 feedback submissions per day. Please try again tomorrow.",
+                    ErrorCode.BadRequest);
+            }
+
+            // 3. Pending inquiries cap: Max 2 pending inquiries awaiting admin response
+            var pendingCount = userFeedbacks.Count(f => f.Status == FeedbackStatus.Pending);
+            if (pendingCount >= 2)
+            {
+                return Result<FeedbackDto>.Failure(
+                    "You already have 2 pending inquiries awaiting administration response. Please wait until they are addressed.",
+                    ErrorCode.BadRequest);
+            }
+
+            // 4. Duplicate content check: Disallow submitting identical content within 24 hours
+            if (userFeedbacks.Any(f => f.Description.Trim().Equals(request.Description.Trim(), StringComparison.OrdinalIgnoreCase) && (DateTime.UtcNow - f.CreatedAt).TotalHours < 24))
+            {
+                return Result<FeedbackDto>.Failure(
+                    "You have already submitted an inquiry with identical content recently. Please check your Inquiries & Replies tab.",
+                    ErrorCode.BadRequest);
             }
 
             var feedback = new Feedback(
                 request.UserId,
                 request.Category,
-                request.Rating,
-                request.Description,
+                finalRating,
+                request.Description.Trim(),
                 request.AttachmentUrl
             );
 
             await _feedbackRepository.AddAsync(feedback);
+
+            // Sync all user's previous feedbacks if rating was modified
+            if (existingRatingFeedback != null && finalRating != existingRatingFeedback.Rating)
+            {
+                foreach (var f in userFeedbacks)
+                {
+                    f.Rating = finalRating;
+                    await _feedbackRepository.UpdateAsync(f);
+                }
+            }
 
             var profile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
             var account = await _userAccountRepository.GetByIdAsync(request.UserId);
