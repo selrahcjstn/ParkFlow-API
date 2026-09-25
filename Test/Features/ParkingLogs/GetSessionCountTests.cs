@@ -284,6 +284,8 @@ public class FakeViolationService : IViolationService
 {
     public bool IsOverstay(DateTime exitTime, TimeSpan scheduleEndTime, int graceMinutes = 30) => false;
     public TimeSpan GetOverstayDuration(DateTime exitTime, TimeSpan scheduleEndTime, int graceMinutes = 30) => TimeSpan.Zero;
+    public bool IsOverstay(DateTime exitTime, DateTime maximumExitTime) => exitTime > maximumExitTime;
+    public TimeSpan GetOverstayDuration(DateTime exitTime, DateTime maximumExitTime) => exitTime > maximumExitTime ? exitTime - maximumExitTime : TimeSpan.Zero;
     public decimal CalculatePenalty(TimeSpan overstayDuration, decimal hourlyRate = 5) => 0m;
 }
 

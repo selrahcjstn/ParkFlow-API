@@ -121,6 +121,82 @@ public class ExitManualParkingLogTests
         Assert.Equal(0, result.Data.PenaltyFee);
         Assert.True(fakeNotificationSender.WasNotificationSent);
     }
+
+    [Fact]
+    public async Task Handle_ShouldCalculateOverstayPenalty_WhenEntryDateIsInThePast()
+    {
+        // Arrange
+        var ownerId = Guid.NewGuid();
+        var guardUserId = Guid.NewGuid();
+        var guardProfileId = Guid.NewGuid();
+        var vehicleId = Guid.NewGuid();
+
+        var vehicle = new Vehicle(ownerId, "XYZ-9999", "Honda", "hashed_qr2", VehicleType.Motorcycle);
+        var vehicleIdProperty = typeof(BaseEntity).GetProperty("Id");
+        vehicleIdProperty?.SetValue(vehicle, vehicleId);
+        await _vehicleRepository.AddAsync(vehicle);
+
+        var ownerAccount = new UserAccount(string.Empty, "+639999999998");
+        var ownerProfile = new UserProfile(ownerId, "Jane", "Doe", null, null);
+        ownerProfile.UserAccount = ownerAccount;
+        _userProfileRepository.Profiles.Add(ownerProfile);
+
+        var ownerProperty = typeof(Vehicle).GetProperty("Owner");
+        ownerProperty?.SetValue(vehicle, ownerAccount);
+
+        var guardAccount = new UserAccount(string.Empty, "+639888888887");
+        var guardProfile = new UserProfile(guardUserId, "Guard", "Two", null, null);
+        guardProfile.UserAccount = guardAccount;
+        var guardProfileIdProperty = typeof(BaseEntity).GetProperty("Id");
+        guardProfileIdProperty?.SetValue(guardProfile, guardProfileId);
+        _userProfileRepository.Profiles.Add(guardProfile);
+
+        var guard = new Guard(guardProfile, 1);
+        _guardRepository.Guard = guard;
+
+        // Entry date 2 months ago (e.g. July 25)
+        var activeLog = new ParkingLog(vehicleId, guardProfileId, ParkingStatus.Parked, EntryMethod.QrCode);
+        var entryTimeProp = typeof(ParkingLog).GetProperty("EntryTime");
+        entryTimeProp?.SetValue(activeLog, DateTime.UtcNow.AddDays(-60));
+
+        var vehicleProperty = typeof(ParkingLog).GetProperty("Vehicle");
+        vehicleProperty?.SetValue(activeLog, vehicle);
+
+        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog);
+        var fakeNotificationSender = new FakeSignalRNotificationSender();
+
+        var handler = new ExitManualParkingLogHandler(
+            parkingLogRepository,
+            _vehicleRepository,
+            _userProfileRepository,
+            _guardRepository,
+            _corSubmissionRepository,
+            _parkingScheduleRepository,
+            _studentRepository,
+            _personnelRepository,
+            _adminRepository,
+            _violationRepository,
+            _parkingService,
+            new ViolationService(), // Use real ViolationService
+            _parkingLogRoleService,
+            new ExitManualParkingLogValidator(),
+            fakeNotificationSender
+        );
+
+        var command = new ExitManualParkingLogCommand("XYZ-9999", guardUserId);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Data);
+        Assert.Equal("XYZ-9999", result.Data.PlateNumber);
+        Assert.Equal(ParkingStatus.Exited.ToString(), result.Data.Status);
+        Assert.True(result.Data.PenaltyFee > 0, "Penalty fee should be greater than 0 for a 60-day overstay.");
+        Assert.True(result.Data.OverstayTime > 24, "Overstay hours should exceed 24 hours.");
+        Assert.NotNull(result.Data.ReferenceNumber);
+    }
 }
 
 public class FakeParkingLogRepositoryForExit : IParkingLogRepository

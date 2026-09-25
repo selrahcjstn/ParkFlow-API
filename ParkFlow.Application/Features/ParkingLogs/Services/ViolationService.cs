@@ -15,6 +15,17 @@ public class ViolationService : IViolationService
         return duration > TimeSpan.Zero ? duration : TimeSpan.Zero;
     }
 
+    public bool IsOverstay(DateTime exitTime, DateTime maximumExitTime)
+    {
+        return exitTime > maximumExitTime;
+    }
+
+    public TimeSpan GetOverstayDuration(DateTime exitTime, DateTime maximumExitTime)
+    {
+        var duration = exitTime - maximumExitTime;
+        return duration > TimeSpan.Zero ? duration : TimeSpan.Zero;
+    }
+
     public decimal CalculatePenalty(TimeSpan overstayDuration, decimal hourlyRate = 5m)
     {
         var hours = Math.Max(0, Math.Ceiling(overstayDuration.TotalHours));

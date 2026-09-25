@@ -252,6 +252,15 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
             }
         }
 
+        // If the student's registered vehicle is already parked inside the facility,
+        // this scan is for EXIT, not entry. Do not deny exit based on class schedule!
+        if (isCurrentlyParked && primaryVehicle != null)
+        {
+            isValid = true;
+            entryStatus = "CurrentlyParked";
+            statusMessage = $"Vehicle ({primaryVehicle.PlateNumber}) is currently parked inside. Ready to exit.";
+        }
+
         var response = new VerifyStudentScanResponse
         {
             IsValid = isValid,

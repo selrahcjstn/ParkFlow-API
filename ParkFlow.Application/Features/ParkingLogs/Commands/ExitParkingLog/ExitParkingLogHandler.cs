@@ -157,54 +157,75 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         string? settlementStatus = null;
         string? referenceNumber = null;
 
-        var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(exitTime);
+        var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(active.EntryTime);
 
-        if (active.EntryMethod != EntryMethod.Manual && verifiedCor != null)
+        var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId) : [];
+        var entryReservation = userReservations.FirstOrDefault(r => 
+            (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
+            r.ReservationDate.Date == philippinesEntry.Date &&
+            r.Status == ReservationStatus.Approved);
+
+        if (entryReservation != null)
+        {
+            if (entryReservation.Type == ReservationType.Special)
+            {
+                maximumExitTime = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
+            }
+            else
+            {
+                var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, entryReservation.EndTime);
+                maximumExitTime = resEndTimeUtc.AddMinutes(30);
+            }
+        }
+        else if (active.EntryMethod != EntryMethod.Manual && verifiedCor != null)
         {
             var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-            var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == philippinesNow.DayOfWeek);
+            var entrySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == philippinesEntry.DayOfWeek);
 
-            if (todaySchedule != null)
+            if (entrySchedule != null)
             {
-                endTime = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todaySchedule.EndTime);
-                maximumExitTime = endTime.AddMinutes(30);
-
-                if (_violationService.IsOverstay(philippinesNow, todaySchedule.EndTime))
-                {
-                    var overstayDuration = _violationService.GetOverstayDuration(philippinesNow, todaySchedule.EndTime);
-                    overstayTime = overstayDuration.TotalHours;
-                    penaltyFee = _violationService.CalculatePenalty(overstayDuration);
-
-                    if (penaltyFee > 0m)
-                    {
-                        var recordedExitTime = active.ExitTime ?? exitTime;
-                        var violation = new Violation(
-                            active.Id,
-                            penaltyFee);
-                        await _violationRepository.AddAsync(violation);
-                        isViolation = true;
-                        violationId = violation.Id;
-                        violationType = violation.ViolationType.ToString();
-                        settlementStatus = violation.SettlementStatus.ToString();
-                        referenceNumber = violation.ReferenceNumber;
-                    }
-                }
+                var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, entrySchedule.EndTime);
+                maximumExitTime = scheduleEndTimeUtc.AddMinutes(30);
             }
         }
 
-        var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId) : [];
-        var specialRes = userReservations.FirstOrDefault(r => 
-            (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
-            r.ReservationDate.Date == philippinesNow.Date &&
-            r.Status == ReservationStatus.Approved &&
-            r.Type == ReservationType.Special);
-
-        if (specialRes != null)
+        // If no schedule or reservation was found for entry day, apply default campus closing time on entry day (10:00 PM)
+        if (maximumExitTime == null)
         {
-            penaltyFee = 0m;
+            var defaultClosingUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(22, 0, 0));
+            maximumExitTime = defaultClosingUtc > active.EntryTime ? defaultClosingUtc : active.EntryTime.AddHours(4);
         }
 
-        if (!isViolation && specialRes == null)
+        if (maximumExitTime.HasValue && exitTime > maximumExitTime.Value)
+        {
+            var overstayDuration = exitTime - maximumExitTime.Value;
+            overstayTime = overstayDuration.TotalHours;
+
+            if (entryReservation?.Type == ReservationType.Special)
+            {
+                penaltyFee = 0m;
+                overstayTime = 0;
+            }
+            else
+            {
+                penaltyFee = _violationService.CalculatePenalty(overstayDuration);
+            }
+
+            if (penaltyFee > 0m)
+            {
+                var violation = new Violation(
+                    active.Id,
+                    penaltyFee);
+                await _violationRepository.AddAsync(violation);
+                isViolation = true;
+                violationId = violation.Id;
+                violationType = violation.ViolationType.ToString();
+                settlementStatus = violation.SettlementStatus.ToString();
+                referenceNumber = violation.ReferenceNumber;
+            }
+        }
+
+        if (!isViolation && entryReservation?.Type != ReservationType.Special)
         {
             var existingViolation = await _violationRepository.GetByLogIdAsync(active.Id);
             if (existingViolation != null)
@@ -214,6 +235,11 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                 violationType = existingViolation.ViolationType.ToString();
                 settlementStatus = existingViolation.SettlementStatus.ToString();
                 referenceNumber = existingViolation.ReferenceNumber ?? $"VIO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
+                penaltyFee = existingViolation.PenaltyFee;
+                if (maximumExitTime.HasValue && exitTime > maximumExitTime.Value)
+                {
+                    overstayTime = (exitTime - maximumExitTime.Value).TotalHours;
+                }
             }
         }
 
