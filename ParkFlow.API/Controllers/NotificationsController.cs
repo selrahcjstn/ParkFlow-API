@@ -34,13 +34,13 @@ public class NotificationsController : ControllerBase
     /// Gets all persistent notifications for the currently authenticated user.
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<Result<IEnumerable<UserNotificationDto>>>> GetMyNotifications([FromQuery] int limit = 50)
+    public async Task<ActionResult<Result<IEnumerable<UserNotificationDto>>>> GetMyNotifications([FromQuery] int limit = 20, [FromQuery] int skip = 0)
     {
         var userId = _userContext.GetUserId();
         if (userId == Guid.Empty)
             return Unauthorized(Result<IEnumerable<UserNotificationDto>>.Failure("User not identified.", ErrorCode.Unauthorized));
 
-        var result = await _mediator.Send(new GetUserNotificationsQuery(userId, limit));
+        var result = await _mediator.Send(new GetUserNotificationsQuery(userId, limit, skip));
         return this.ToActionResult(result);
     }
 
