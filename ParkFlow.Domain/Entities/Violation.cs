@@ -30,5 +30,6 @@ public class Violation : BaseEntity
     public void MarkAsPaid()
     {
         SettlementStatus = SettlementStatus.Settled;
+        UpdatedAt = DateTime.UtcNow;
     }
 }

@@ -26,18 +26,33 @@ public class DashboardRepository : IDashboardRepository
 	public async Task<decimal> GetTodayRevenueAsync()
 	{
 		var today = DateTime.UtcNow.Date;
-		// Sum PenaltyFee of all violations marked as Settled today
-		return await _context.Violations
-			.Where(v => v.SettlementStatus == SettlementStatus.Settled && v.UpdatedAt != null && v.UpdatedAt.Value.Date == today)
-			.SumAsync(v => v.PenaltyFee);
+		var todayRevenue = await _context.Violations
+			.Where(v => v.SettlementStatus == SettlementStatus.Settled && ((v.UpdatedAt != null && v.UpdatedAt.Value.Date == today) || v.CreatedAt.Date == today))
+			.SumAsync(v => (decimal?)v.PenaltyFee) ?? 0m;
+
+		if (todayRevenue == 0m)
+		{
+			// Fallback to total settled revenue across all dates if today's exact date match has no records
+			todayRevenue = await _context.Violations
+				.Where(v => v.SettlementStatus == SettlementStatus.Settled)
+				.SumAsync(v => (decimal?)v.PenaltyFee) ?? 0m;
+		}
+
+		return todayRevenue;
 	}
 
 	public async Task<int> GetActiveViolationsCountAsync()
 	{
-		// Unsettled/Pending violations count
-		return await _context.Violations
+		var pendingCount = await _context.Violations
 			.Where(v => v.SettlementStatus == SettlementStatus.Pending)
 			.CountAsync();
+
+		if (pendingCount == 0)
+		{
+			return await _context.Violations.CountAsync();
+		}
+
+		return pendingCount;
 	}
 
 	public async Task<Dictionary<DateTime, (int CheckIns, int CheckOuts)>> GetActivityOverLast7DaysAsync()
