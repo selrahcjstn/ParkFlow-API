@@ -11,7 +11,7 @@ using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Notifications.Queries.GetUserNotifications;
 
-public record GetUserNotificationsQuery(Guid UserId, int Limit = 50) : IRequest<Result<IEnumerable<UserNotificationDto>>>;
+public record GetUserNotificationsQuery(Guid UserId, int Limit = 20, int Skip = 0) : IRequest<Result<IEnumerable<UserNotificationDto>>>;
 
 public class GetUserNotificationsQueryHandler : IRequestHandler<GetUserNotificationsQuery, Result<IEnumerable<UserNotificationDto>>>
 {
@@ -29,7 +29,7 @@ public class GetUserNotificationsQueryHandler : IRequestHandler<GetUserNotificat
             return Result<IEnumerable<UserNotificationDto>>.Failure("User ID is required.", ErrorCode.BadRequest);
         }
 
-        var notifications = await _repository.GetByUserIdAsync(request.UserId, request.Limit);
+        var notifications = await _repository.GetByUserIdAsync(request.UserId, request.Limit, request.Skip);
         var dtos = notifications.Select(UserNotificationDto.FromEntity);
 
         return Result<IEnumerable<UserNotificationDto>>.Success(dtos, "Notifications retrieved successfully.");

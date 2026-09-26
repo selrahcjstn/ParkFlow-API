@@ -11,7 +11,16 @@ namespace ParkFlow.Persistence
         public static IServiceCollection AddPersistence(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddDbContext<AppDbContext>(options =>
-                options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+                options.UseNpgsql(
+                    configuration.GetConnectionString("DefaultConnection"),
+                    npgsqlOptions =>
+                    {
+                        npgsqlOptions.EnableRetryOnFailure(
+                            maxRetryCount: 3,
+                            maxRetryDelay: System.TimeSpan.FromSeconds(5),
+                            errorCodesToAdd: null);
+                        npgsqlOptions.CommandTimeout(30);
+                    }));
 
             services.AddScoped<IUserAccountRepository, UserAccountRepository>();
             services.AddScoped<IAuthIdentityRepository, AuthIdentityRepository>();

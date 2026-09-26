@@ -28,12 +28,13 @@ public class UserNotificationRepository : IUserNotificationRepository
         return await _context.UserNotifications.FirstOrDefaultAsync(n => n.Id == id);
     }
 
-    public async Task<IEnumerable<UserNotification>> GetByUserIdAsync(Guid userId, int limit = 50)
+    public async Task<IEnumerable<UserNotification>> GetByUserIdAsync(Guid userId, int limit = 20, int skip = 0)
     {
         return await _context.UserNotifications
             .AsNoTracking()
             .Where(n => n.UserAccountId == userId)
             .OrderByDescending(n => n.CreatedAt)
+            .Skip(skip)
             .Take(limit)
             .ToListAsync();
     }

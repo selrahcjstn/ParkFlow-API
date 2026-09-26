@@ -9,7 +9,7 @@ public interface IUserNotificationRepository
 {
     Task AddAsync(UserNotification notification);
     Task<UserNotification?> GetByIdAsync(Guid id);
-    Task<IEnumerable<UserNotification>> GetByUserIdAsync(Guid userId, int limit = 50);
+    Task<IEnumerable<UserNotification>> GetByUserIdAsync(Guid userId, int limit = 20, int skip = 0);
     Task<int> GetUnreadCountAsync(Guid userId);
     Task UpdateAsync(UserNotification notification);
     Task MarkAllAsReadForUserAsync(Guid userId);

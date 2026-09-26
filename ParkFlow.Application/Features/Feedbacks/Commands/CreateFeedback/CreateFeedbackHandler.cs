@@ -166,7 +166,7 @@ namespace ParkFlow.Application.Features.Feedbacks.Commands.CreateFeedback
       </div>
 
       <div class='notice-card'>
-        🎉 <strong>Automatic Confirmation:</strong> Thank you for sharing your thoughts with ParkFlow! Our administration team is reviewing your message and will send an email response for your inquiry within a few hours.
+        <strong>Automatic Confirmation:</strong> Thank you for sharing your thoughts with ParkFlow! Our administration team is reviewing your message and will send an email response for your inquiry within a few hours.
       </div>
     </div>
     <div class='footer'>

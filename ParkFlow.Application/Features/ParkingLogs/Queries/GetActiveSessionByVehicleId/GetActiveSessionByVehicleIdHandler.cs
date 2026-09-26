@@ -34,8 +34,19 @@ public class GetActiveSessionByVehicleIdHandler
         GetActiveSessionByVehicleIdQuery request,
         CancellationToken cancellationToken)
     {
-        // 1. Fetch active parking log
-        var activeLog = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(request.VehicleId);
+        // 1. Fetch active parking log with transient error resilience
+        ParkFlow.Domain.Entities.ParkingLog? activeLog;
+        try
+        {
+            activeLog = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(request.VehicleId);
+        }
+        catch (Exception)
+        {
+            return Result<ActiveParkingSessionResponse>.Failure(
+                "No active parking session found for this vehicle.",
+                ErrorCode.NotFound);
+        }
+
         if (activeLog == null)
         {
             return Result<ActiveParkingSessionResponse>.Failure(
