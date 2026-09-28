@@ -11,6 +11,8 @@ using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSession;
 using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveSessionByVehicleId;
 using ParkFlow.Application.Features.ParkingLogs.Queries.VerifyStudentScan;
 
+using ParkFlow.Application.Interfaces;
+
 namespace ParkFlow.API.Controllers;
 
 [Route("api/parking-logs")]
@@ -18,10 +20,12 @@ namespace ParkFlow.API.Controllers;
 public class ParkingLogController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IUserContext? _userContext;
 
-    public ParkingLogController(IMediator mediator)
+    public ParkingLogController(IMediator mediator, IUserContext? userContext = null)
     {
         _mediator = mediator;
+        _userContext = userContext;
     }
 
     // VERIFY STUDENT SCAN
@@ -60,7 +64,13 @@ public class ParkingLogController : ControllerBase
     [HttpPatch("manual-exit")]
     public async Task<ActionResult<Result<ExitParkingLogResponse>>> LogManualExit([FromBody] ExitManualParkingLogCommand command)
     {
-        var result = await _mediator.Send(command);
+        var callerUserId = _userContext?.GetUserId() ?? Guid.Empty;
+        var effectiveUserId = command.UserId.HasValue && command.UserId.Value != Guid.Empty
+            ? command.UserId.Value
+            : (callerUserId != Guid.Empty ? callerUserId : (Guid?)null);
+
+        var effectiveCommand = command with { UserId = effectiveUserId };
+        var result = await _mediator.Send(effectiveCommand);
         return this.ToActionResult(result);
     }
     [HttpGet("active-sessions")]

@@ -6,5 +6,5 @@ namespace ParkFlow.Application.Features.ParkingLogs.Commands.ExitManualParkingLo
 
 public record ExitManualParkingLogCommand(
     string PlateNumber,
-    Guid UserId
+    Guid? UserId = null
 ) : IRequest<Result<ExitParkingLogResponse>>;

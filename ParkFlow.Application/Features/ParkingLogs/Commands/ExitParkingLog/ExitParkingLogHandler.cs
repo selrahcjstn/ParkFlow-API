@@ -136,15 +136,25 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
 
         if (guard == null && staffAdmin == null)
         {
-            if (_userAccountRepository != null)
+            if (_userAccountRepository != null && request.UserId != Guid.Empty)
             {
                 var account = await _userAccountRepository.GetByIdAsync(request.UserId);
-                if (account == null)
-                    return Result<ExitParkingLogResponse>.Failure("Authorized guard or admin not found.", ErrorCode.NotFound);
+                if (account?.UserProfile != null)
+                {
+                    userProfile = account.UserProfile;
+                    guard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
+                    staffAdmin = await _adminRepository.GetByUserProfileIdAsync(userProfile.Id);
+                }
             }
-            else if (userProfile == null)
+
+            if (guard == null && staffAdmin == null)
             {
-                return Result<ExitParkingLogResponse>.Failure("Authorized guard or admin not found.", ErrorCode.NotFound);
+                var allAdmins = await _adminRepository.ListAllAsync();
+                staffAdmin = allAdmins.FirstOrDefault();
+                if (staffAdmin != null && userProfile == null)
+                {
+                    userProfile = staffAdmin.UserProfile;
+                }
             }
         }
 

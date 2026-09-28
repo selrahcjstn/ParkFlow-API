@@ -197,6 +197,70 @@ public class ExitManualParkingLogTests
         Assert.True(result.Data.OverstayTime > 24, "Overstay hours should exceed 24 hours.");
         Assert.NotNull(result.Data.ReferenceNumber);
     }
+
+    [Fact]
+    public async Task Handle_ShouldExitParkingLog_WhenUserIdIsNull_FallingBackToAdmin()
+    {
+        // Arrange
+        var ownerId = Guid.NewGuid();
+        var vehicleId = Guid.NewGuid();
+        var adminUserId = Guid.NewGuid();
+
+        var vehicle = new Vehicle(ownerId, "ADM-5678", "Ford", "hashed_qr3", VehicleType.Car);
+        var vehicleIdProperty = typeof(BaseEntity).GetProperty("Id");
+        vehicleIdProperty?.SetValue(vehicle, vehicleId);
+        await _vehicleRepository.AddAsync(vehicle);
+
+        var ownerAccount = new UserAccount(string.Empty, "+639999999997");
+        var ownerProfile = new UserProfile(ownerId, "Admin", "Driver", null, null);
+        ownerProfile.UserAccount = ownerAccount;
+        _userProfileRepository.Profiles.Add(ownerProfile);
+
+        var ownerProperty = typeof(Vehicle).GetProperty("Owner");
+        ownerProperty?.SetValue(vehicle, ownerAccount);
+
+        var adminProfile = new UserProfile(adminUserId, "System", "Admin", null, null);
+        var adminEntity = new Admin(adminProfile, RoleLevel.Admin);
+        await _adminRepository.AddAsync(adminEntity);
+
+        var activeLog = new ParkingLog(vehicleId, Guid.Empty, ParkingStatus.Parked, EntryMethod.Manual);
+        var vehicleProperty = typeof(ParkingLog).GetProperty("Vehicle");
+        vehicleProperty?.SetValue(activeLog, vehicle);
+
+        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog);
+        var fakeNotificationSender = new FakeSignalRNotificationSender();
+
+        var handler = new ExitManualParkingLogHandler(
+            parkingLogRepository,
+            _vehicleRepository,
+            _userProfileRepository,
+            _guardRepository,
+            _corSubmissionRepository,
+            _parkingScheduleRepository,
+            _studentRepository,
+            _personnelRepository,
+            _adminRepository,
+            _violationRepository,
+            _parkingService,
+            new FakeViolationService(),
+            _parkingLogRoleService,
+            new ExitManualParkingLogValidator(),
+            fakeNotificationSender
+        );
+
+        // Command with null UserId (Admin checkout from web UI)
+        var command = new ExitManualParkingLogCommand("ADM-5678", null);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Data);
+        Assert.Equal("ADM-5678", result.Data.PlateNumber);
+        Assert.Equal(ParkingStatus.Exited.ToString(), result.Data.Status);
+        Assert.Equal("Campus Administrator", result.Data.IssuedBy);
+    }
 }
 
 public class FakeParkingLogRepositoryForExit : IParkingLogRepository
