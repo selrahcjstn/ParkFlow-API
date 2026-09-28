@@ -72,14 +72,18 @@ public class NotificationService : INotificationService
             }
             else if (type == "approved" || type == "registration_rejected" || type == "vehicle_approved" || type == "vehicle_rejected")
             {
-                await _signalRNotificationSender.SendToUserAsync(userAccountId.ToString(), "VerificationStatusChanged", new
+                var eventData = new
                 {
                     userId = userAccountId,
                     type = type,
                     title = title,
                     body = body,
                     actionRoute = actionRoute
-                });
+                };
+
+                await _signalRNotificationSender.SendToUserAsync(userAccountId.ToString(), "VerificationStatusChanged", eventData);
+                await _signalRNotificationSender.SendToAllAsync("VerificationStatusChanged", eventData);
+                await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", eventData);
             }
         }
         catch

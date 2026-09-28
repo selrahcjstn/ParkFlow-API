@@ -125,7 +125,7 @@ public record ValidateVehicleRequest(
             if (request.VerificationStatus == CorVerificationStatus.Verified)
             {
                 var submission = await corSubmissionRepository.GetLatestByUserIdAsync(vehicle.OwnerId);
-                if (submission != null && submission.VerificationStatus == CorVerificationStatus.Verified)
+                if (submission == null || submission.VerificationStatus == CorVerificationStatus.Verified)
                 {
                     user.Verify();
                 }
@@ -137,6 +137,30 @@ public record ValidateVehicleRequest(
             await userAccountRepository.UpdateAsync(user);
 
             var isApproved = request.VerificationStatus == CorVerificationStatus.Verified;
+
+            if (signalRNotificationSender != null)
+            {
+                var eventData = new
+                {
+                    userId = user.Id,
+                    vehicleId = vehicle.Id,
+                    type = isApproved ? "vehicle_approved" : "vehicle_rejected",
+                    title = isApproved ? "Vehicle Approved" : "Vehicle Registration Rejected",
+                    body = isApproved
+                        ? "Your vehicle information has been verified and approved."
+                        : (request.RejectionReason ?? "Your vehicle registration was rejected.")
+                };
+                try
+                {
+                    await signalRNotificationSender.SendToUserAsync(user.Id.ToString(), "VerificationStatusChanged", eventData);
+                    await signalRNotificationSender.SendToAllAsync("VerificationStatusChanged", eventData);
+                    await signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", eventData);
+                }
+                catch
+                {
+                    // Ignore transient SignalR send failures
+                }
+            }
 
             if (notificationService != null)
             {

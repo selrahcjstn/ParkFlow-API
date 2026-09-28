@@ -71,11 +71,22 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
         {
             if (request.VerificationStatus == CorVerificationStatus.Verified)
             {
-                var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(user.Id);
-                var allVehiclesVerified = userVehicles.Any() && userVehicles.All(v => v.VerificationStatus == CorVerificationStatus.Verified);
-                if (allVehiclesVerified)
+                user.Verify();
+
+                if (submission == null)
                 {
-                    user.Verify();
+                    submission = new CorSubmission(user.Id, "Academic Term", string.Empty, verificationStatus: CorVerificationStatus.Verified);
+                    await _corSubmissionRepository.AddCorSubmissionAsync(submission);
+                }
+
+                var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(user.Id);
+                foreach (var v in userVehicles)
+                {
+                    if (v.VerificationStatus == CorVerificationStatus.Pending)
+                    {
+                        v.UpdateVerificationStatus(CorVerificationStatus.Verified);
+                        await _vehicleRepository.UpdateAsync(v);
+                    }
                 }
             }
             else if (request.VerificationStatus == CorVerificationStatus.Rejected)
@@ -84,9 +95,28 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
             }
             await _userAccountRepository.UpdateAsync(user);
 
-            // Separate verification: do NOT automatically update vehicle verification status when schedule is validated.
-
             var isApproved = request.VerificationStatus == CorVerificationStatus.Verified;
+
+            if (_signalRNotificationSender != null)
+            {
+                var eventData = new
+                {
+                    userId = user.Id,
+                    type = isApproved ? "approved" : "registration_rejected",
+                    title = isApproved ? "Registration & COR Verified" : "Registration Verification Rejected",
+                    body = isApproved ? "Your account and parking pass have been verified." : (request.RejectionReason ?? "Your registration was rejected.")
+                };
+                try
+                {
+                    await _signalRNotificationSender.SendToUserAsync(user.Id.ToString(), "VerificationStatusChanged", eventData);
+                    await _signalRNotificationSender.SendToAllAsync("VerificationStatusChanged", eventData);
+                    await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", eventData);
+                }
+                catch
+                {
+                    // Ignore transient SignalR send failures
+                }
+            }
 
             if (_notificationService != null)
             {
