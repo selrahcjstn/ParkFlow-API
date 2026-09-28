@@ -94,6 +94,14 @@ public class GetActiveSessionByVehicleIdHandler
             }
         }
 
+        if (maximumExitTimeUtc == null)
+        {
+            var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(activeLog.EntryTime);
+            var defaultClosingUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(22, 0, 0));
+            maximumExitTimeUtc = defaultClosingUtc > activeLog.EntryTime ? defaultClosingUtc : activeLog.EntryTime.AddHours(4);
+            scheduleDeadlineUtc = maximumExitTimeUtc;
+        }
+
         if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
         {
             var overstayDuration = nowUtc - maximumExitTimeUtc.Value;

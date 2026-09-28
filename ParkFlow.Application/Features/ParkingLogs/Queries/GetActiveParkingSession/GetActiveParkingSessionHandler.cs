@@ -19,6 +19,7 @@ public class GetActiveParkingSessionHandler
     private readonly IViolationService _violationService;
     private readonly IAdminRepository _adminRepository;
     private readonly IParkingLogRoleService _parkingLogRoleService;
+    private readonly IParkingReservationRepository? _reservationRepository;
 
     public GetActiveParkingSessionHandler(
         IParkingLogRepository parkingLogRepository,
@@ -26,7 +27,8 @@ public class GetActiveParkingSessionHandler
         ICorSubmissionRepository corSubmissionRepository,
         IViolationService violationService,
         IAdminRepository adminRepository,
-        IParkingLogRoleService parkingLogRoleService)
+        IParkingLogRoleService parkingLogRoleService,
+        IParkingReservationRepository? reservationRepository = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
@@ -34,6 +36,7 @@ public class GetActiveParkingSessionHandler
         _violationService = violationService;
         _adminRepository = adminRepository;
         _parkingLogRoleService = parkingLogRoleService;
+        _reservationRepository = reservationRepository;
     }
 
     public async Task<Result<IEnumerable<GetActiveParkingSessionResponse>>> Handle(
@@ -51,41 +54,66 @@ public class GetActiveParkingSessionHandler
             .ToList();
 
         var dtos = new List<GetActiveParkingSessionResponse>();
+        var sysSettings = SystemSettingsStore.Current;
+        var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
 
         foreach (var log in activeLogs)
         {
             var nowUtc = DateTime.UtcNow;
             var overstayHours = 0d;
             var amount = 0m;
-
-            var verifiedCor = corSubmissions.FirstOrDefault(c =>
-                c.UserAccountId == log.Vehicle.OwnerId &&
-                c.VerificationStatus == CorVerificationStatus.Verified);
-
             DateTime? maximumExitTimeUtc = null;
+            var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
 
-            if (log.EntryMethod != EntryMethod.Manual && verifiedCor != null)
+            var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(log.Vehicle.OwnerId) : [];
+            var entryReservation = userReservations.FirstOrDefault(r =>
+                (r.VehicleId == log.VehicleId || r.VehicleId == null) &&
+                r.ReservationDate.Date == philippinesEntry.Date &&
+                r.Status == ReservationStatus.Approved);
+
+            if (entryReservation != null)
             {
-                var schedules = await _parkingScheduleRepository
-                    .GetBySubmissionIdAsync(verifiedCor.Id);
-
-                var philippinesEntry =
-                    ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
-
-                var todaySchedule = schedules?
-                    .FirstOrDefault(s =>
-                        s.DayOfWeek == philippinesEntry.DayOfWeek);
-
-                if (todaySchedule != null)
+                if (entryReservation.Type == ReservationType.Special)
                 {
-                    var scheduleEndUtc =
-                        ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
-                            philippinesEntry,
-                            todaySchedule.EndTime);
-                    var sysSettings = SystemSettingsStore.Current;
-                    var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
-                    maximumExitTimeUtc = scheduleEndUtc.AddMinutes(graceMin);
+                    maximumExitTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
                 }
+                else
+                {
+                    var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, entryReservation.EndTime);
+                    maximumExitTimeUtc = resEndTimeUtc.AddMinutes(graceMin);
+                }
+            }
+            else
+            {
+                var verifiedCor = corSubmissions.FirstOrDefault(c =>
+                    c.UserAccountId == log.Vehicle.OwnerId &&
+                    c.VerificationStatus == CorVerificationStatus.Verified);
+
+                if (log.EntryMethod != EntryMethod.Manual && verifiedCor != null)
+                {
+                    var schedules = await _parkingScheduleRepository
+                        .GetBySubmissionIdAsync(verifiedCor.Id);
+
+                    var todaySchedule = schedules?
+                        .FirstOrDefault(s =>
+                            s.DayOfWeek == philippinesEntry.DayOfWeek);
+
+                    if (todaySchedule != null)
+                    {
+                        var scheduleEndUtc =
+                            ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
+                                philippinesEntry,
+                                todaySchedule.EndTime);
+                        maximumExitTimeUtc = scheduleEndUtc.AddMinutes(graceMin);
+                    }
+                }
+            }
+
+            // If no schedule or reservation was found for entry day, apply default campus closing time (10:00 PM)
+            if (maximumExitTimeUtc == null)
+            {
+                var defaultClosingUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(22, 0, 0));
+                maximumExitTimeUtc = defaultClosingUtc > log.EntryTime ? defaultClosingUtc : log.EntryTime.AddHours(4);
             }
 
             if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
