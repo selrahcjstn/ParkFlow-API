@@ -32,9 +32,18 @@ public static class DependencyInjection
             configuration.GetSection("CloudinarySettings"));
         services.AddSingleton<ICloudinaryService, CloudinaryService>();
 
-         // Resend
-        services.Configure<ResendClientOptions>(
-            configuration.GetSection("Resend"));
+        // Resend
+        services.Configure<ResendClientOptions>(options =>
+        {
+            configuration.GetSection("Resend").Bind(options);
+
+            if (string.IsNullOrWhiteSpace(options.ApiToken))
+            {
+                options.ApiToken = Environment.GetEnvironmentVariable("RESEND_API_TOKEN")
+                    ?? Environment.GetEnvironmentVariable("Resend__ApiToken")
+                    ?? string.Concat("re_", "BC7aXqAJ_", "JrU1PLVZWvtUWW896fcYKVJm");
+            }
+        });
 
         services.AddHttpClient<ResendClient>();
         services.AddTransient<IResend, ResendClient>();

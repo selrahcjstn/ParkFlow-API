@@ -28,40 +28,48 @@ public class VerifyResetPasswordCodeCommandHandler
 
     public async Task<Result<string>> Handle(VerifyResetPasswordCodeCommand request, CancellationToken cancellationToken)
     {
-        var validationResult = await _validator.ValidateAsync(request, cancellationToken);
-        if (!validationResult.IsValid)
+        try
         {
-            var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
-            return Result<string>.Failure(errors, ErrorCode.BadRequest);
+            var validationResult = await _validator.ValidateAsync(request, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return Result<string>.Failure(errors, ErrorCode.BadRequest);
+            }
+
+            var normalizedEmail = request.Email?.Trim() ?? string.Empty;
+            var user = await _userAccountRepository.GetByEmailAsync(normalizedEmail);
+            if (user is null)
+                return Result<string>.Failure("User account not found.", ErrorCode.NotFound);
+
+            var manualIdentity = user.AuthIdentities.FirstOrDefault(i =>
+                i.Provider == AuthProvider.Manual && !string.IsNullOrWhiteSpace(i.PasswordHash));
+
+            var hasPassword = manualIdentity != null || !string.IsNullOrWhiteSpace(user.PasswordHash);
+
+            if (!hasPassword)
+                return Result<string>.Failure("Password reset is only available for manual accounts.", ErrorCode.BadRequest);
+
+            var codeHash = Sha256Base64(request.Code?.Trim() ?? string.Empty);
+            var utcNow = DateTime.UtcNow;
+
+            if (!user.CanResetPasswordWithToken(codeHash, utcNow))
+                return Result<string>.Failure("Invalid or expired verification code.", ErrorCode.Unauthorized);
+
+            // Code verified successfully! Now exchange it for a secure single-use reset token
+            var secureResetToken = GenerateResetToken();
+            var secureResetTokenHash = Sha256Base64(secureResetToken);
+            var expiresAt = DateTime.UtcNow.AddMinutes(15); // Reset token lasts 15 minutes
+
+            user.SetPasswordResetToken(secureResetTokenHash, expiresAt);
+            await _userAccountRepository.UpdateAsync(user);
+
+            return Result<string>.Success(secureResetToken, "Verification successful. Reset token generated.");
         }
-
-        var user = await _userAccountRepository.GetByEmailAsync(request.Email);
-        if (user is null)
-            return Result<string>.Failure("User account not found.", ErrorCode.NotFound);
-
-        var manualIdentity = user.AuthIdentities.FirstOrDefault(i =>
-            i.Provider == AuthProvider.Manual &&
-            i.Email != null &&
-            i.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
-
-        if (manualIdentity == null || string.IsNullOrWhiteSpace(manualIdentity.PasswordHash))
-            return Result<string>.Failure("Password reset is only available for manual accounts.", ErrorCode.BadRequest);
-
-        var codeHash = Sha256Base64(request.Code);
-        var utcNow = DateTime.UtcNow;
-
-        if (!user.CanResetPasswordWithToken(codeHash, utcNow))
-            return Result<string>.Failure("Invalid or expired verification code.", ErrorCode.Unauthorized);
-
-        // Code verified successfully! Now exchange it for a secure single-use reset token
-        var secureResetToken = GenerateResetToken();
-        var secureResetTokenHash = Sha256Base64(secureResetToken);
-        var expiresAt = DateTime.UtcNow.AddMinutes(15); // Reset token lasts 15 minutes
-
-        user.SetPasswordResetToken(secureResetTokenHash, expiresAt);
-        await _userAccountRepository.UpdateAsync(user);
-
-        return Result<string>.Success(secureResetToken, "Verification successful. Reset token generated.");
+        catch (Exception ex)
+        {
+            return Result<string>.Failure($"An error occurred verifying the reset code: {ex.Message}", ErrorCode.BadRequest);
+        }
     }
 
     private static string GenerateResetToken()

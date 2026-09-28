@@ -32,50 +32,72 @@ public class ResetPasswordUserAccountHandler
 
     public async Task<Result<Guid>> Handle(ResetPasswordUserAccountCommand request, CancellationToken cancellationToken)
     {
-        var validationResult = await _validator.ValidateAsync(request, cancellationToken);
-
-        if (!validationResult.IsValid)
+        try
         {
-            var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
-            return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
+            var validationResult = await _validator.ValidateAsync(request, cancellationToken);
+
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
+            }
+
+            var normalizedEmail = request.Email?.Trim() ?? string.Empty;
+            var user = await _userAccountRepository.GetByEmailAsync(normalizedEmail);
+
+            if (user is null)
+                return Result<Guid>.Failure("User account not found.", ErrorCode.NotFound);
+
+            var manualIdentity = user.AuthIdentities.FirstOrDefault(i =>
+                i.Provider == AuthProvider.Manual &&
+                (i.Email == null || i.Email.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase)));
+
+            if (manualIdentity == null)
+            {
+                manualIdentity = user.AuthIdentities.FirstOrDefault(i => i.Provider == AuthProvider.Manual);
+            }
+
+            var hasPassword = (manualIdentity != null && !string.IsNullOrWhiteSpace(manualIdentity.PasswordHash)) || !string.IsNullOrWhiteSpace(user.PasswordHash);
+
+            if (!hasPassword)
+                return Result<Guid>.Failure("Password reset is only available for accounts with a password.", ErrorCode.BadRequest);
+
+            // Check password histories to avoid reusing any old passwords
+            var isPreviousPassword = user.PasswordHistories.Any(h => _passwordHasher.VerifyPassword(h.PasswordHash, request.NewPassword));
+            if (isPreviousPassword)
+            {
+                return Result<Guid>.Failure("You cannot reuse any of your previous passwords.", ErrorCode.BadRequest);
+            }
+
+            var resetTokenHash = Sha256Base64(request.ResetToken?.Trim() ?? string.Empty);
+            var newPasswordHash = _passwordHasher.HashPassword(request.NewPassword);
+
+            var utcNow = DateTime.UtcNow;
+            if (!user.CanResetPasswordWithToken(resetTokenHash, utcNow))
+                return Result<Guid>.Failure("Invalid or expired reset token.", ErrorCode.Unauthorized);
+
+            user.ResetPasswordWithToken(resetTokenHash, newPasswordHash, utcNow);
+            if (manualIdentity != null)
+            {
+                manualIdentity.UpdatePasswordHash(newPasswordHash);
+            }
+            else
+            {
+                var newIdentity = AuthIdentity.CreateManual(user.Id, normalizedEmail, newPasswordHash, false);
+                user.AuthIdentities.Add(newIdentity);
+            }
+
+            // Save new password to history
+            user.PasswordHistories.Add(new PasswordHistory(user.Id, newPasswordHash));
+
+            await _userAccountRepository.UpdateAsync(user);
+
+            return Result<Guid>.Success(user.Id, "Password reset successful.");
         }
-
-        var user = await _userAccountRepository.GetByEmailAsync(request.Email);
-
-        if (user is null)
-            return Result<Guid>.Failure("User account not found.", ErrorCode.NotFound);
-
-        var manualIdentity = user.AuthIdentities.FirstOrDefault(i =>
-            i.Provider == AuthProvider.Manual &&
-            i.Email != null &&
-            i.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
-
-        if (manualIdentity == null || string.IsNullOrWhiteSpace(manualIdentity.PasswordHash))
-            return Result<Guid>.Failure("Password reset is only available for manual accounts.", ErrorCode.BadRequest);
-
-        // Check password histories to avoid reusing any old passwords
-        var isPreviousPassword = user.PasswordHistories.Any(h => _passwordHasher.VerifyPassword(h.PasswordHash, request.NewPassword));
-        if (isPreviousPassword)
+        catch (Exception ex)
         {
-            return Result<Guid>.Failure("You cannot reuse any of your previous passwords.", ErrorCode.BadRequest);
+            return Result<Guid>.Failure($"An error occurred resetting your password: {ex.Message}", ErrorCode.BadRequest);
         }
-
-        var resetTokenHash = Sha256Base64(request.ResetToken);
-        var newPasswordHash = _passwordHasher.HashPassword(request.NewPassword);
-
-        var utcNow = DateTime.UtcNow;
-        if (!user.CanResetPasswordWithToken(resetTokenHash, utcNow))
-            return Result<Guid>.Failure("Invalid or expired reset token.", ErrorCode.Unauthorized);
-
-        user.ResetPasswordWithToken(resetTokenHash, newPasswordHash, utcNow);
-        manualIdentity.UpdatePasswordHash(newPasswordHash);
-
-        // Save new password to history
-        user.PasswordHistories.Add(new PasswordHistory(user.Id, newPasswordHash));
-
-        await _userAccountRepository.UpdateAsync(user);
-
-        return Result<Guid>.Success(user.Id, "Password reset successful.");
     }
 
     private static string Sha256Base64(string input)

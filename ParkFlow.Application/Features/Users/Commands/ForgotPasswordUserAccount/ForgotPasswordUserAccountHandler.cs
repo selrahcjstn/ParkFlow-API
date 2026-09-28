@@ -31,41 +31,44 @@ public class ForgotPasswordUserAccountHandler
 
     public async Task<Result<string>> Handle(ForgotPasswordUserAccountCommand request, CancellationToken cancellationToken)
     {
-        var validationResult = await _validator.ValidateAsync(request, cancellationToken);
-
-        if (!validationResult.IsValid)
+        try
         {
-            var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
-            return Result<string>.Failure(errors, ErrorCode.BadRequest);
-        }
+            var validationResult = await _validator.ValidateAsync(request, cancellationToken);
 
-        var user = await _userAccountRepository.GetByEmailAsync(request.Email);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return Result<string>.Failure(errors, ErrorCode.BadRequest);
+            }
 
-        if (user is null)
-            return Result<string>.Failure("User account not found.", ErrorCode.NotFound);
+            var normalizedEmail = request.Email?.Trim() ?? string.Empty;
+            var user = await _userAccountRepository.GetByEmailAsync(normalizedEmail);
 
-        var manualIdentity = user.AuthIdentities.FirstOrDefault(i =>
-            i.Provider == AuthProvider.Manual &&
-            i.Email != null &&
-            i.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
+            if (user is null)
+                return Result<string>.Failure("User account not found.", ErrorCode.NotFound);
 
-        if (manualIdentity == null || string.IsNullOrWhiteSpace(manualIdentity.PasswordHash))
-            return Result<string>.Failure("Password reset is only available for manual accounts.", ErrorCode.BadRequest);
+            var manualIdentity = user.AuthIdentities.FirstOrDefault(i =>
+                i.Provider == AuthProvider.Manual && !string.IsNullOrWhiteSpace(i.PasswordHash));
 
-        // Generate a random 6-digit verification code
-        var random = new Random();
-        var code = random.Next(100000, 999999).ToString();
-        var codeHash = Sha256Base64(code);
+            var hasPassword = manualIdentity != null || !string.IsNullOrWhiteSpace(user.PasswordHash);
 
-        // Code expires in exactly 10 minutes
-        var expiresAt = DateTime.UtcNow.AddMinutes(10);
+            if (!hasPassword)
+                return Result<string>.Failure("Password reset is only available for accounts with a password. If you registered with Microsoft, please use Microsoft sign-in.", ErrorCode.BadRequest);
 
-        user.SetPasswordResetToken(codeHash, expiresAt);
-        await _userAccountRepository.UpdateAsync(user);
+            // Generate a random 6-digit verification code
+            var random = new Random();
+            var code = random.Next(100000, 999999).ToString();
+            var codeHash = Sha256Base64(code);
 
-        // Send reset code via email
-        var subject = "ParkFlow - Password Reset Request";
-        var htmlBody = $@"
+            // Code expires in exactly 10 minutes
+            var expiresAt = DateTime.UtcNow.AddMinutes(10);
+
+            user.SetPasswordResetToken(codeHash, expiresAt);
+            await _userAccountRepository.UpdateAsync(user);
+
+            // Send reset code via email
+            var subject = "ParkFlow - Password Reset Request";
+            var htmlBody = $@"
 <!DOCTYPE html>
 <html>
 <head><meta charset='utf-8'></head>
@@ -118,9 +121,23 @@ public class ForgotPasswordUserAccountHandler
 </body>
 </html>";
 
-        await _emailService.SendEmailAsync(request.Email, subject, htmlBody);
+            try
+            {
+                await _emailService.SendEmailAsync(normalizedEmail, subject, htmlBody);
+            }
+            catch (Exception ex)
+            {
+                return Result<string>.Failure(
+                    $"Unable to dispatch verification email: {ex.Message}. Please verify your email or try again shortly.",
+                    ErrorCode.BadRequest);
+            }
 
-        return Result<string>.Success(code, "Password reset verification code generated and sent via email.");
+            return Result<string>.Success(code, "Password reset verification code generated and sent via email.");
+        }
+        catch (Exception ex)
+        {
+            return Result<string>.Failure($"An error occurred processing password reset: {ex.Message}", ErrorCode.BadRequest);
+        }
     }
 
     private static string Sha256Base64(string input)

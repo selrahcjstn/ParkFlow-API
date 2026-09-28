@@ -144,7 +144,7 @@ public class VerifyStudentScanTests
         };
         await _studentRepository.AddAsync(student);
 
-        var vehicle = new Vehicle(userAccountId, "ABC-1234", "Toyota", "HASH-123", VehicleType.Car);
+        var vehicle = new Vehicle(userAccountId, "ABC-1234", "Toyota", "HASH-123", VehicleType.Car, verificationStatus: CorVerificationStatus.Verified);
         vehicle.MarkAsPrimary();
         await _vehicleRepository.AddAsync(vehicle);
 

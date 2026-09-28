@@ -109,18 +109,21 @@ public class GetActiveParkingSessionHandler
                 }
             }
 
-            // If no schedule or reservation was found for entry day, apply default campus closing time (10:00 PM)
-            if (maximumExitTimeUtc == null)
+            if (log.EntryMethod != EntryMethod.Manual)
             {
-                var defaultClosingUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(22, 0, 0));
-                maximumExitTimeUtc = defaultClosingUtc > log.EntryTime ? defaultClosingUtc : log.EntryTime.AddHours(4);
-            }
+                // If no schedule or reservation was found for entry day, apply default campus closing time (10:00 PM)
+                if (maximumExitTimeUtc == null)
+                {
+                    var defaultClosingUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(22, 0, 0));
+                    maximumExitTimeUtc = defaultClosingUtc > log.EntryTime ? defaultClosingUtc : log.EntryTime.AddHours(4);
+                }
 
-            if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
-            {
-                var overstayDuration = nowUtc - maximumExitTimeUtc.Value;
-                overstayHours = overstayDuration.TotalHours;
-                amount = _violationService.CalculatePenalty(overstayDuration);
+                if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
+                {
+                    var overstayDuration = nowUtc - maximumExitTimeUtc.Value;
+                    overstayHours = overstayDuration.TotalHours;
+                    amount = _violationService.CalculatePenalty(overstayDuration);
+                }
             }
 
             var ownerProfile = log.Vehicle.Owner?.UserProfile;
