@@ -147,14 +147,23 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
                 ErrorCode.Forbidden);
         }
 
-        // 4. Check guard exists
+        // 4. Check guard or admin exists
         var userProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
-        if (userProfile == null)
-            return Result<CreateParkingLogResponse>.Failure("User profile not found.", ErrorCode.NotFound);
+        Guard? guard = null;
+        Admin? callerAdmin = null;
 
-        var guard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
-        if (guard == null)
-            return Result<CreateParkingLogResponse>.Failure("Guard not found.", ErrorCode.NotFound);
+        if (userProfile != null)
+        {
+            guard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
+            callerAdmin = await _adminRepository.GetByUserProfileIdAsync(userProfile.Id);
+        }
+
+        if (guard == null && callerAdmin == null)
+        {
+            var account = await _userAccountRepository.GetByIdAsync(request.UserId);
+            if (account == null)
+                return Result<CreateParkingLogResponse>.Failure("Authorized guard or admin not found.", ErrorCode.NotFound);
+        }
 
         var student = await _studentRepository.GetByUserProfileIdAsync(ownerProfile.Id);
         var personnel = await _personnelRepository.GetByUserProfileIdAsync(ownerProfile.Id);
@@ -216,13 +225,15 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         }
 
         // 5. Create Entry with manual method
-        var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard.UserProfileId, EntryMethod.Manual);
+        var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard?.UserProfileId ?? userProfile?.Id ?? Guid.Empty, EntryMethod.Manual);
         await _parkingLogRepository.AddParkingLogAsync(parkingLog);
 
         var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);
 
-        var guardMiddle = string.IsNullOrWhiteSpace(userProfile.MiddleName) ? "" : $" {userProfile.MiddleName}";
-        var guardName = $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}";
+        var guardMiddle = userProfile != null && !string.IsNullOrWhiteSpace(userProfile.MiddleName) ? $" {userProfile.MiddleName}" : "";
+        var guardName = userProfile != null
+            ? $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}"
+            : "Campus Administrator";
 
         var response = new CreateParkingLogResponse
         {

@@ -125,13 +125,28 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
 
         var userProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
 
-        if (userProfile == null)
-            return Result<ExitParkingLogResponse>.Failure("User profile not found.", ErrorCode.NotFound);
+        Guard? guard = null;
+        Admin? staffAdmin = null;
 
-        var guard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
+        if (userProfile != null)
+        {
+            guard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
+            staffAdmin = await _adminRepository.GetByUserProfileIdAsync(userProfile.Id);
+        }
 
-        if (guard == null)
-            return Result<ExitParkingLogResponse>.Failure("Guard not found.", ErrorCode.NotFound);
+        if (guard == null && staffAdmin == null)
+        {
+            if (_userAccountRepository != null)
+            {
+                var account = await _userAccountRepository.GetByIdAsync(request.UserId);
+                if (account == null)
+                    return Result<ExitParkingLogResponse>.Failure("Authorized guard or admin not found.", ErrorCode.NotFound);
+            }
+            else if (userProfile == null)
+            {
+                return Result<ExitParkingLogResponse>.Failure("Authorized guard or admin not found.", ErrorCode.NotFound);
+            }
+        }
 
         var active = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id);
 
@@ -260,8 +275,10 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
 
         var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);
 
-        var guardMiddle = string.IsNullOrWhiteSpace(userProfile.MiddleName) ? "" : $" {userProfile.MiddleName}";
-        var guardName = $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}";
+        var guardMiddle = userProfile != null && !string.IsNullOrWhiteSpace(userProfile.MiddleName) ? $" {userProfile.MiddleName}" : "";
+        var guardName = userProfile != null
+            ? $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}"
+            : (staffAdmin != null ? "Campus Administrator" : "Campus Security");
 
         var response = new ExitParkingLogResponse
         {
