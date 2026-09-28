@@ -82,8 +82,9 @@ public class GetActiveParkingSessionHandler
                         ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
                             philippinesEntry,
                             todaySchedule.EndTime);
-
-                    maximumExitTimeUtc = scheduleEndUtc.AddMinutes(30);
+                    var sysSettings = SystemSettingsStore.Current;
+                    var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
+                    maximumExitTimeUtc = scheduleEndUtc.AddMinutes(graceMin);
                 }
             }
 

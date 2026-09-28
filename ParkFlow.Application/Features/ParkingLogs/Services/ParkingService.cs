@@ -1,3 +1,4 @@
+using ParkFlow.Application.Common;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
 
@@ -15,17 +16,21 @@ public class ParkingService : IParkingService
         parkingLog.Exit();
     }
 
-    public DateTime CalculateEntryGracePeriod(DateTime entryTime, TimeSpan startTime, int graceMinutes = 30)
+    public DateTime CalculateEntryGracePeriod(DateTime entryTime, TimeSpan startTime, int? earlyBufferMinutes = null)
     {
-        return entryTime.Date.Add(startTime).AddMinutes(-graceMinutes);
+        var settings = SystemSettingsStore.Current;
+        var buffer = earlyBufferMinutes ?? (settings.IsEarlyParkingAllowed ? settings.EarlyParkingMinutes : 0);
+        return entryTime.Date.Add(startTime).AddMinutes(-buffer);
     }
 
-    public DateTime CalculateEstimatedExitTime(DateTime entryTime, TimeSpan endTime, int graceMinutes = 30)
+    public DateTime CalculateEstimatedExitTime(DateTime entryTime, TimeSpan endTime, int? graceMinutes = null)
     {
-        return entryTime.Date.Add(endTime).AddMinutes(graceMinutes);
+        var settings = SystemSettingsStore.Current;
+        var grace = graceMinutes ?? (settings.IsGracePeriodEnabled ? settings.GracePeriodMinutes : 0);
+        return entryTime.Date.Add(endTime).AddMinutes(grace);
     }
 
-    public DateTime CalculateMaximumExitTime(DateTime entryTime, TimeSpan endTime, int graceMinutes = 30)
+    public DateTime CalculateMaximumExitTime(DateTime entryTime, TimeSpan endTime, int? graceMinutes = null)
     {
         return CalculateEstimatedExitTime(entryTime, endTime, graceMinutes);
     }

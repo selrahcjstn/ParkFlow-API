@@ -42,7 +42,12 @@ public class SystemSettingsController : ControllerBase
             request.MaxVehiclesPerUser,
             request.MaintenanceMode,
             request.RfidInstantScanEnabled,
-            request.AutoApproveVerification);
+            request.AutoApproveVerification,
+            request.FeeCalculationMode,
+            request.BaseFee,
+            request.IsGracePeriodEnabled,
+            request.IsEarlyParkingAllowed,
+            request.EarlyParkingMinutes);
 
         var updated = SystemSettingsStore.Current;
 

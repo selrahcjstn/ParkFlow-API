@@ -165,6 +165,9 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             r.ReservationDate.Date == philippinesEntry.Date &&
             r.Status == ReservationStatus.Approved);
 
+        var systemSettings = SystemSettingsStore.Current;
+        var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
+
         if (entryReservation != null)
         {
             if (entryReservation.Type == ReservationType.Special)
@@ -174,7 +177,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             else
             {
                 var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, entryReservation.EndTime);
-                maximumExitTime = resEndTimeUtc.AddMinutes(30);
+                maximumExitTime = resEndTimeUtc.AddMinutes(gracePeriodMinutes);
             }
         }
         else if (active.EntryMethod != EntryMethod.Manual && verifiedCor != null)
@@ -185,7 +188,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             if (entrySchedule != null)
             {
                 var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, entrySchedule.EndTime);
-                maximumExitTime = scheduleEndTimeUtc.AddMinutes(30);
+                maximumExitTime = scheduleEndTimeUtc.AddMinutes(gracePeriodMinutes);
             }
         }
 

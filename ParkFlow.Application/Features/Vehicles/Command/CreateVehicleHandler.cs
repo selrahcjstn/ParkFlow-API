@@ -12,15 +12,18 @@ public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IValidator<CreateVehicleCommand> _validator;
     private readonly IQrCodeService _qrCodeService;
+    private readonly ISignalRNotificationSender? _signalRNotificationSender;
 
     public CreateVehicleHandler(
         IVehicleRepository vehicleRepository,
         IValidator<CreateVehicleCommand> validator,
-        IQrCodeService qrCodeService)
+        IQrCodeService qrCodeService,
+        ISignalRNotificationSender? signalRNotificationSender = null)
     {
         _vehicleRepository = vehicleRepository;
         _validator = validator;
         _qrCodeService = qrCodeService;
+        _signalRNotificationSender = signalRNotificationSender;
     }
 
     public async Task<Result<Guid>> Handle(CreateVehicleCommand request, CancellationToken cancellationToken)
@@ -59,6 +62,31 @@ public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result
         }
 
         await _vehicleRepository.AddAsync(vehicle);
+
+        if (_signalRNotificationSender != null)
+        {
+            try
+            {
+                await _signalRNotificationSender.SendToAllAsync("VehicleSubmitted", new
+                {
+                    vehicleId = vehicle.Id,
+                    ownerId = request.OwnerId,
+                    plateNumber = request.PlateNumber,
+                    brand = request.Brand,
+                    vehicleType = request.VehicleType.ToString()
+                });
+
+                await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", new
+                {
+                    type = "vehicle",
+                    vehicleId = vehicle.Id
+                });
+            }
+            catch
+            {
+                // Silently ignore realtime dispatch failure
+            }
+        }
 
         return Result<Guid>.Success(vehicle.Id, "Vehicle created.");
     }

@@ -163,6 +163,9 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             r.ReservationDate.Date == philippinesNow.Date &&
             r.Status == ReservationStatus.Approved);
 
+        var systemSettings = SystemSettingsStore.Current;
+        var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
+
         if (todayReservation != null)
         {
             if (todayReservation.Type == ReservationType.Special)
@@ -172,7 +175,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             else
             {
                 var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todayReservation.EndTime);
-                maximumExitTimeUtc = resEndTimeUtc.AddMinutes(30);
+                maximumExitTimeUtc = resEndTimeUtc.AddMinutes(gracePeriodMinutes);
             }
         }
         else
@@ -220,7 +223,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
                 }
 
                 var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todaySchedule.EndTime);
-                maximumExitTimeUtc = scheduleEndTimeUtc.AddMinutes(30);
+                maximumExitTimeUtc = scheduleEndTimeUtc.AddMinutes(gracePeriodMinutes);
             }
         }
 

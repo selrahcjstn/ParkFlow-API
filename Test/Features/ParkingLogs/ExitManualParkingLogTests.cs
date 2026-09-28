@@ -250,8 +250,8 @@ public class FakeParkingServiceForExit : IParkingService
     {
         parkingLog.Exit();
     }
-    public DateTime CalculateEntryGracePeriod(DateTime entryTime, TimeSpan scheduleStartTime, int graceMinutes = 30) => default;
-    public DateTime CalculateEstimatedExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int graceMinutes = 30) => default;
-    public DateTime CalculateMaximumExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int graceMinutes = 30) => default;
+    public DateTime CalculateEntryGracePeriod(DateTime entryTime, TimeSpan scheduleStartTime, int? earlyBufferMinutes = null) => default;
+    public DateTime CalculateEstimatedExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => default;
+    public DateTime CalculateMaximumExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => default;
     public double CalculateTotalParkingHours(DateTime entryTime, DateTime exitTime) => 0.0;
 }

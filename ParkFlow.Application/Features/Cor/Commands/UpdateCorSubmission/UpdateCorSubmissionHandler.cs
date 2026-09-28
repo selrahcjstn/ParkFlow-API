@@ -9,13 +9,16 @@ public class UpdateCorSubmissionHandler : IRequestHandler<UpdateCorSubmissionCom
 {
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IValidator<UpdateCorSubmissionCommand> _validator;
+    private readonly ISignalRNotificationSender? _signalRNotificationSender;
 
     public UpdateCorSubmissionHandler(
         ICorSubmissionRepository corSubmissionRepository,
-        IValidator<UpdateCorSubmissionCommand> validator)
+        IValidator<UpdateCorSubmissionCommand> validator,
+        ISignalRNotificationSender? signalRNotificationSender = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _validator = validator;
+        _signalRNotificationSender = signalRNotificationSender;
     }
 
     public async Task<Result<Guid>> Handle(UpdateCorSubmissionCommand request, CancellationToken cancellationToken)
@@ -39,6 +42,29 @@ public class UpdateCorSubmissionHandler : IRequestHandler<UpdateCorSubmissionCom
             request.VerificationStatus);
 
         await _corSubmissionRepository.UpdateCorSubmissionAsync(submission);
+
+        if (_signalRNotificationSender != null)
+        {
+            try
+            {
+                await _signalRNotificationSender.SendToAllAsync("ScheduleSubmitted", new
+                {
+                    submissionId = submission.Id,
+                    userId = submission.UserAccountId,
+                    academicTerm = request.AcademicTerm
+                });
+
+                await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", new
+                {
+                    type = "schedule",
+                    submissionId = submission.Id
+                });
+            }
+            catch
+            {
+                // Silently ignore realtime dispatch failure
+            }
+        }
 
         return Result<Guid>.Success(submission.Id, "COR submission updated.");
     }

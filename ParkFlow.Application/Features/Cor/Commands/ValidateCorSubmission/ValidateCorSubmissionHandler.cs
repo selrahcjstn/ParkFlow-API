@@ -15,6 +15,7 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
     private readonly IValidator<ValidateCorSubmissionCommand> _validator;
     private readonly INotificationService? _notificationService;
     private readonly IEmailService? _emailService;
+    private readonly ISignalRNotificationSender? _signalRNotificationSender;
 
     public ValidateCorSubmissionHandler(
         ICorSubmissionRepository corSubmissionRepository,
@@ -22,7 +23,8 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
         IVehicleRepository vehicleRepository,
         IValidator<ValidateCorSubmissionCommand> validator,
         INotificationService? notificationService = null,
-        IEmailService? emailService = null)
+        IEmailService? emailService = null,
+        ISignalRNotificationSender? signalRNotificationSender = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _userAccountRepository = userAccountRepository;
@@ -30,6 +32,7 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
         _validator = validator;
         _notificationService = notificationService;
         _emailService = emailService;
+        _signalRNotificationSender = signalRNotificationSender;
     }
 
     public async Task<Result<Guid>> Handle(ValidateCorSubmissionCommand request, CancellationToken cancellationToken)
@@ -68,7 +71,12 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
         {
             if (request.VerificationStatus == CorVerificationStatus.Verified)
             {
-                user.Verify();
+                var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(user.Id);
+                var allVehiclesVerified = userVehicles.Any() && userVehicles.All(v => v.VerificationStatus == CorVerificationStatus.Verified);
+                if (allVehiclesVerified)
+                {
+                    user.Verify();
+                }
             }
             else if (request.VerificationStatus == CorVerificationStatus.Rejected)
             {
@@ -76,19 +84,14 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
             }
             await _userAccountRepository.UpdateAsync(user);
 
-            var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(user.Id);
-            foreach (var vehicle in userVehicles)
-            {
-                vehicle.UpdateVerificationStatus(request.VerificationStatus, request.RejectionReason);
-                await _vehicleRepository.UpdateAsync(vehicle);
-            }
+            // Separate verification: do NOT automatically update vehicle verification status when schedule is validated.
 
             var isApproved = request.VerificationStatus == CorVerificationStatus.Verified;
 
             if (_notificationService != null)
             {
                 var title = isApproved ? "Schedule & COR Verified" : "Registration Verification Rejected";
-                var subtitle = isApproved ? "Pass Activated" : "Action Required";
+                var subtitle = isApproved ? "Schedule Verified" : "Action Required";
                 var body = isApproved
                     ? "Your submitted Certificate of Registration (COR) and duty schedule have been verified by security administration."
                     : string.IsNullOrWhiteSpace(request.RejectionReason)
@@ -151,9 +154,22 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
             }
         }
 
-        if (submission == null && user == null)
+        if (_signalRNotificationSender != null)
         {
-            return Result<Guid>.Failure("COR submission or user account not found.", ErrorCode.NotFound);
+            try
+            {
+                await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", new
+                {
+                    type = "schedule",
+                    submissionId = submission?.Id ?? user?.Id,
+                    userId = user?.Id,
+                    status = request.VerificationStatus.ToString()
+                });
+            }
+            catch
+            {
+                // Silently ignore realtime dispatch failure
+            }
         }
 
         return Result<Guid>.Success(submission?.Id ?? user!.Id, $"COR submission validation updated to {request.VerificationStatus}.");

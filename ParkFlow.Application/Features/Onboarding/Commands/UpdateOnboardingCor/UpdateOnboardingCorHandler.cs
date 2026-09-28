@@ -13,17 +13,20 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IValidator<UpdateOnboardingCorCommand> _validator;
     private readonly IVehicleRepository? _vehicleRepository;
+    private readonly ISignalRNotificationSender? _signalRNotificationSender;
 
     public UpdateOnboardingCorHandler(
         ICorSubmissionRepository corSubmissionRepository,
         IUserAccountRepository userAccountRepository,
         IValidator<UpdateOnboardingCorCommand> validator,
-        IVehicleRepository? vehicleRepository = null)
+        IVehicleRepository? vehicleRepository = null,
+        ISignalRNotificationSender? signalRNotificationSender = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _userAccountRepository = userAccountRepository;
         _validator = validator;
         _vehicleRepository = vehicleRepository;
+        _signalRNotificationSender = signalRNotificationSender;
     }
 
     public async Task<Result<Guid>> Handle(UpdateOnboardingCorCommand request, CancellationToken cancellationToken)
@@ -90,6 +93,34 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
         {
             user.UpdateOnboardingStep(OnboardingStep.Done);
             await _userAccountRepository.UpdateAsync(user);
+        }
+
+        if (_signalRNotificationSender != null)
+        {
+            try
+            {
+                var userName = user?.UserProfile != null
+                    ? $"{user.UserProfile.FirstName} {user.UserProfile.LastName}".Trim()
+                    : (user?.PrimaryEmail ?? "New User");
+
+                await _signalRNotificationSender.SendToAllAsync("RegistrationSubmitted", new
+                {
+                    userId = request.UserId,
+                    userName = userName,
+                    academicTerm = request.AcademicTerm,
+                    corUrl = corUrl
+                });
+
+                await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", new
+                {
+                    type = "registration",
+                    userId = request.UserId
+                });
+            }
+            catch
+            {
+                // Silently ignore realtime dispatch failure
+            }
         }
 
         return Result<Guid>.Success(existing.Id, "COR onboarding completed.");

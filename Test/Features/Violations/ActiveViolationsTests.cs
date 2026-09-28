@@ -182,16 +182,16 @@ public class FakeParkingService : IParkingService
 {
     public ParkingLog CreateEntry(Guid vehicleId, Guid guardId, EntryMethod entryMethod = EntryMethod.QrCode) => null!;
     public void MarkExit(ParkingLog parkingLog) { }
-    public DateTime CalculateEntryGracePeriod(DateTime entryTime, TimeSpan scheduleStartTime, int graceMinutes = 30) => default;
-    public DateTime CalculateEstimatedExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int graceMinutes = 30) => default;
-    public DateTime CalculateMaximumExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int graceMinutes = 30) => default;
+    public DateTime CalculateEntryGracePeriod(DateTime entryTime, TimeSpan scheduleStartTime, int? earlyBufferMinutes = null) => default;
+    public DateTime CalculateEstimatedExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => default;
+    public DateTime CalculateMaximumExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => default;
     public double CalculateTotalParkingHours(DateTime entryTime, DateTime exitTime) => 0.0;
 }
 
 public class FakeScheduleService : IScheduleService
 {
-    public bool CanEnter(DateTime currentTime, ParkingSchedule schedule, int graceMinutes = 30) => true;
-    public TimeSpan GetEarliestAllowedEntryTime(ParkingSchedule schedule, int graceMinutes = 30) => default;
+    public bool CanEnter(DateTime currentTime, ParkingSchedule schedule, int? earlyBufferMinutes = null) => true;
+    public TimeSpan GetEarliestAllowedEntryTime(ParkingSchedule schedule, int? earlyBufferMinutes = null) => default;
 }
 
 public class ActiveViolationsTests

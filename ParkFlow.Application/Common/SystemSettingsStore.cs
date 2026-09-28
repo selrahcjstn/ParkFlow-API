@@ -5,7 +5,15 @@ namespace ParkFlow.Application.Common
     public class SystemSettingsDto
     {
         public decimal ViolationRatePerHour { get; set; } = 100.00m;
+        public string FeeCalculationMode { get; set; } = "per_hour"; // "per_hour", "per_day", "one_time", "one_time_hourly", "no_fee"
+        public decimal BaseFee { get; set; } = 50.00m;
+
+        public bool IsGracePeriodEnabled { get; set; } = true;
         public int GracePeriodMinutes { get; set; } = 15;
+
+        public bool IsEarlyParkingAllowed { get; set; } = true;
+        public int EarlyParkingMinutes { get; set; } = 15;
+
         public string AcademicYear { get; set; } = "2026-2027";
         public string CurrentSemester { get; set; } = "1st Semester";
         public DateTime LastResetDate { get; set; } = DateTime.UtcNow;
@@ -32,7 +40,12 @@ namespace ParkFlow.Application.Common
                     return new SystemSettingsDto
                     {
                         ViolationRatePerHour = _settings.ViolationRatePerHour,
+                        FeeCalculationMode = _settings.FeeCalculationMode ?? "per_hour",
+                        BaseFee = _settings.BaseFee,
+                        IsGracePeriodEnabled = _settings.IsGracePeriodEnabled,
                         GracePeriodMinutes = _settings.GracePeriodMinutes,
+                        IsEarlyParkingAllowed = _settings.IsEarlyParkingAllowed,
+                        EarlyParkingMinutes = _settings.EarlyParkingMinutes,
                         AcademicYear = _settings.AcademicYear,
                         CurrentSemester = _settings.CurrentSemester,
                         LastResetDate = _settings.LastResetDate,
@@ -57,7 +70,12 @@ namespace ParkFlow.Application.Common
             int maxVehiclesPerUser = 5,
             bool maintenanceMode = false,
             bool rfidInstantScanEnabled = true,
-            bool autoApproveVerification = false)
+            bool autoApproveVerification = false,
+            string? feeCalculationMode = null,
+            decimal? baseFee = null,
+            bool? isGracePeriodEnabled = null,
+            bool? isEarlyParkingAllowed = null,
+            int? earlyParkingMinutes = null)
         {
             lock (_lock)
             {
@@ -71,6 +89,12 @@ namespace ParkFlow.Application.Common
                 _settings.MaintenanceMode = maintenanceMode;
                 _settings.RfidInstantScanEnabled = rfidInstantScanEnabled;
                 _settings.AutoApproveVerification = autoApproveVerification;
+
+                if (!string.IsNullOrWhiteSpace(feeCalculationMode)) _settings.FeeCalculationMode = feeCalculationMode;
+                if (baseFee.HasValue) _settings.BaseFee = baseFee.Value;
+                if (isGracePeriodEnabled.HasValue) _settings.IsGracePeriodEnabled = isGracePeriodEnabled.Value;
+                if (isEarlyParkingAllowed.HasValue) _settings.IsEarlyParkingAllowed = isEarlyParkingAllowed.Value;
+                if (earlyParkingMinutes.HasValue) _settings.EarlyParkingMinutes = earlyParkingMinutes.Value;
             }
         }
 

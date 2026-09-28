@@ -103,6 +103,28 @@ public class AuthController : ControllerBase
      }
 
     [AllowAnonymous]
+    [HttpGet("check-email")]
+    public async Task<ActionResult<Result<bool>>> CheckEmail(
+        [FromQuery] string email,
+        [FromServices] IAuthIdentityRepository authIdentityRepo,
+        [FromServices] IUserAccountRepository userRepo)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return BadRequest(Result<bool>.Failure(false, "Email is required.", ErrorCode.BadRequest));
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var identity = await authIdentityRepo.GetByEmailAsync(normalizedEmail);
+        if (identity != null)
+            return Ok(Result<bool>.Failure(false, "This email is already in use.", ErrorCode.Conflict));
+
+        var user = await userRepo.GetByEmailAsync(normalizedEmail);
+        if (user != null)
+            return Ok(Result<bool>.Failure(false, "This email is already in use.", ErrorCode.Conflict));
+
+        return Ok(Result<bool>.Success(true, "Email is available."));
+    }
+
+    [AllowAnonymous]
     [HttpPost("send-email-otp")]
     public async Task<ActionResult<Result<bool>>> SendEmailOtp(SendEmailOtpRequest request)
     {

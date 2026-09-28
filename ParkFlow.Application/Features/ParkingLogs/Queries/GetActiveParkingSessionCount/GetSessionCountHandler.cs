@@ -60,7 +60,9 @@ public class GetSessionCountHandler
 			var scheduleEndUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
 				philippinesEntry,
 				todaySchedule.EndTime);
-			var maximumExitTimeUtc = scheduleEndUtc.AddMinutes(30);
+			var sysSettings = SystemSettingsStore.Current;
+			var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
+			var maximumExitTimeUtc = scheduleEndUtc.AddMinutes(graceMin);
 
 			if (nowUtc > maximumExitTimeUtc)
 				overstayCount++;

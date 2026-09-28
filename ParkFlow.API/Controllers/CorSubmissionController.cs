@@ -58,7 +58,7 @@ public class CorSubmissionController : ControllerBase
     [HttpPatch("{corSubmissionId:guid}/validate")]
     public async Task<ActionResult<Result<Guid>>> Validate(Guid corSubmissionId, [FromBody] ValidateCorSubmissionRequest request)
     {
-        var command = new ValidateCorSubmissionCommand(corSubmissionId, request.VerificationStatus);
+        var command = new ValidateCorSubmissionCommand(corSubmissionId, request.VerificationStatus, request.RejectionReason);
 
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);

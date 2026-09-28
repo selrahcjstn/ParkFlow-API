@@ -209,8 +209,10 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
                     ErrorCode.BadRequest);
             }
 
+            var systemSettings = SystemSettingsStore.Current;
+            var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
             var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todaySchedule.EndTime);
-            maximumExitTimeUtc = scheduleEndTimeUtc.AddMinutes(30);
+            maximumExitTimeUtc = scheduleEndTimeUtc.AddMinutes(gracePeriodMinutes);
         }
 
         // 5. Create Entry with manual method

@@ -302,8 +302,8 @@ public class FakeParkingServiceWithRealEntry : IParkingService
         return new ParkingLog(vehicleId, guardId, ParkingStatus.Parked, entryMethod);
     }
     public void MarkExit(ParkingLog parkingLog) { }
-    public DateTime CalculateEntryGracePeriod(DateTime entryTime, TimeSpan scheduleStartTime, int graceMinutes = 30) => default;
-    public DateTime CalculateEstimatedExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int graceMinutes = 30) => default;
-    public DateTime CalculateMaximumExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int graceMinutes = 30) => default;
+    public DateTime CalculateEntryGracePeriod(DateTime entryTime, TimeSpan scheduleStartTime, int? earlyBufferMinutes = null) => default;
+    public DateTime CalculateEstimatedExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => default;
+    public DateTime CalculateMaximumExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => default;
     public double CalculateTotalParkingHours(DateTime entryTime, DateTime exitTime) => 0.0;
 }

@@ -109,25 +109,26 @@ public record ValidateVehicleRequest(
         [FromServices] IUserAccountRepository userAccountRepository,
         [FromServices] ICorSubmissionRepository corSubmissionRepository,
         [FromServices] INotificationService? notificationService = null,
-        [FromServices] IEmailService? emailService = null)
+        [FromServices] IEmailService? emailService = null,
+        [FromServices] ISignalRNotificationSender? signalRNotificationSender = null)
     {
         var vehicle = await vehicleRepository.GetByIdAsync(id);
         if (vehicle == null)
             return NotFound(Result<Guid>.Failure("Vehicle not found.", ErrorCode.NotFound));
 
-        var userVehicles = await vehicleRepository.GetByOwnerIdAsync(vehicle.OwnerId);
-        foreach (var v in userVehicles)
-        {
-            v.UpdateVerificationStatus(request.VerificationStatus, request.RejectionReason);
-            await vehicleRepository.UpdateAsync(v);
-        }
+        vehicle.UpdateVerificationStatus(request.VerificationStatus, request.RejectionReason);
+        await vehicleRepository.UpdateAsync(vehicle);
 
         var user = await userAccountRepository.GetByIdAsync(vehicle.OwnerId);
         if (user != null)
         {
             if (request.VerificationStatus == CorVerificationStatus.Verified)
             {
-                user.Verify();
+                var submission = await corSubmissionRepository.GetLatestByUserIdAsync(vehicle.OwnerId);
+                if (submission != null && submission.VerificationStatus == CorVerificationStatus.Verified)
+                {
+                    user.Verify();
+                }
             }
             else if (request.VerificationStatus == CorVerificationStatus.Rejected)
             {
@@ -202,11 +203,22 @@ public record ValidateVehicleRequest(
             }
         }
 
-        var submission = await corSubmissionRepository.GetLatestByUserIdAsync(vehicle.OwnerId);
-        if (submission != null)
+        if (signalRNotificationSender != null)
         {
-            submission.UpdateSubmission(null, null, request.VerificationStatus, request.RejectionReason);
-            await corSubmissionRepository.UpdateCorSubmissionAsync(submission);
+            try
+            {
+                await signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", new
+                {
+                    type = "vehicle",
+                    vehicleId = vehicle.Id,
+                    ownerId = vehicle.OwnerId,
+                    status = request.VerificationStatus.ToString()
+                });
+            }
+            catch
+            {
+                // Silently ignore realtime dispatch failure
+            }
         }
 
         return Ok(Result<Guid>.Success(vehicle.Id, $"Vehicle verification status updated to {request.VerificationStatus}."));
@@ -221,8 +233,9 @@ public record ValidateVehicleRequest(
         [FromServices] IUserAccountRepository userAccountRepository,
         [FromServices] ICorSubmissionRepository corSubmissionRepository,
         [FromServices] INotificationService? notificationService = null,
-        [FromServices] IEmailService? emailService = null)
+        [FromServices] IEmailService? emailService = null,
+        [FromServices] ISignalRNotificationSender? signalRNotificationSender = null)
     {
-        return await ValidateVehicle(id, request, vehicleRepository, userAccountRepository, corSubmissionRepository, notificationService, emailService);
+        return await ValidateVehicle(id, request, vehicleRepository, userAccountRepository, corSubmissionRepository, notificationService, emailService, signalRNotificationSender);
     }
 }

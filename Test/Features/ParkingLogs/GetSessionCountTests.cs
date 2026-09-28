@@ -282,11 +282,11 @@ public class FakeParkingLogRepositoryWithActiveLogs : IParkingLogRepository
 
 public class FakeViolationService : IViolationService
 {
-    public bool IsOverstay(DateTime exitTime, TimeSpan scheduleEndTime, int graceMinutes = 30) => false;
-    public TimeSpan GetOverstayDuration(DateTime exitTime, TimeSpan scheduleEndTime, int graceMinutes = 30) => TimeSpan.Zero;
+    public bool IsOverstay(DateTime exitTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => false;
+    public TimeSpan GetOverstayDuration(DateTime exitTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => TimeSpan.Zero;
     public bool IsOverstay(DateTime exitTime, DateTime maximumExitTime) => exitTime > maximumExitTime;
     public TimeSpan GetOverstayDuration(DateTime exitTime, DateTime maximumExitTime) => exitTime > maximumExitTime ? exitTime - maximumExitTime : TimeSpan.Zero;
-    public decimal CalculatePenalty(TimeSpan overstayDuration, decimal hourlyRate = 5) => 0m;
+    public decimal CalculatePenalty(TimeSpan overstayDuration, decimal? customHourlyRate = null) => 0m;
 }
 
 public class FakeAdminRepository : IAdminRepository

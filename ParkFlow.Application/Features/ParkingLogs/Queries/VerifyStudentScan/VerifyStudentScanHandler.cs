@@ -267,6 +267,12 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
             entryStatus = "HasViolation";
             statusMessage = "Entry denied: User has active/unpaid violations. Please settle pending charges before parking.";
         }
+        else if (primaryVehicle == null || primaryVehicle.VerificationStatus != CorVerificationStatus.Verified)
+        {
+            isValid = false;
+            entryStatus = "VehicleNotVerified";
+            statusMessage = "Entry denied: Vehicle is unverified or pending admin approval.";
+        }
 
         var response = new VerifyStudentScanResponse
         {
