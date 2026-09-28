@@ -71,6 +71,13 @@ public class ApproveReservationHandler : IRequestHandler<ApproveReservationComma
                 catch { }
             }
 
+            try
+            {
+                await _notificationSender.SendToAllAsync("ReservationUpdated", new { id = reservation.Id, referenceNumber = reservation.ReferenceNumber, status = "Approved" });
+                await _notificationSender.SendToAllAsync("ApprovalListUpdated", new { type = "Reservation", id = reservation.Id, referenceNumber = reservation.ReferenceNumber, status = "Approved" });
+            }
+            catch { }
+
             // Send email notification to the applicant
             try
             {

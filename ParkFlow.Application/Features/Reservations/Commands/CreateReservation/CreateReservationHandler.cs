@@ -143,7 +143,31 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
 
         try
         {
+            var eventData = new
+            {
+                id = reservation.Id,
+                referenceNumber = reservation.ReferenceNumber,
+                userId = reservation.UserId,
+                userFullName = dto.UserFullName,
+                plateNumber = dto.PlateNumber,
+                reservationDate = reservation.ReservationDate,
+                startTime = reservation.StartTime,
+                endTime = reservation.EndTime,
+                reason = reservation.Reason,
+                status = reservation.Status.ToString(),
+                type = reservation.Type.ToString(),
+                createdAt = reservation.CreatedAt
+            };
+
+            await _notificationSender.SendToAllAsync("ReservationSubmitted", eventData);
             await _notificationSender.SendToAllAsync("ReservationUpdated", dto);
+            await _notificationSender.SendToAllAsync("ApprovalListUpdated", new
+            {
+                type = "Reservation",
+                id = reservation.Id,
+                referenceNumber = reservation.ReferenceNumber,
+                status = reservation.Status.ToString()
+            });
         }
         catch
         {

@@ -72,6 +72,13 @@ public class RejectReservationHandler : IRequestHandler<RejectReservationCommand
                 catch { }
             }
 
+            try
+            {
+                await _notificationSender.SendToAllAsync("ReservationUpdated", new { id = reservation.Id, referenceNumber = reservation.ReferenceNumber, status = "Rejected" });
+                await _notificationSender.SendToAllAsync("ApprovalListUpdated", new { type = "Reservation", id = reservation.Id, referenceNumber = reservation.ReferenceNumber, status = "Rejected" });
+            }
+            catch { }
+
             // Send email notification to the applicant
             try
             {

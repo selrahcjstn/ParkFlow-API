@@ -34,7 +34,8 @@ public class CancelReservationHandler : IRequestHandler<CancelReservationCommand
 
             try
             {
-                await _notificationSender.SendToAllAsync("ReservationUpdated", new { id = reservation.Id, status = "Cancelled" });
+                await _notificationSender.SendToAllAsync("ReservationUpdated", new { id = reservation.Id, referenceNumber = reservation.ReferenceNumber, status = "Cancelled" });
+                await _notificationSender.SendToAllAsync("ApprovalListUpdated", new { type = "Reservation", id = reservation.Id, referenceNumber = reservation.ReferenceNumber, status = "Cancelled" });
             }
             catch {}
 
