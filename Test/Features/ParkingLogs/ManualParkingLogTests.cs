@@ -297,7 +297,7 @@ public class FakeParkingScheduleRepositoryWithMock : IParkingScheduleRepository
 
 public class FakeParkingServiceWithRealEntry : IParkingService
 {
-    public ParkingLog CreateEntry(Guid vehicleId, Guid guardId, EntryMethod entryMethod = EntryMethod.QrCode)
+    public ParkingLog CreateEntry(Guid vehicleId, Guid? guardId, EntryMethod entryMethod = EntryMethod.QrCode)
     {
         return new ParkingLog(vehicleId, guardId, ParkingStatus.Parked, entryMethod);
     }

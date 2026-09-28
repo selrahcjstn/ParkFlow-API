@@ -306,7 +306,7 @@ public class FakeSignalRNotificationSender : ISignalRNotificationSender
 
 public class FakeParkingServiceForExit : IParkingService
 {
-    public ParkingLog CreateEntry(Guid vehicleId, Guid guardId, EntryMethod entryMethod = EntryMethod.QrCode)
+    public ParkingLog CreateEntry(Guid vehicleId, Guid? guardId, EntryMethod entryMethod = EntryMethod.QrCode)
     {
         return new ParkingLog(vehicleId, guardId, ParkingStatus.Parked, entryMethod);
     }

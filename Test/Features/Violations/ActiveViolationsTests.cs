@@ -180,7 +180,7 @@ public class FakePersonnelRepository : IPersonnelRepository
 
 public class FakeParkingService : IParkingService
 {
-    public ParkingLog CreateEntry(Guid vehicleId, Guid guardId, EntryMethod entryMethod = EntryMethod.QrCode) => null!;
+    public ParkingLog CreateEntry(Guid vehicleId, Guid? guardId, EntryMethod entryMethod = EntryMethod.QrCode) => null!;
     public void MarkExit(ParkingLog parkingLog) { }
     public DateTime CalculateEntryGracePeriod(DateTime entryTime, TimeSpan scheduleStartTime, int? earlyBufferMinutes = null) => default;
     public DateTime CalculateEstimatedExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => default;

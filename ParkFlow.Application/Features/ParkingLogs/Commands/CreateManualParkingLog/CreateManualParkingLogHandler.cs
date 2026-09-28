@@ -225,7 +225,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         }
 
         // 5. Create Entry with manual method
-        var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard?.UserProfileId ?? userProfile?.Id ?? Guid.Empty, EntryMethod.Manual);
+        var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard?.UserProfileId, EntryMethod.Manual);
         await _parkingLogRepository.AddParkingLogAsync(parkingLog);
 
         var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);

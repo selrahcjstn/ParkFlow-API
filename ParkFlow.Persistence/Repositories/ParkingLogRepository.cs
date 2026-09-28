@@ -110,7 +110,7 @@ public class ParkingLogRepository : IParkingLogRepository
                     .ThenInclude(o => o.UserProfile!)
                         .ThenInclude(up => up!.Guard)
             .Include(p => p.Guard)
-                .ThenInclude(g => g.UserProfile)
+                .ThenInclude(g => g!.UserProfile)
             .AsQueryable();
 
         if (userId.HasValue)

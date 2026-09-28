@@ -28,6 +28,9 @@ public class AdminRepository : IAdminRepository
 
     public async Task<IEnumerable<Admin>> ListAllAsync()
     {
-        return await _context.Admins.AsNoTracking().ToListAsync();
+        return await _context.Admins
+            .Include(a => a.UserProfile)
+            .AsNoTracking()
+            .ToListAsync();
     }
 }

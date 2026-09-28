@@ -21,7 +21,8 @@ public class GuardConfiguration : IEntityTypeConfiguration<Guard>
 		entity.HasMany(e => e.ParkingLogs)
 			.WithOne(p => p.Guard)
 			.HasForeignKey(p => p.GuardId)
-			.OnDelete(DeleteBehavior.Cascade);
+			.IsRequired(false)
+			.OnDelete(DeleteBehavior.SetNull);
 
 		entity.HasIndex(e => e.UserProfileId)
 			.IsUnique();

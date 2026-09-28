@@ -7,8 +7,8 @@ public class ParkingLog : BaseEntity
     public Guid VehicleId { get; private set; }
     public Vehicle Vehicle { get; private set; } = null!;
 
-    public Guid GuardId { get; private set; }
-    public Guard Guard { get; private set; } = null!;
+    public Guid? GuardId { get; private set; }
+    public Guard? Guard { get; private set; }
 
     public DateTime EntryTime { get; private set; }
     public DateTime? ExitTime { get; private set; }
@@ -19,7 +19,7 @@ public class ParkingLog : BaseEntity
 
     public ParkingLog(
         Guid vehicleId,
-        Guid guardId,
+        Guid? guardId,
         ParkingStatus status,
         EntryMethod entryMethod = EntryMethod.QrCode)
     {

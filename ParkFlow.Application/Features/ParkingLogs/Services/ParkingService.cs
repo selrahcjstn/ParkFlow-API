@@ -6,7 +6,7 @@ namespace ParkFlow.Application.Features.ParkingLogs.Services;
 
 public class ParkingService : IParkingService
 {
-    public ParkingLog CreateEntry(Guid vehicleId, Guid guardId, EntryMethod entryMethod = EntryMethod.QrCode)
+    public ParkingLog CreateEntry(Guid vehicleId, Guid? guardId, EntryMethod entryMethod = EntryMethod.QrCode)
     {
         return new ParkingLog(vehicleId, guardId, ParkingStatus.Parked, entryMethod);
     }

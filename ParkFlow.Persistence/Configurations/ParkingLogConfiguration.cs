@@ -22,7 +22,7 @@ public class ParkingLogConfiguration : IEntityTypeConfiguration<ParkingLog>
 			.IsRequired();
 
 		entity.Property(e => e.GuardId)
-			.IsRequired();
+			.IsRequired(false);
 
 		entity.Property(e => e.EntryTime)
 			.IsRequired();
@@ -44,7 +44,8 @@ public class ParkingLogConfiguration : IEntityTypeConfiguration<ParkingLog>
 		entity.HasOne(e => e.Guard)
 			.WithMany(g => g.ParkingLogs)
 			.HasForeignKey(e => e.GuardId)
-			.OnDelete(DeleteBehavior.Cascade);
+			.IsRequired(false)
+			.OnDelete(DeleteBehavior.SetNull);
 
 		entity.HasIndex(e => e.VehicleId);
 		entity.HasIndex(e => e.GuardId);
