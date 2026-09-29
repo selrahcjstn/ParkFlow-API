@@ -47,43 +47,18 @@ public class UploadOrcrDocumentHandler : IRequestHandler<UploadOrcrDocumentComma
 
         try
         {
-            CorSubmission? corSubmission = null;
-            if (request.CorSubmissionId.HasValue && request.CorSubmissionId.Value != Guid.Empty)
-            {
-                corSubmission = await _corSubmissionRepository.GetCorSubmissionAsync(request.CorSubmissionId.Value);
-            }
-
-            var currentUserId = _userContext.GetUserId();
-            if (corSubmission == null && currentUserId != Guid.Empty)
-            {
-                corSubmission = await _corSubmissionRepository.GetLatestByUserIdAsync(currentUserId);
-            }
-
-            if (corSubmission == null && currentUserId != Guid.Empty)
-            {
-                var newSubmission = new CorSubmission(currentUserId, "2025-2026", "pending");
-                await _corSubmissionRepository.AddCorSubmissionAsync(newSubmission);
-                corSubmission = newSubmission;
-            }
-
             var isPdf = request.File.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
             var (secureUrl, publicId) = isPdf
                 ? await _cloudinaryService.UploadPdfAsync(request.File, "parkflow/orcr")
                 : await _cloudinaryService.UploadImageAsync(request.File, "parkflow/orcr");
 
-            if (corSubmission != null)
+            if (request.CorSubmissionId.HasValue && request.CorSubmissionId.Value != Guid.Empty)
             {
-                corSubmission.UpdateSubmission(null, null, null, orcrDocumentUrl: secureUrl);
-                await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
-
-                if (_vehicleRepository != null)
+                var corSubmission = await _corSubmissionRepository.GetCorSubmissionAsync(request.CorSubmissionId.Value);
+                if (corSubmission != null)
                 {
-                    var vehicles = await _vehicleRepository.GetByOwnerIdAsync(corSubmission.UserAccountId);
-                    foreach (var v in vehicles)
-                    {
-                        v.UpdateDocuments(orcrDocumentUrl: secureUrl, vehiclePictureUrl: null);
-                        await _vehicleRepository.UpdateAsync(v);
-                    }
+                    corSubmission.UpdateSubmission(null, null, null, orcrDocumentUrl: secureUrl);
+                    await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
                 }
             }
 

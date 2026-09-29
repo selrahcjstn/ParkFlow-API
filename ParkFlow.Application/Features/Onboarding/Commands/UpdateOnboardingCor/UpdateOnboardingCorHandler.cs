@@ -77,17 +77,6 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
             await _corSubmissionRepository.UpdateCorSubmissionAsync(existing);
         }
 
-        if (_vehicleRepository != null)
-        {
-            var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.UserId);
-            foreach (var v in userVehicles)
-            {
-                v.UpdateDocuments(orcrDocumentUrl: orcrUrl, vehiclePictureUrl: motorUrl);
-                v.UpdateVerificationStatus(CorVerificationStatus.Pending);
-                await _vehicleRepository.UpdateAsync(v);
-            }
-        }
-
         var user = await _userAccountRepository.GetByIdAsync(request.UserId);
         if (user != null)
         {

@@ -47,40 +47,15 @@ public class UploadMotorPictureHandler : IRequestHandler<UploadMotorPictureComma
 
         try
         {
-            CorSubmission? corSubmission = null;
-            if (request.CorSubmissionId.HasValue && request.CorSubmissionId.Value != Guid.Empty)
-            {
-                corSubmission = await _corSubmissionRepository.GetCorSubmissionAsync(request.CorSubmissionId.Value);
-            }
-
-            var currentUserId = _userContext.GetUserId();
-            if (corSubmission == null && currentUserId != Guid.Empty)
-            {
-                corSubmission = await _corSubmissionRepository.GetLatestByUserIdAsync(currentUserId);
-            }
-
-            if (corSubmission == null && currentUserId != Guid.Empty)
-            {
-                var newSubmission = new CorSubmission(currentUserId, "2025-2026", "pending");
-                await _corSubmissionRepository.AddCorSubmissionAsync(newSubmission);
-                corSubmission = newSubmission;
-            }
-
             var (secureUrl, publicId) = await _cloudinaryService.UploadImageAsync(request.File, "parkflow/motor-pictures");
 
-            if (corSubmission != null)
+            if (request.CorSubmissionId.HasValue && request.CorSubmissionId.Value != Guid.Empty)
             {
-                corSubmission.UpdateSubmission(null, null, null, motorPictureUrl: secureUrl);
-                await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
-
-                if (_vehicleRepository != null)
+                var corSubmission = await _corSubmissionRepository.GetCorSubmissionAsync(request.CorSubmissionId.Value);
+                if (corSubmission != null)
                 {
-                    var vehicles = await _vehicleRepository.GetByOwnerIdAsync(corSubmission.UserAccountId);
-                    foreach (var v in vehicles)
-                    {
-                        v.UpdateDocuments(orcrDocumentUrl: null, vehiclePictureUrl: secureUrl);
-                        await _vehicleRepository.UpdateAsync(v);
-                    }
+                    corSubmission.UpdateSubmission(null, null, null, motorPictureUrl: secureUrl);
+                    await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
                 }
             }
 

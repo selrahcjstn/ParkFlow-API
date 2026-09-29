@@ -78,16 +78,6 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
                     submission = new CorSubmission(user.Id, "Academic Term", string.Empty, verificationStatus: CorVerificationStatus.Verified);
                     await _corSubmissionRepository.AddCorSubmissionAsync(submission);
                 }
-
-                var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(user.Id);
-                foreach (var v in userVehicles)
-                {
-                    if (v.VerificationStatus == CorVerificationStatus.Pending)
-                    {
-                        v.UpdateVerificationStatus(CorVerificationStatus.Verified);
-                        await _vehicleRepository.UpdateAsync(v);
-                    }
-                }
             }
             else if (request.VerificationStatus == CorVerificationStatus.Rejected)
             {

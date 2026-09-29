@@ -94,16 +94,6 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
             {
                 corSubmission.UpdateSubmission(null, secureUrl, ParkFlow.Domain.Enums.CorVerificationStatus.Pending);
                 await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
-
-                if (_vehicleRepository != null)
-                {
-                    var vehicles = await _vehicleRepository.GetByOwnerIdAsync(corSubmission.UserAccountId);
-                    foreach (var v in vehicles)
-                    {
-                        v.UpdateVerificationStatus(ParkFlow.Domain.Enums.CorVerificationStatus.Pending);
-                        await _vehicleRepository.UpdateAsync(v);
-                    }
-                }
             }
 
             var response = new UploadFileResponse(secureUrl, publicId);

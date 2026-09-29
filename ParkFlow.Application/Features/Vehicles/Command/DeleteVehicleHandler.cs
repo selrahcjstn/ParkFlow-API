@@ -116,13 +116,10 @@ public class DeleteVehicleHandler : IRequestHandler<DeleteVehicleCommand, Result
             }
             else
             {
-                // No remaining vehicles: user must upload/register vehicle again
+                // No remaining vehicles
                 var user = _userAccountRepository != null ? await _userAccountRepository.GetByIdAsync(ownerId) : null;
                 if (user != null && _userAccountRepository != null)
                 {
-                    user.ResetToVehicleStep();
-                    await _userAccountRepository.UpdateAsync(user);
-
                     if (_signalRNotificationSender != null)
                     {
                         var eventData = new
@@ -130,8 +127,8 @@ public class DeleteVehicleHandler : IRequestHandler<DeleteVehicleCommand, Result
                             userId = ownerId,
                             type = "vehicle_deleted",
                             title = "Vehicle Removed",
-                            body = "Your primary vehicle was removed by an administrator. Please upload and register your vehicle again to enable parking access.",
-                            requiresVehicleRegistration = true
+                            body = "Your vehicle was removed. You can register a new vehicle under Settings > Vehicles.",
+                            requiresVehicleRegistration = false
                         };
                         try
                         {
@@ -148,12 +145,12 @@ public class DeleteVehicleHandler : IRequestHandler<DeleteVehicleCommand, Result
                             await _notificationService.CreateAndSendNotificationAsync(
                                 ownerId,
                                 "Vehicle Removed",
-                                "Your vehicle has been removed by an administrator. Please register your vehicle again to restore campus parking access.",
-                                type: "vehicle_rejected",
-                                subtitle: "Action Required",
+                                "Your vehicle has been removed. You can register a new vehicle at any time under Settings > Vehicles.",
+                                type: "system",
+                                subtitle: "Vehicle Record Updated",
                                 actionRoute: "/(settings)/vehicle",
-                                actionText: "Add Vehicle",
-                                priority: "high",
+                                actionText: "Manage Vehicles",
+                                priority: "medium",
                                 issuer: "ParkFlow Vehicle Desk"
                             );
                         }
