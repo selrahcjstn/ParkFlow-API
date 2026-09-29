@@ -60,13 +60,50 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
         }
 
         var isAccountActive = user.Status == AccountStatus.Active;
+
+        // 1. Check if user is an Admin or Guard
+        var isAdmin = user.UserProfile?.Admin != null;
+        var isGuard = user.UserProfile?.Guard != null;
+
+        // 2. Check COR verification status
+        CorSubmission? latestCor = null;
         if (_corSubmissionRepository != null)
         {
-            var latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(user.Id);
-            if (latestCor != null && latestCor.VerificationStatus != CorVerificationStatus.Verified)
+            latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(user.Id);
+            if (latestCor != null && latestCor.VerificationStatus == CorVerificationStatus.Verified)
+            {
+                isAccountActive = true;
+                if (user.Status != AccountStatus.Active)
+                {
+                    user.Verify();
+                    await _userRepository.UpdateAsync(user);
+                }
+            }
+            else if (latestCor != null && latestCor.VerificationStatus != CorVerificationStatus.Verified)
             {
                 isAccountActive = false;
             }
+        }
+
+        // 3. Check Vehicle verification status
+        var userVehicles = (await _vehicleRepository.GetByOwnerIdAsync(user.Id)).ToList();
+        if (userVehicles.Any(v => v.VerificationStatus == CorVerificationStatus.Verified))
+        {
+            // If user has a verified vehicle and COR is not explicitly rejected, user is verified
+            if (latestCor == null || latestCor.VerificationStatus == CorVerificationStatus.Verified)
+            {
+                isAccountActive = true;
+                if (user.Status != AccountStatus.Active)
+                {
+                    user.Verify();
+                    await _userRepository.UpdateAsync(user);
+                }
+            }
+        }
+
+        if (isAdmin || isGuard)
+        {
+            isAccountActive = true;
         }
 
         if (!isAccountActive)
@@ -86,7 +123,6 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
         }
         else
         {
-            var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.UserId);
             assignedVehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
             assignedVehicleId = assignedVehicle?.Id;
         }
