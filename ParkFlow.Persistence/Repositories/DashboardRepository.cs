@@ -25,18 +25,23 @@ public class DashboardRepository : IDashboardRepository
 
 	public async Task<decimal> GetTodayRevenueAsync()
 	{
-		var today = DateTime.UtcNow.Date;
-		var todayRevenue = await _context.Violations
-			.Where(v => v.SettlementStatus == SettlementStatus.Settled && ((v.UpdatedAt != null && v.UpdatedAt.Value.Date == today) || v.CreatedAt.Date == today))
-			.SumAsync(v => (decimal?)v.PenaltyFee) ?? 0m;
+		var utcNow = DateTime.UtcNow;
+		var phNow = ParkFlow.Application.Features.ParkingLogs.Services.ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
+		var todayPh = phNow.Date;
+		var todayUtc = utcNow.Date;
 
-		if (todayRevenue == 0m)
-		{
-			// Fallback to total settled revenue across all dates if today's exact date match has no records
-			todayRevenue = await _context.Violations
-				.Where(v => v.SettlementStatus == SettlementStatus.Settled)
-				.SumAsync(v => (decimal?)v.PenaltyFee) ?? 0m;
-		}
+		var settled = await _context.Violations
+			.Where(v => v.SettlementStatus == SettlementStatus.Settled)
+			.ToListAsync();
+
+		var todayRevenue = settled
+			.Where(v =>
+			{
+				var dt = v.UpdatedAt ?? v.CreatedAt;
+				var phDt = ParkFlow.Application.Features.ParkingLogs.Services.ParkingTimeHelper.ConvertUtcToPhilippinesTime(dt).Date;
+				return phDt == todayPh || dt.Date == todayUtc;
+			})
+			.Sum(v => v.PenaltyFee);
 
 		return todayRevenue;
 	}
