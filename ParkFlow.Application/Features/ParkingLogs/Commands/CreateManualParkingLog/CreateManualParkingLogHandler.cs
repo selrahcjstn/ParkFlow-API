@@ -296,6 +296,16 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             }
         }
 
+        try
+        {
+            await _signalRNotificationSender.SendToAllAsync("ParkingOccupancyUpdated", new { plateNumber = vehicle.PlateNumber, action = "CheckIn" });
+            await _signalRNotificationSender.SendToAllAsync("ParkingSessionUpdated", response);
+        }
+        catch
+        {
+            // Ignore SignalR dispatch failure
+        }
+
         return Result<CreateParkingLogResponse>.Success(response, "Entry Confirmed");
     }
 }

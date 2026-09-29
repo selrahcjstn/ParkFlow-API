@@ -28,9 +28,15 @@ public class GetSessionCountHandler
 		GetSessionCountQuery request,
 		CancellationToken cancellationToken)
 	{
-		var logs = await _parkingLogRepository.GetActiveParkingLogsAsync(request.ParkingCapacity);
+		var sysSettings = SystemSettingsStore.Current;
+		var effectiveCapacity = sysSettings.TotalCapacity > 0 
+			? sysSettings.TotalCapacity 
+			: (request.ParkingCapacity > 0 ? request.ParkingCapacity : 500);
+
+		var logs = await _parkingLogRepository.GetActiveParkingLogsAsync(Math.Max(1000, effectiveCapacity));
 		var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
 		var nowUtc = DateTime.UtcNow;
+		var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
 
 		var activeLogs = logs
 			.Where(x => x.EntryTime != default)
@@ -68,8 +74,6 @@ public class GetSessionCountHandler
 			var scheduleEndUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
 				philippinesEntry,
 				todaySchedule.EndTime);
-			var sysSettings = SystemSettingsStore.Current;
-			var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
 			var maximumExitTimeUtc = scheduleEndUtc.AddMinutes(graceMin);
 
 			if (nowUtc > maximumExitTimeUtc)
@@ -81,7 +85,7 @@ public class GetSessionCountHandler
 		var response = new SessionCountResponse(
 			ActiveSessionCount: activeLogs.Count,
 			OverstayCount: overstayCount,
-			MaximumCapacity: request.ParkingCapacity,
+			MaximumCapacity: effectiveCapacity,
 			ManualSessionCount: manualSessionCount);
 
 		return Result<SessionCountResponse>.Success(response, "Session count retrieved.");

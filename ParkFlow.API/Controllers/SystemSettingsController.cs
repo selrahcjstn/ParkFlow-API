@@ -51,10 +51,16 @@ public class SystemSettingsController : ControllerBase
 
         var updated = SystemSettingsStore.Current;
 
-        // Broadcast rate update via SignalR
+        // Broadcast rate and capacity update via SignalR
         try
         {
             await _notificationSender.SendToAllAsync("SystemSettingsUpdated", updated);
+            await _notificationSender.SendToAllAsync("ParkingOccupancyUpdated", new
+            {
+                totalCapacity = updated.TotalCapacity,
+                maxParkingHours = updated.MaxParkingHours,
+                action = "CapacityUpdated"
+            });
         }
         catch { }
 

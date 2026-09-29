@@ -26,8 +26,13 @@ public class GetDashboardSummaryHandler : IRequestHandler<GetDashboardSummaryQue
 	{
 		try
 		{
+			var sysSettings = SystemSettingsStore.Current;
+			var effectiveCapacity = sysSettings.TotalCapacity > 0
+				? sysSettings.TotalCapacity
+				: (request.ParkingCapacity > 0 ? request.ParkingCapacity : 500);
+
 			var totalUsers = await _dashboardRepository.GetTotalUsersCountAsync();
-			var activeLogs = await _parkingLogRepository.GetActiveParkingLogsAsync(request.ParkingCapacity);
+			var activeLogs = await _parkingLogRepository.GetActiveParkingLogsAsync(Math.Max(1000, effectiveCapacity));
 			var todayRevenue = await _dashboardRepository.GetTodayRevenueAsync();
 			var violationsCount = await _dashboardRepository.GetActiveViolationsCountAsync();
 			
@@ -45,7 +50,7 @@ public class GetDashboardSummaryHandler : IRequestHandler<GetDashboardSummaryQue
 			var response = new DashboardSummaryResponse(
 				TotalUsers: totalUsers,
 				ActiveParking: activeLogs.Count,
-				MaxCapacity: request.ParkingCapacity,
+				MaxCapacity: effectiveCapacity,
 				TodayRevenue: todayRevenue,
 				ViolationsCount: violationsCount,
 				ActivityOverLast7Days: activityList

@@ -398,6 +398,16 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                 }
             }
 
+            try
+            {
+                await _notificationSender.SendToAllAsync("ParkingOccupancyUpdated", new { plateNumber = vehicle.PlateNumber, action = "CheckOut" });
+                await _notificationSender.SendToAllAsync("ParkingSessionUpdated", response);
+            }
+            catch
+            {
+                // Ignore SignalR dispatch failure
+            }
+
             // Gmail Email Notification on Exit ONLY
             if (_userAccountRepository != null && _emailService != null)
             {

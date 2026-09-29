@@ -43,8 +43,13 @@ public class GetActiveParkingSessionHandler
         GetActiveParkingSessionQuery request,
         CancellationToken cancellationToken)
     {
+        var sysSettings = SystemSettingsStore.Current;
+        var effectiveCapacity = sysSettings.TotalCapacity > 0 
+            ? sysSettings.TotalCapacity 
+            : (request.ParkingCapacity > 0 ? request.ParkingCapacity : 500);
+
         var logs = await _parkingLogRepository
-            .GetActiveParkingLogsAsync(request.ParkingCapacity);
+            .GetActiveParkingLogsAsync(Math.Max(1000, effectiveCapacity));
 
         var corSubmissions = await _corSubmissionRepository
             .ListCorSubmissionsAsync();
@@ -54,7 +59,6 @@ public class GetActiveParkingSessionHandler
             .ToList();
 
         var dtos = new List<GetActiveParkingSessionResponse>();
-        var sysSettings = SystemSettingsStore.Current;
         var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
 
         foreach (var log in activeLogs)
