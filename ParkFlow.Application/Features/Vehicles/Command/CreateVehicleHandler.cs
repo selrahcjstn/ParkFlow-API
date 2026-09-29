@@ -37,9 +37,13 @@ public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result
         }   
 
         var existingVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.OwnerId);
-        if (existingVehicles.Count() >= 5)
+        var maxAllowed = SystemSettingsStore.Current.MaxVehiclesPerUser > 0 
+            ? SystemSettingsStore.Current.MaxVehiclesPerUser 
+            : 5;
+
+        if (existingVehicles.Count() >= maxAllowed)
         {
-            return Result<Guid>.Failure("Adding vehicle failed. A maximum of 5 vehicles are allowed per account.", ErrorCode.Conflict);
+            return Result<Guid>.Failure($"Adding vehicle failed. A maximum of {maxAllowed} vehicles are allowed per account.", ErrorCode.Conflict);
         }
 
         var qrPayload = $"{request.OwnerId}:{request.PlateNumber}:{request.Brand}";

@@ -13,13 +13,16 @@ public class SystemSettingsController : ControllerBase
 {
     private readonly ISignalRNotificationSender _notificationSender;
     private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IParkingLogRepository _parkingLogRepository;
 
     public SystemSettingsController(
         ISignalRNotificationSender notificationSender,
-        ICorSubmissionRepository corSubmissionRepository)
+        ICorSubmissionRepository corSubmissionRepository,
+        IParkingLogRepository parkingLogRepository)
     {
         _notificationSender = notificationSender;
         _corSubmissionRepository = corSubmissionRepository;
+        _parkingLogRepository = parkingLogRepository;
     }
 
     [HttpGet]
@@ -32,6 +35,18 @@ public class SystemSettingsController : ControllerBase
     [HttpPut]
     public async Task<ActionResult<Result<SystemSettingsDto>>> UpdateSettings([FromBody] SystemSettingsDto request)
     {
+        if (request.TotalCapacity > 0)
+        {
+            var activeLogs = await _parkingLogRepository.GetActiveParkingLogsAsync(10000);
+            var activeCount = activeLogs.Count;
+            if (request.TotalCapacity < activeCount)
+            {
+                return BadRequest(Result<SystemSettingsDto>.Failure(
+                    $"Cannot set total capacity to {request.TotalCapacity} slots. There are currently {activeCount} active vehicles parked on campus. Capacity cannot be lower than the active parked count.",
+                    ErrorCode.BadRequest));
+            }
+        }
+
         SystemSettingsStore.Update(
             request.ViolationRatePerHour,
             request.GracePeriodMinutes,
@@ -79,20 +94,44 @@ public class SystemSettingsController : ControllerBase
             var submissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
             foreach (var sub in submissions)
             {
-                sub.UpdateSubmission(null, null, CorVerificationStatus.Rejected); // Flag to require re-submission
+                sub.UpdateSubmission(
+                    academicTerm: null,
+                    corDocumentUrl: null,
+                    verificationStatus: CorVerificationStatus.Rejected,
+                    rejectionReason: "Semester cycle reset. Please upload your Certificate of Registration (COR) and class schedule for the new semester.");
                 await _corSubmissionRepository.UpdateCorSubmissionAsync(sub);
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SystemSettingsController] Reset submissions warning: {ex.Message}");
+        }
 
-        // 3. Notify mobile app clients via SignalR that new semester reset occurred
+        // 3. Notify mobile app clients and admin dashboards via SignalR that new semester reset occurred
         try
         {
+            var resetTime = DateTime.UtcNow;
             await _notificationSender.SendToAllAsync("SemesterReset", new
             {
                 Message = "New semester started. All student schedules & COR verifications require re-upload.",
-                ResetAt = DateTime.UtcNow
+                ResetAt = resetTime
             });
+
+            await _notificationSender.SendToAllAsync("ApprovalListUpdated", new
+            {
+                type = "schedule",
+                action = "SemesterReset",
+                resetAt = resetTime
+            });
+
+            await _notificationSender.SendToAllAsync("VerificationStatusChanged", new
+            {
+                type = "SemesterReset",
+                status = "Rejected",
+                resetAt = resetTime
+            });
+
+            await _notificationSender.SendToAllAsync("SystemSettingsUpdated", SystemSettingsStore.Current);
         }
         catch { }
 

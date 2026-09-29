@@ -64,9 +64,13 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
         }
         else
         {
-            if (existingVehicles.Count() >= 5)
+            var maxAllowed = SystemSettingsStore.Current.MaxVehiclesPerUser > 0 
+                ? SystemSettingsStore.Current.MaxVehiclesPerUser 
+                : 5;
+
+            if (existingVehicles.Count() >= maxAllowed)
             {
-                return Result<Guid>.Failure("Onboarding failed. A maximum of 5 vehicles are allowed per account.", ErrorCode.Conflict);
+                return Result<Guid>.Failure($"Onboarding failed. A maximum of {maxAllowed} vehicles are allowed per account.", ErrorCode.Conflict);
             }
 
             var qrPayload = $"{request.UserId}:{request.PlateNumber}:{request.Brand}";
