@@ -90,8 +90,6 @@ public class DeleteVehicleHandler : IRequestHandler<DeleteVehicleCommand, Result
                     try
                     {
                         await _signalRNotificationSender.SendToUserAsync(ownerId.ToString(), "VerificationStatusChanged", eventData);
-                        await _signalRNotificationSender.SendToUserAsync(ownerId.ToString(), "ReceiveNotification", eventData);
-                        await _signalRNotificationSender.SendToAllAsync("VerificationStatusChanged", eventData);
                         await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", eventData);
                     }
                     catch { }
@@ -138,8 +136,6 @@ public class DeleteVehicleHandler : IRequestHandler<DeleteVehicleCommand, Result
                         try
                         {
                             await _signalRNotificationSender.SendToUserAsync(ownerId.ToString(), "VerificationStatusChanged", eventData);
-                            await _signalRNotificationSender.SendToUserAsync(ownerId.ToString(), "ReceiveNotification", eventData);
-                            await _signalRNotificationSender.SendToAllAsync("VerificationStatusChanged", eventData);
                             await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", eventData);
                         }
                         catch { }

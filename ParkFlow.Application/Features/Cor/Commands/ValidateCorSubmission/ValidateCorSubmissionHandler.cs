@@ -109,7 +109,6 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
                 try
                 {
                     await _signalRNotificationSender.SendToUserAsync(user.Id.ToString(), "VerificationStatusChanged", eventData);
-                    await _signalRNotificationSender.SendToAllAsync("VerificationStatusChanged", eventData);
                     await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", eventData);
                 }
                 catch
