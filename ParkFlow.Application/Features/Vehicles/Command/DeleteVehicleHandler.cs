@@ -105,7 +105,7 @@ public class DeleteVehicleHandler : IRequestHandler<DeleteVehicleCommand, Result
                             $"Your vehicle {vehicle.PlateNumber} was deleted. Vehicle {nextPrimary.PlateNumber} has automatically been designated as your primary vehicle.",
                             type: "primary_vehicle_changed",
                             subtitle: "Primary Vehicle Updated",
-                            actionRoute: "/(account)/vehicles",
+                            actionRoute: "/(settings)/vehicle",
                             actionText: "View Vehicles",
                             priority: "medium",
                             issuer: "ParkFlow Vehicle Desk"
@@ -151,7 +151,7 @@ public class DeleteVehicleHandler : IRequestHandler<DeleteVehicleCommand, Result
                                 "Your vehicle has been removed by an administrator. Please register your vehicle again to restore campus parking access.",
                                 type: "vehicle_rejected",
                                 subtitle: "Action Required",
-                                actionRoute: "/(account)/vehicles",
+                                actionRoute: "/(settings)/vehicle",
                                 actionText: "Add Vehicle",
                                 priority: "high",
                                 issuer: "ParkFlow Vehicle Desk"

@@ -214,7 +214,7 @@ public record ValidateVehicleRequest(
                     : string.IsNullOrWhiteSpace(request.RejectionReason)
                         ? "Your vehicle registration was rejected. Please review the reason and update/re-upload your vehicle documents."
                         : $"Your vehicle registration was rejected. Reason: {request.RejectionReason}. Please update/re-upload your vehicle documents.";
-                var actionRoute = isApproved ? "/(settings)/vehicles" : "/(auth)/register";
+                var actionRoute = isApproved ? "/(settings)/vehicle" : "/(auth)/register";
                 var actionText = isApproved ? "View Vehicle" : "Fix Vehicle Info";
                 var type = isApproved ? "vehicle_approved" : "vehicle_rejected";
 
