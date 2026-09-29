@@ -1,4 +1,4 @@
-﻿namespace ParkFlow.Domain.Entities
+namespace ParkFlow.Domain.Entities
 {
     public abstract class BaseEntity
     {

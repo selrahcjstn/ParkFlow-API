@@ -88,6 +88,40 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
 
     public async Task UpdateAsync(UserAccount user)
     {
+        foreach (var history in user.PasswordHistories)
+        {
+            var entry = _appDbContext.Entry(history);
+            if (entry.State == EntityState.Detached)
+            {
+                await _appDbContext.PasswordHistories.AddAsync(history);
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                var exists = await _appDbContext.PasswordHistories.AnyAsync(p => p.Id == history.Id);
+                if (!exists)
+                {
+                    entry.State = EntityState.Added;
+                }
+            }
+        }
+
+        foreach (var identity in user.AuthIdentities)
+        {
+            var entry = _appDbContext.Entry(identity);
+            if (entry.State == EntityState.Detached)
+            {
+                await _appDbContext.AuthIdentities.AddAsync(identity);
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                var exists = await _appDbContext.AuthIdentities.AnyAsync(i => i.Id == identity.Id);
+                if (!exists)
+                {
+                    entry.State = EntityState.Added;
+                }
+            }
+        }
+
         await _appDbContext.SaveChangesAsync();
     }
 

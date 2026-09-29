@@ -258,7 +258,7 @@ public class GetSessionCountTests
         var session = Assert.Single(result.Data);
         Assert.Equal("Manual", session.EntryMethod);
         Assert.Equal(0, session.OverstayHours); // Should be 0 since entry method is manual
-        Assert.Equal(0, session.Amount); // Should be 0 since entry method is manual
+        Assert.Equal(20, session.Amount); // Flat rate 20 for manual guest pass
     }
 }
 

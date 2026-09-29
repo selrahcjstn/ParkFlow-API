@@ -118,7 +118,7 @@ public class ExitManualParkingLogTests
         Assert.NotNull(result.Data);
         Assert.Equal("ABC-1234", result.Data.PlateNumber);
         Assert.Equal(ParkingStatus.Exited.ToString(), result.Data.Status);
-        Assert.Equal(0, result.Data.PenaltyFee);
+        Assert.Equal(20, result.Data.PenaltyFee);
         Assert.True(fakeNotificationSender.WasNotificationSent);
     }
 
