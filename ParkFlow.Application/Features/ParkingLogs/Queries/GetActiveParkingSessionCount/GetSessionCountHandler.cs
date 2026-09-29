@@ -60,7 +60,6 @@ public class GetSessionCountHandler
 				continue;
 
 			var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-			var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
 			var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == philippinesEntry.DayOfWeek);
 
 			if (todaySchedule == null)
