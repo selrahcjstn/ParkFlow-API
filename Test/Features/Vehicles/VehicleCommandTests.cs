@@ -283,6 +283,55 @@ public class VehicleCommandTests
     }
 
     [Fact]
+    public async Task DeleteVehicleHandler_AsAdmin_ShouldDeletePrimaryAndPromoteSecondary()
+    {
+        // Arrange
+        var ownerId = Guid.NewGuid();
+        var primaryVehicle = new Vehicle(ownerId, "ABC-123", "Toyota", "hash1", VehicleType.Car);
+        primaryVehicle.SetPrimary(true);
+        var secondaryVehicle = new Vehicle(ownerId, "XYZ-789", "Honda", "hash2", VehicleType.Car);
+        secondaryVehicle.SetPrimary(false);
+        await _repository.AddAsync(primaryVehicle);
+        await _repository.AddAsync(secondaryVehicle);
+
+        var handler = new DeleteVehicleHandler(_repository, new FakeParkingLogRepository());
+        var command = new DeleteVehicleCommand(primaryVehicle.Id, Guid.NewGuid(), IsAdmin: true);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var deleted = await _repository.GetByIdAsync(primaryVehicle.Id);
+        Assert.Null(deleted);
+
+        var updatedSecondary = await _repository.GetByIdAsync(secondaryVehicle.Id);
+        Assert.NotNull(updatedSecondary);
+        Assert.True(updatedSecondary.IsPrimary);
+    }
+
+    [Fact]
+    public async Task DeleteVehicleHandler_AsAdmin_ShouldDeletePrimaryEvenIfOnlyVehicle()
+    {
+        // Arrange
+        var ownerId = Guid.NewGuid();
+        var primaryVehicle = new Vehicle(ownerId, "ABC-123", "Toyota", "hash1", VehicleType.Car);
+        primaryVehicle.SetPrimary(true);
+        await _repository.AddAsync(primaryVehicle);
+
+        var handler = new DeleteVehicleHandler(_repository, new FakeParkingLogRepository());
+        var command = new DeleteVehicleCommand(primaryVehicle.Id, Guid.NewGuid(), IsAdmin: true);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var deleted = await _repository.GetByIdAsync(primaryVehicle.Id);
+        Assert.Null(deleted);
+    }
+
+    [Fact]
     public async Task GetVehiclesByOwnerIdHandler_ShouldReturnIsPrimary()
     {
         // Arrange

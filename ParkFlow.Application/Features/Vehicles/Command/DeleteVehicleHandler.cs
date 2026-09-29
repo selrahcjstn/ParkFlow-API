@@ -41,6 +41,12 @@ public class DeleteVehicleHandler : IRequestHandler<DeleteVehicleCommand, Result
             return Result<Guid>.Failure("Access Denied: You do not own this vehicle.", ErrorCode.Forbidden);
         }
 
+        // Regular users cannot delete their primary vehicle directly
+        if (!request.IsAdmin && vehicle.IsPrimary)
+        {
+            return Result<Guid>.Failure("Cannot delete the primary vehicle. Please set another vehicle as primary first.", ErrorCode.BadRequest);
+        }
+
         var activeParking = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id);
         if (activeParking != null)
         {
@@ -114,7 +120,7 @@ public class DeleteVehicleHandler : IRequestHandler<DeleteVehicleCommand, Result
             {
                 // No remaining vehicles: user must upload/register vehicle again
                 var user = _userAccountRepository != null ? await _userAccountRepository.GetByIdAsync(ownerId) : null;
-                if (user != null)
+                if (user != null && _userAccountRepository != null)
                 {
                     user.ResetToVehicleStep();
                     await _userAccountRepository.UpdateAsync(user);
