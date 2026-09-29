@@ -77,7 +77,50 @@ public class VehicleController : ControllerBase
         if (ownerId == Guid.Empty)
             return Unauthorized(Result<Guid>.Failure("User not identified.", ErrorCode.Unauthorized));
 
-        var command = new DeleteVehicleCommand(id, ownerId);
+        var isAdmin = User.IsInRole("Admin") ||
+                      User.IsInRole("SuperAdmin") ||
+                      User.HasClaim("profile_type", "admin") ||
+                      User.HasClaim("profile_type", "superadmin") ||
+                      User.HasClaim("role", "Admin") ||
+                      User.HasClaim("role", "SuperAdmin");
+
+        var command = new DeleteVehicleCommand(id, ownerId, isAdmin);
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
+
+    [Authorize]
+    [HttpDelete("admin/{id:guid}")]
+    public async Task<ActionResult<Result<Guid>>> DeleteAdmin(Guid id)
+    {
+        var ownerId = _userContext.GetUserId();
+        var command = new DeleteVehicleCommand(id, ownerId, IsAdmin: true);
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
+
+    [Authorize]
+    [HttpDelete("plate/{plateNumber}")]
+    public async Task<ActionResult<Result<Guid>>> DeleteByPlate(
+        string plateNumber,
+        [FromServices] IVehicleRepository vehicleRepository)
+    {
+        var ownerId = _userContext.GetUserId();
+        if (ownerId == Guid.Empty)
+            return Unauthorized(Result<Guid>.Failure("User not identified.", ErrorCode.Unauthorized));
+
+        var vehicle = await vehicleRepository.GetByPlateNumberAsync(plateNumber);
+        if (vehicle == null)
+            return NotFound(Result<Guid>.Failure("Vehicle not found.", ErrorCode.NotFound));
+
+        var isAdmin = User.IsInRole("Admin") ||
+                      User.IsInRole("SuperAdmin") ||
+                      User.HasClaim("profile_type", "admin") ||
+                      User.HasClaim("profile_type", "superadmin") ||
+                      User.HasClaim("role", "Admin") ||
+                      User.HasClaim("role", "SuperAdmin");
+
+        var command = new DeleteVehicleCommand(vehicle.Id, ownerId, isAdmin);
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }

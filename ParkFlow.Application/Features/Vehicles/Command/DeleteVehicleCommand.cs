@@ -5,5 +5,6 @@ namespace ParkFlow.Application.Features.Vehicles.Command;
 
 public record DeleteVehicleCommand(
     Guid VehicleId,
-    Guid OwnerId
+    Guid OwnerId,
+    bool IsAdmin = false
 ) : IRequest<Result<Guid>>;

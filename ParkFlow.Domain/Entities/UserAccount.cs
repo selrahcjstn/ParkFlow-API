@@ -89,6 +89,12 @@ public class UserAccount : BaseEntity
             OnboardingStep = step;
     }
 
+    public void ResetToVehicleStep()
+    {
+        OnboardingStep = OnboardingStep.Vehicle;
+        Status = AccountStatus.PendingVerification;
+    }
+
     public void UpdatePassword(string newPasswordHash)
     {
         if (string.IsNullOrWhiteSpace(newPasswordHash))
