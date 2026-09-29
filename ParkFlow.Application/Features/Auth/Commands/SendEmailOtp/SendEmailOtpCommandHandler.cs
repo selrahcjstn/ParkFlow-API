@@ -15,15 +15,21 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
     private readonly IEmailOtpRepository _emailOtpRepository;
     private readonly IEmailService _emailService;
     private readonly IValidator<SendEmailOtpCommand> _validator;
+    private readonly IAuthIdentityRepository? _authIdentityRepository;
+    private readonly IUserAccountRepository? _userAccountRepository;
 
     public SendEmailOtpCommandHandler(
         IEmailOtpRepository emailOtpRepository,
         IEmailService emailService,
-        IValidator<SendEmailOtpCommand> validator)
+        IValidator<SendEmailOtpCommand> validator,
+        IAuthIdentityRepository? authIdentityRepository = null,
+        IUserAccountRepository? userAccountRepository = null)
     {
         _emailOtpRepository = emailOtpRepository;
         _emailService = emailService;
         _validator = validator;
+        _authIdentityRepository = authIdentityRepository;
+        _userAccountRepository = userAccountRepository;
     }
 
     public async Task<Result<bool>> Handle(SendEmailOtpCommand request, CancellationToken cancellationToken)
@@ -33,6 +39,23 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
         {
             var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
             return Result<bool>.Failure(false, errors, ErrorCode.BadRequest);
+        }
+
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+
+        // Check if email already belongs to an existing account
+        if (_authIdentityRepository != null)
+        {
+            var existingIdentity = await _authIdentityRepository.GetByEmailAsync(normalizedEmail);
+            if (existingIdentity != null)
+                return Result<bool>.Failure(false, "This email is already registered in ParkFlow. Please use a different email.", ErrorCode.Conflict);
+        }
+
+        if (_userAccountRepository != null)
+        {
+            var existingUser = await _userAccountRepository.GetByEmailAsync(normalizedEmail);
+            if (existingUser != null)
+                return Result<bool>.Failure(false, "This email is already registered in ParkFlow. Please use a different email.", ErrorCode.Conflict);
         }
 
         try
@@ -106,19 +129,12 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
 </body>
 </html>";
 
-            try
-            {
-                await _emailService.SendEmailAsync(request.Email, subject, htmlBody);
-                return Result<bool>.Success(true, "OTP code generated and sent successfully.");
-            }
-            catch (Exception ex)
-            {
-                return Result<bool>.Success(true, $"Verification code generated: {otpCode} (Email delivery notice: {ex.Message})");
-            }
+            await _emailService.SendEmailAsync(request.Email, subject, htmlBody);
+            return Result<bool>.Success(true, $"Verification code generated: {otpCode}");
         }
         catch (Exception ex)
         {
-            return Result<bool>.Failure(false, $"Failed to generate OTP: {ex.Message}", ErrorCode.ServerError);
+            return Result<bool>.Failure(false, $"Failed to generate and dispatch OTP: {ex.Message}", ErrorCode.ServerError);
         }
     }
 }

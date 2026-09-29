@@ -178,6 +178,29 @@ public class EmailOtpTests
     }
 
     [Fact]
+    public async Task SendEmailOtpHandler_ShouldReturnConflictIfEmailAlreadyExists()
+    {
+        // Arrange
+        var email = "existing@parkflow.com";
+        var user = new UserAccount("hashedPassword", "09171234567");
+        await _userAccountRepository.AddAsync(user);
+        var identity = AuthIdentity.CreateManual(user.Id, email, "hashedPassword");
+        await _authIdentityRepository.AddAsync(identity);
+
+        var command = new SendEmailOtpCommand(email);
+        var handler = new SendEmailOtpCommandHandler(_emailOtpRepository, _emailService, _sendValidator, _authIdentityRepository, _userAccountRepository);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.Conflict, result.ErrorCode);
+        Assert.Empty(_emailOtpRepository.Otps);
+        Assert.Empty(_emailService.SentEmails);
+    }
+
+    [Fact]
     public async Task VerifyEmailOtpHandler_ShouldSuccessfullyVerifyValidOtpAndFlipAuthIdentityToVerified()
     {
         // Arrange
