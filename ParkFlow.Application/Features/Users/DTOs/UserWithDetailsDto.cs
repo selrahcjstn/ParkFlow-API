@@ -12,7 +12,7 @@ public record UserVehicleDto(
 
 public record UserStudentDto(
     string StudentNumber,
-    string Course,
+    string? Course,
     string Section,
     int YearLevel
 );

@@ -123,8 +123,7 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
                 if (string.IsNullOrWhiteSpace(studentNumber))
                     studentNumber = $"STU-{DateTime.UtcNow.Ticks % 1000000}";
 
-                var course = request.Student?.Course?.Trim();
-                if (string.IsNullOrWhiteSpace(course)) course = "General";
+                var course = !string.IsNullOrWhiteSpace(request.Student?.Course) ? request.Student.Course.Trim() : null;
 
                 var section = request.Student?.Section?.Trim();
                 if (string.IsNullOrWhiteSpace(section)) section = "A";

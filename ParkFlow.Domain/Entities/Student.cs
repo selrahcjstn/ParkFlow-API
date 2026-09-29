@@ -4,13 +4,13 @@ public class Student
     public UserProfile UserProfile { get; set; } = null!;
 
     public string StudentNumber { get; set; } = null!;
-    public string Course { get; set; } = null!;
+    public string? Course { get; set; }
     public string Section { get; set; } = null!;
     public int YearLevel { get; set; }
 
     private Student() { } // For EF Core
 
-    public Student(Guid profileId, string studentNumber, string course, string section, int yearLevel)
+    public Student(Guid profileId, string studentNumber, string? course, string section, int yearLevel)
     {
         UserProfileId = profileId;
 
@@ -20,7 +20,7 @@ public class Student
         YearLevel = yearLevel;
     }
 
-    public void UpdateDetails(string studentNumber, string course, string section, int yearLevel)
+    public void UpdateDetails(string studentNumber, string? course, string section, int yearLevel)
     {
         StudentNumber = studentNumber;
         Course = course;

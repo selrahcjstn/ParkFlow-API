@@ -8,7 +8,10 @@ public class UpdateOnboardingStudentValidator : AbstractValidator<UpdateOnboardi
     {
         RuleFor(x => x.UserId).NotEmpty();
         RuleFor(x => x.StudentNumber).NotEmpty();
-        RuleFor(x => x.Course).NotEmpty();
+        When(x => x.YearLevel < 7 || x.YearLevel > 10, () =>
+        {
+            RuleFor(x => x.Course).NotEmpty().WithMessage("Course is required for senior high and college students.");
+        });
         RuleFor(x => x.Section).NotEmpty();
         RuleFor(x => x.YearLevel).GreaterThan(0);
     }

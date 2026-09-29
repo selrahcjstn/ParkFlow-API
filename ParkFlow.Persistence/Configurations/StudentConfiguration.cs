@@ -14,7 +14,7 @@ public class StudentConfiguration : IEntityTypeConfiguration<Student>
 			.HasMaxLength(50);
 
 		entity.Property(e => e.Course)
-			.IsRequired()
+			.IsRequired(false)
 			.HasMaxLength(100);
 
 		entity.Property(e => e.Section)

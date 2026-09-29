@@ -6,6 +6,6 @@ namespace ParkFlow.Application.Features.Onboarding.Commands.UpdateOnboardingStud
 public record UpdateOnboardingStudentCommand(
     Guid UserId,
     string StudentNumber,
-    string Course,
+    string? Course,
     string Section,
     int YearLevel) : IRequest<Result<Guid>>;
