@@ -109,7 +109,19 @@ public class GetActiveParkingSessionHandler
                 }
             }
 
-            if (log.EntryMethod != EntryMethod.Manual)
+            if (log.EntryMethod == EntryMethod.Manual)
+            {
+                var entryMidnightUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
+                maximumExitTimeUtc = entryMidnightUtc;
+
+                var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(nowUtc);
+                var overdueDays = (philippinesNow.Date - philippinesEntry.Date).Days;
+                if (overdueDays < 0) overdueDays = 0;
+
+                amount = 20m + (overdueDays * 100m);
+                overstayHours = overdueDays > 0 ? (nowUtc - entryMidnightUtc).TotalHours : 0;
+            }
+            else
             {
                 // If no schedule or reservation was found for entry day, apply default campus closing time (10:00 PM)
                 if (maximumExitTimeUtc == null)

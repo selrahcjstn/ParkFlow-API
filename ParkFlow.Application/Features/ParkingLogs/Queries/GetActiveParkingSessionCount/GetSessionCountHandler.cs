@@ -40,8 +40,17 @@ public class GetSessionCountHandler
 
 		foreach (var log in activeLogs)
 		{
+			var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
+
 			if (log.EntryMethod == EntryMethod.Manual)
+			{
+				var entryMidnightUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
+				if (nowUtc > entryMidnightUtc)
+				{
+					overstayCount++;
+				}
 				continue;
+			}
 
 			var verifiedCor = corSubmissions.FirstOrDefault(c =>
 				c.UserAccountId == log.Vehicle.OwnerId &&
