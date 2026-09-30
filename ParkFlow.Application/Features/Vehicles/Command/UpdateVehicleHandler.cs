@@ -1,6 +1,7 @@
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Vehicles.Command;
 
@@ -39,7 +40,12 @@ public class UpdateVehicleHandler : IRequestHandler<UpdateVehicleCommand, Result
             return Result<Guid>.Failure("A vehicle with this plate number already exists.", ErrorCode.Conflict);
         }
 
-        vehicle.Update(request.PlateNumber, request.Brand, request.VehicleType);
+        vehicle.Update(request.PlateNumber, request.Brand, request.VehicleType, request.OrcrDocumentUrl, request.VehiclePictureUrl);
+
+        if (!string.IsNullOrWhiteSpace(request.OrcrDocumentUrl) || !string.IsNullOrWhiteSpace(request.VehiclePictureUrl))
+        {
+            vehicle.UpdateVerificationStatus(CorVerificationStatus.Pending);
+        }
 
         await _vehicleRepository.UpdateAsync(vehicle);
 

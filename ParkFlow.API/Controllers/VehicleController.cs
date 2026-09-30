@@ -13,7 +13,9 @@ namespace ParkFlow.API.Controllers;
 public record UpdateVehicleRequest(
     string PlateNumber,
     string Brand,
-    VehicleType VehicleType
+    VehicleType VehicleType,
+    string? OrcrDocumentUrl = null,
+    string? VehiclePictureUrl = null
 );
 
 [Route("api/vehicles")]
@@ -64,7 +66,7 @@ public class VehicleController : ControllerBase
         if (ownerId == Guid.Empty)
             return Unauthorized(Result<Guid>.Failure("User not identified.", ErrorCode.Unauthorized));
 
-        var command = new UpdateVehicleCommand(id, ownerId, request.PlateNumber, request.Brand, request.VehicleType);
+        var command = new UpdateVehicleCommand(id, ownerId, request.PlateNumber, request.Brand, request.VehicleType, request.OrcrDocumentUrl, request.VehiclePictureUrl);
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }

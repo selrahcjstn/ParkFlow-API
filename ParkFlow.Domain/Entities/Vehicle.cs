@@ -76,11 +76,15 @@ public class Vehicle : BaseEntity
         }
     }
 
-    public void Update(string plateNumber, string brand, VehicleType vehicleType)
+    public void Update(string plateNumber, string brand, VehicleType vehicleType, string? orcrDocumentUrl = null, string? vehiclePictureUrl = null)
     {
         PlateNumber = plateNumber;
         Brand = brand;
         VehicleType = vehicleType;
+        if (!string.IsNullOrWhiteSpace(orcrDocumentUrl))
+            OrcrDocumentUrl = orcrDocumentUrl;
+        if (!string.IsNullOrWhiteSpace(vehiclePictureUrl))
+            VehiclePictureUrl = vehiclePictureUrl;
     }
 
     public void Update(string plateNumber, string brand, VehicleType vehicleType, string qrCodeHash)
