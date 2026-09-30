@@ -43,7 +43,9 @@ public class GetMyProfileHandler
         }
 
         var latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(profile.UserAccountId);
-        var corStatus = latestCor?.VerificationStatus ?? CorVerificationStatus.NotSubmitted;
+        var corStatus = latestCor?.VerificationStatus ?? (profile.Student == null || profile.UserAccount?.Status == AccountStatus.Active
+            ? CorVerificationStatus.Verified
+            : CorVerificationStatus.NotSubmitted);
 
         string? rejectionReason = null;
         string? rejectedTarget = null;
@@ -82,7 +84,8 @@ public class GetMyProfileHandler
             Department: profile.Personnel?.Department,
             CorVerificationStatus: corStatus,
             RejectionReason: rejectionReason,
-            RejectedTarget: rejectedTarget);
+            RejectedTarget: rejectedTarget,
+            Status: profile.UserAccount?.Status.ToString());
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");
     }
