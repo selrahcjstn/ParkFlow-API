@@ -9,15 +9,18 @@ namespace ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, Result<AuthResponse>>
 {
     private readonly IAuthIdentityRepository _authIdentityRepository;
+    private readonly IUserAccountRepository _userAccountRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
 
     public LoginUserAccountHandler(
         IAuthIdentityRepository authIdentityRepository,
+        IUserAccountRepository userAccountRepository,
         IPasswordHasher passwordHasher,
         IJwtService jwtService)
     {
         _authIdentityRepository = authIdentityRepository;
+        _userAccountRepository = userAccountRepository;
         _passwordHasher = passwordHasher;
         _jwtService = jwtService;
     }
@@ -26,18 +29,29 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
         LoginUserAccountCommand request,
         CancellationToken cancellationToken)
     {
-        var identity = await _authIdentityRepository.GetByEmailAsync(request.Email);
-
-        if (identity == null ||
-            identity.Provider != AuthProvider.Manual ||
-            string.IsNullOrWhiteSpace(identity.PasswordHash))
+        var normalizedEmail = request.Email?.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedEmail) || string.IsNullOrWhiteSpace(request.Password))
         {
             return Result<AuthResponse>.Failure("Invalid email or password.", ErrorCode.Unauthorized);
         }
 
-        var user = identity.UserAccount;
+        var identity = await _authIdentityRepository.GetByEmailAsync(normalizedEmail);
+
+        UserAccount? user = identity?.UserAccount;
+        string? passwordHash = identity?.PasswordHash;
 
         if (user == null)
+        {
+            user = await _userAccountRepository.GetByEmailAsync(normalizedEmail);
+            if (user != null)
+            {
+                var matchedIdentity = user.AuthIdentities.FirstOrDefault(i => i.Email != null && i.Email.Trim().Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase) && i.Provider == AuthProvider.Manual)
+                                      ?? user.AuthIdentities.FirstOrDefault(i => i.Provider == AuthProvider.Manual);
+                passwordHash = matchedIdentity?.PasswordHash ?? user.PasswordHash;
+            }
+        }
+
+        if (user == null || (string.IsNullOrWhiteSpace(passwordHash) && string.IsNullOrWhiteSpace(user.PasswordHash)))
         {
             return Result<AuthResponse>.Failure("Invalid email or password.", ErrorCode.Unauthorized);
         }
@@ -47,7 +61,12 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
             return Result<AuthResponse>.Failure("Your account has been suspended. Please contact the administrator.", ErrorCode.Forbidden);
         }
 
-        var isPasswordValid = _passwordHasher.VerifyPassword(identity.PasswordHash, request.Password);
+        var isPasswordValid = !string.IsNullOrWhiteSpace(passwordHash) && _passwordHasher.VerifyPassword(passwordHash, request.Password);
+
+        if (!isPasswordValid && !string.IsNullOrWhiteSpace(user.PasswordHash) && user.PasswordHash != passwordHash)
+        {
+            isPasswordValid = _passwordHasher.VerifyPassword(user.PasswordHash, request.Password);
+        }
 
         if (!isPasswordValid)
         {
