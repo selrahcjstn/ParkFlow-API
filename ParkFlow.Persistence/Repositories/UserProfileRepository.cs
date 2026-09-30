@@ -22,8 +22,11 @@ public class UserProfileRepository : IUserProfileRepository
     {
         return _appDbContext.UserProfiles
             .Include(p => p.UserAccount)
+                .ThenInclude(u => u.AuthIdentities)
             .Include(p => p.Student)
             .Include(p => p.Personnel)
+            .Include(p => p.Guard)
+            .Include(p => p.Admin)
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == id);
     }
@@ -32,8 +35,11 @@ public class UserProfileRepository : IUserProfileRepository
     {
         return await _appDbContext.UserProfiles
             .Include(p => p.UserAccount)
+                .ThenInclude(u => u.AuthIdentities)
             .Include(p => p.Student)
             .Include(p => p.Personnel)
+            .Include(p => p.Guard)
+            .Include(p => p.Admin)
             .FirstOrDefaultAsync(p => p.UserAccountId == userId);
     }
 

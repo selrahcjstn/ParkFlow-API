@@ -72,7 +72,8 @@ public class GetUserProfileByUserIdHandler : IRequestHandler<GetUserProfileByUse
             Department: profile.Personnel?.Department,
             CorVerificationStatus: corStatus,
             RejectionReason: rejectionReason,
-            RejectedTarget: rejectedTarget
+            RejectedTarget: rejectedTarget,
+            Email: profile.UserAccount.PrimaryEmail
             );
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");

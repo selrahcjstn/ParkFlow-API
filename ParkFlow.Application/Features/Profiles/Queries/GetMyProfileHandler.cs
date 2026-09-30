@@ -106,7 +106,8 @@ public class GetMyProfileHandler
             RejectionReason: rejectionReason,
             RejectedTarget: rejectedTarget,
             Status: profile.UserAccount?.Status.ToString(),
-            Role: roleStr);
+            Role: roleStr,
+            Email: profile.UserAccount?.PrimaryEmail);
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");
     }

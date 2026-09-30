@@ -21,6 +21,7 @@ public record UserProfileDto(
     string? RejectionReason = null,
     string? RejectedTarget = null,
     string? Status = null,
-    string? Role = null
+    string? Role = null,
+    string? Email = null
 );
 
