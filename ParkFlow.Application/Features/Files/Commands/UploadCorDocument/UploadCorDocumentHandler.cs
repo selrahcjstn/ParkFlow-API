@@ -18,19 +18,25 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
     private readonly IUserContext _userContext;
     private readonly IValidator<UploadCorDocumentCommand>? _validator;
     private readonly IVehicleRepository? _vehicleRepository;
+    private readonly IUserAccountRepository? _userAccountRepository;
+    private readonly ISignalRNotificationSender? _signalRNotificationSender;
 
     public UploadCorDocumentHandler(
         ICorSubmissionRepository corSubmissionRepository,
         ICloudinaryService cloudinaryService,
         IUserContext userContext,
         IValidator<UploadCorDocumentCommand>? validator = null,
-        IVehicleRepository? vehicleRepository = null)
+        IVehicleRepository? vehicleRepository = null,
+        IUserAccountRepository? userAccountRepository = null,
+        ISignalRNotificationSender? signalRNotificationSender = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _cloudinaryService = cloudinaryService;
         _userContext = userContext;
         _validator = validator;
         _vehicleRepository = vehicleRepository;
+        _userAccountRepository = userAccountRepository;
+        _signalRNotificationSender = signalRNotificationSender;
     }
 
     public async Task<Result<UploadFileResponse>> Handle(UploadCorDocumentCommand request, CancellationToken cancellationToken)
@@ -94,6 +100,59 @@ public class UploadCorDocumentHandler : IRequestHandler<UploadCorDocumentCommand
             {
                 corSubmission.UpdateSubmission(null, secureUrl, ParkFlow.Domain.Enums.CorVerificationStatus.Pending);
                 await _corSubmissionRepository.UpdateCorSubmissionAsync(corSubmission);
+
+                // Reset user account status to PendingVerification
+                if (_userAccountRepository != null)
+                {
+                    var user = await _userAccountRepository.GetByIdAsync(corSubmission.UserAccountId);
+                    if (user != null)
+                    {
+                        user.UpdateStatus(ParkFlow.Domain.Enums.AccountStatus.PendingVerification);
+                        await _userAccountRepository.UpdateAsync(user);
+                    }
+                }
+
+                // Reset all vehicles for this user to Pending (Unverified)
+                if (_vehicleRepository != null)
+                {
+                    var vehicles = await _vehicleRepository.GetByOwnerIdAsync(corSubmission.UserAccountId);
+                    foreach (var vehicle in vehicles)
+                    {
+                        vehicle.UpdateVerificationStatus(ParkFlow.Domain.Enums.CorVerificationStatus.Pending);
+                        await _vehicleRepository.UpdateAsync(vehicle);
+                    }
+                }
+
+                if (_signalRNotificationSender != null)
+                {
+                    try
+                    {
+                        await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", new
+                        {
+                            type = "schedule",
+                            submissionId = corSubmission.Id,
+                            userId = corSubmission.UserAccountId,
+                            status = "Pending"
+                        });
+
+                        await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", new
+                        {
+                            type = "vehicle",
+                            ownerId = corSubmission.UserAccountId,
+                            status = "Pending"
+                        });
+
+                        await _signalRNotificationSender.SendToUserAsync(corSubmission.UserAccountId.ToString(), "VerificationStatusChanged", new
+                        {
+                            userId = corSubmission.UserAccountId,
+                            type = "cor_updated",
+                            status = "Pending"
+                        });
+                    }
+                    catch
+                    {
+                    }
+                }
             }
 
             var response = new UploadFileResponse(secureUrl, publicId);

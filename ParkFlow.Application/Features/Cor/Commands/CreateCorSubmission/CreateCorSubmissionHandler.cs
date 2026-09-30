@@ -8,16 +8,22 @@ namespace ParkFlow.Application.Features.Cor.Commands.CreateCorSubmission;
 public class CreateCorSubmissionHandler : IRequestHandler<CreateCorSubmissionCommand, Result<Guid>>
 {
     private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IVehicleRepository? _vehicleRepository;
+    private readonly IUserAccountRepository? _userAccountRepository;
     private readonly IValidator<CreateCorSubmissionCommand> _validator;
     private readonly ISignalRNotificationSender? _signalRNotificationSender;
 
     public CreateCorSubmissionHandler(
         ICorSubmissionRepository corSubmissionRepository,
         IValidator<CreateCorSubmissionCommand> validator,
+        IVehicleRepository? vehicleRepository = null,
+        IUserAccountRepository? userAccountRepository = null,
         ISignalRNotificationSender? signalRNotificationSender = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _validator = validator;
+        _vehicleRepository = vehicleRepository;
+        _userAccountRepository = userAccountRepository;
         _signalRNotificationSender = signalRNotificationSender;
     }
 
@@ -50,6 +56,28 @@ public class CreateCorSubmissionHandler : IRequestHandler<CreateCorSubmissionCom
 
         await _corSubmissionRepository.AddCorSubmissionAsync(corSubmission);
 
+        // Reset user account status to PendingVerification
+        if (_userAccountRepository != null)
+        {
+            var user = await _userAccountRepository.GetByIdAsync(request.UserId);
+            if (user != null)
+            {
+                user.UpdateStatus(ParkFlow.Domain.Enums.AccountStatus.PendingVerification);
+                await _userAccountRepository.UpdateAsync(user);
+            }
+        }
+
+        // Reset all vehicles for this user to Pending (Unverified)
+        if (_vehicleRepository != null)
+        {
+            var vehicles = await _vehicleRepository.GetByOwnerIdAsync(request.UserId);
+            foreach (var vehicle in vehicles)
+            {
+                vehicle.UpdateVerificationStatus(ParkFlow.Domain.Enums.CorVerificationStatus.Pending);
+                await _vehicleRepository.UpdateAsync(vehicle);
+            }
+        }
+
         if (_signalRNotificationSender != null)
         {
             try
@@ -64,7 +92,22 @@ public class CreateCorSubmissionHandler : IRequestHandler<CreateCorSubmissionCom
                 await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", new
                 {
                     type = "schedule",
-                    submissionId = corSubmission.Id
+                    submissionId = corSubmission.Id,
+                    status = "Pending"
+                });
+
+                await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", new
+                {
+                    type = "vehicle",
+                    ownerId = request.UserId,
+                    status = "Pending"
+                });
+
+                await _signalRNotificationSender.SendToUserAsync(request.UserId.ToString(), "VerificationStatusChanged", new
+                {
+                    userId = request.UserId,
+                    type = "cor_updated",
+                    status = "Pending"
                 });
             }
             catch
