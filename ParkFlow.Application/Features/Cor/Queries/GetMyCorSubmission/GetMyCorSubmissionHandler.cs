@@ -49,11 +49,11 @@ public class GetMyCorSubmissionHandler : IRequestHandler<GetMyCorSubmissionQuery
 
         var effectiveOrcr = !string.IsNullOrWhiteSpace(submission.OrcrDocumentUrl) && !submission.OrcrDocumentUrl.Equals("pending", StringComparison.OrdinalIgnoreCase)
             ? submission.OrcrDocumentUrl
-            : (!string.IsNullOrWhiteSpace(primaryVehicle?.OrcrDocumentUrl) ? primaryVehicle!.OrcrDocumentUrl! : submission.CorDocumentUrl);
+            : (!string.IsNullOrWhiteSpace(primaryVehicle?.OrcrDocumentUrl) ? primaryVehicle!.OrcrDocumentUrl! : null);
 
         var effectiveMotor = !string.IsNullOrWhiteSpace(submission.MotorPictureUrl) && !submission.MotorPictureUrl.Equals("pending", StringComparison.OrdinalIgnoreCase)
             ? submission.MotorPictureUrl
-            : (!string.IsNullOrWhiteSpace(primaryVehicle?.VehiclePictureUrl) ? primaryVehicle!.VehiclePictureUrl! : submission.CorDocumentUrl);
+            : (!string.IsNullOrWhiteSpace(primaryVehicle?.VehiclePictureUrl) ? primaryVehicle!.VehiclePictureUrl! : null);
 
         var dto = new CorSubmissionDto(
             submission.Id,

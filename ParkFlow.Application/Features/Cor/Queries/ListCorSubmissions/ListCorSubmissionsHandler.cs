@@ -63,11 +63,11 @@ public class ListCorSubmissionsHandler : IRequestHandler<ListCorSubmissionsQuery
 
             var effectiveOrcr = !string.IsNullOrWhiteSpace(s.OrcrDocumentUrl) && !s.OrcrDocumentUrl.Equals("pending", StringComparison.OrdinalIgnoreCase)
                 ? s.OrcrDocumentUrl
-                : (!string.IsNullOrWhiteSpace(primaryVehicle?.OrcrDocumentUrl) ? primaryVehicle!.OrcrDocumentUrl! : s.CorDocumentUrl);
+                : (!string.IsNullOrWhiteSpace(primaryVehicle?.OrcrDocumentUrl) ? primaryVehicle!.OrcrDocumentUrl! : null);
 
             var effectiveMotor = !string.IsNullOrWhiteSpace(s.MotorPictureUrl) && !s.MotorPictureUrl.Equals("pending", StringComparison.OrdinalIgnoreCase)
                 ? s.MotorPictureUrl
-                : (!string.IsNullOrWhiteSpace(primaryVehicle?.VehiclePictureUrl) ? primaryVehicle!.VehiclePictureUrl! : s.CorDocumentUrl);
+                : (!string.IsNullOrWhiteSpace(primaryVehicle?.VehiclePictureUrl) ? primaryVehicle!.VehiclePictureUrl! : null);
 
             dtos.Add(new CorSubmissionDto(
                 s.Id,
