@@ -33,16 +33,16 @@ public static class SuperAdminSeeder
 
         // 1. SuperAdmin Account
         var superAdminEmail = "superadmin@parkflow.com";
+        var superAdminPassword = passwordHasher.HashPassword("SuperAdmin123!");
         var existingSuperAdmin = await userAccountRepository.GetByEmailAsync(superAdminEmail);
         if (existingSuperAdmin == null)
         {
-            var hashedPassword = passwordHasher.HashPassword("SuperAdmin123!");
-            var user = new UserAccount(hashedPassword, "+639000000000");
+            var user = new UserAccount(superAdminPassword, "+639000000000");
             user.UpdateOnboardingStep(OnboardingStep.Done);
             user.Verify();
             await userAccountRepository.AddAsync(user);
 
-            var identity = AuthIdentity.CreateManual(user.Id, superAdminEmail, hashedPassword, isPrimary: true);
+            var identity = AuthIdentity.CreateManual(user.Id, superAdminEmail, superAdminPassword, isPrimary: true);
             identity.MarkVerified();
             await authIdentityRepository.AddAsync(identity);
 
@@ -52,19 +52,40 @@ public static class SuperAdminSeeder
             var admin = new Admin(profile, RoleLevel.SuperAdmin);
             await adminRepository.AddAsync(admin);
         }
+        else
+        {
+            existingSuperAdmin.Verify();
+            existingSuperAdmin.UpdateOnboardingStep(OnboardingStep.Done);
+            existingSuperAdmin.UpdatePassword(superAdminPassword);
+            await userAccountRepository.UpdateAsync(existingSuperAdmin);
+
+            var identity = await authIdentityRepository.GetByEmailAsync(superAdminEmail);
+            if (identity == null)
+            {
+                var newIdentity = AuthIdentity.CreateManual(existingSuperAdmin.Id, superAdminEmail, superAdminPassword, isPrimary: true);
+                newIdentity.MarkVerified();
+                await authIdentityRepository.AddAsync(newIdentity);
+            }
+            else
+            {
+                identity.UpdatePasswordHash(superAdminPassword);
+                identity.MarkVerified();
+                await authIdentityRepository.UpdateAsync(identity);
+            }
+        }
 
         // 2. Regular Admin Account
         var adminEmail = "admin@parkflow.com";
+        var adminPassword = passwordHasher.HashPassword("Admin123!");
         var existingAdmin = await userAccountRepository.GetByEmailAsync(adminEmail);
         if (existingAdmin == null)
         {
-            var hashedPassword = passwordHasher.HashPassword("Admin123!");
-            var user = new UserAccount(hashedPassword, "+639000000001");
+            var user = new UserAccount(adminPassword, "+639000000001");
             user.UpdateOnboardingStep(OnboardingStep.Done);
             user.Verify();
             await userAccountRepository.AddAsync(user);
 
-            var identity = AuthIdentity.CreateManual(user.Id, adminEmail, hashedPassword, isPrimary: true);
+            var identity = AuthIdentity.CreateManual(user.Id, adminEmail, adminPassword, isPrimary: true);
             identity.MarkVerified();
             await authIdentityRepository.AddAsync(identity);
 
@@ -74,19 +95,40 @@ public static class SuperAdminSeeder
             var admin = new Admin(profile, RoleLevel.Admin);
             await adminRepository.AddAsync(admin);
         }
+        else
+        {
+            existingAdmin.Verify();
+            existingAdmin.UpdateOnboardingStep(OnboardingStep.Done);
+            existingAdmin.UpdatePassword(adminPassword);
+            await userAccountRepository.UpdateAsync(existingAdmin);
+
+            var identity = await authIdentityRepository.GetByEmailAsync(adminEmail);
+            if (identity == null)
+            {
+                var newIdentity = AuthIdentity.CreateManual(existingAdmin.Id, adminEmail, adminPassword, isPrimary: true);
+                newIdentity.MarkVerified();
+                await authIdentityRepository.AddAsync(newIdentity);
+            }
+            else
+            {
+                identity.UpdatePasswordHash(adminPassword);
+                identity.MarkVerified();
+                await authIdentityRepository.UpdateAsync(identity);
+            }
+        }
 
         // 3. Guard Account
         var guardEmail = "guard@parkflow.com";
+        var guardPassword = passwordHasher.HashPassword("Guard123!");
         var existingGuard = await userAccountRepository.GetByEmailAsync(guardEmail);
         if (existingGuard == null)
         {
-            var hashedPassword = passwordHasher.HashPassword("Guard123!");
-            var user = new UserAccount(hashedPassword, "+639000000002");
+            var user = new UserAccount(guardPassword, "+639000000002");
             user.UpdateOnboardingStep(OnboardingStep.Done);
             user.Verify();
             await userAccountRepository.AddAsync(user);
 
-            var identity = AuthIdentity.CreateManual(user.Id, guardEmail, hashedPassword, isPrimary: true);
+            var identity = AuthIdentity.CreateManual(user.Id, guardEmail, guardPassword, isPrimary: true);
             identity.MarkVerified();
             await authIdentityRepository.AddAsync(identity);
 
@@ -95,6 +137,27 @@ public static class SuperAdminSeeder
 
             var guard = new Guard(profile, assignedGate: 1);
             await guardRepository.AddAsync(guard);
+        }
+        else
+        {
+            existingGuard.Verify();
+            existingGuard.UpdateOnboardingStep(OnboardingStep.Done);
+            existingGuard.UpdatePassword(guardPassword);
+            await userAccountRepository.UpdateAsync(existingGuard);
+
+            var identity = await authIdentityRepository.GetByEmailAsync(guardEmail);
+            if (identity == null)
+            {
+                var newIdentity = AuthIdentity.CreateManual(existingGuard.Id, guardEmail, guardPassword, isPrimary: true);
+                newIdentity.MarkVerified();
+                await authIdentityRepository.AddAsync(newIdentity);
+            }
+            else
+            {
+                identity.UpdatePasswordHash(guardPassword);
+                identity.MarkVerified();
+                await authIdentityRepository.UpdateAsync(identity);
+            }
         }
 
         // 4. Student User Account
