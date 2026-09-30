@@ -1,3 +1,5 @@
+using ParkFlow.Domain.Enums;
+
 namespace ParkFlow.Domain.Entities;
 
 public class Personnel
@@ -6,22 +8,28 @@ public class Personnel
     public UserProfile UserProfile { get; set; } = null!;
     public string IdCardNumber { get; set; } = null!;
     public string Department { get; set; } = null!;
+    public Roles Role { get; set; } = Roles.UniversityStaff;
 
     private Personnel() { }
 
     public Personnel(
         Guid profileId,
         string idCardNumber,
-        string department)
+        string department,
+        Roles role = Roles.UniversityStaff)
     {                                                   
         UserProfileId = profileId;
         IdCardNumber = idCardNumber;
         Department = department;
+        Role = role;
     }
 
-    public void UpdateDetails(string idCardNumber, string department)
+    public void UpdateDetails(string idCardNumber, string department, Roles? role = null)
     {
         IdCardNumber = idCardNumber;
         Department = department;
+        if (role.HasValue)
+            Role = role.Value;
     }
 }
+

@@ -67,6 +67,26 @@ public class GetMyProfileHandler
             }
         }
 
+        string? roleStr = null;
+        if (profile.Admin != null)
+        {
+            roleStr = profile.Admin.RoleLevel == RoleLevel.SuperAdmin ? "SuperAdmin" : "Admin";
+        }
+        else if (profile.Guard != null)
+        {
+            roleStr = "Guard";
+        }
+        else if (profile.Student != null)
+        {
+            roleStr = "Student";
+        }
+        else if (profile.Personnel != null)
+        {
+            roleStr = profile.Personnel.Role == Roles.NonAcademicPersonnel
+                ? "NonAcademicPersonnel"
+                : "UniversityStaff";
+        }
+
         var dto = new UserProfileDto(
             profile.Id,
             profile.UserAccountId,
@@ -85,7 +105,8 @@ public class GetMyProfileHandler
             CorVerificationStatus: corStatus,
             RejectionReason: rejectionReason,
             RejectedTarget: rejectedTarget,
-            Status: profile.UserAccount?.Status.ToString());
+            Status: profile.UserAccount?.Status.ToString(),
+            Role: roleStr);
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");
     }

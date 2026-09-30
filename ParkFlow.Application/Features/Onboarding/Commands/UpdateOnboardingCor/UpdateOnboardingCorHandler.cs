@@ -77,6 +77,24 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
             await _corSubmissionRepository.UpdateCorSubmissionAsync(existing);
         }
 
+        if (_vehicleRepository != null)
+        {
+            try
+            {
+                var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.UserId);
+                var primaryVehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
+                if (primaryVehicle != null)
+                {
+                    primaryVehicle.UpdateDocuments(orcrUrl, motorUrl);
+                    await _vehicleRepository.UpdateAsync(primaryVehicle);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[UpdateOnboardingCor] Error updating vehicle documents: {ex.Message}");
+            }
+        }
+
         var user = await _userAccountRepository.GetByIdAsync(request.UserId);
         if (user != null)
         {

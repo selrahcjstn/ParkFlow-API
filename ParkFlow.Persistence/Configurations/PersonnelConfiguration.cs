@@ -18,6 +18,11 @@ public class PersonnelConfiguration : IEntityTypeConfiguration<Personnel>
 			.IsRequired()
 			.HasMaxLength(100);
 
+		entity.Property(e => e.Role)
+			.IsRequired()
+			.HasConversion<int>()
+			.HasDefaultValue(ParkFlow.Domain.Enums.Roles.UniversityStaff);
+
 		entity.HasOne(e => e.UserProfile)
 			.WithOne(e => e.Personnel)
 			.HasForeignKey<Personnel>(e => e.UserProfileId)

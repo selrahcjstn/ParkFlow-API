@@ -62,16 +62,9 @@ public class GetUsersListHandler : IRequestHandler<GetUsersListQuery, Result<IEn
             else if (profile?.Student != null) roleStr = "Student";
             else if (profile?.Personnel != null)
             {
-                var email = user.PrimaryEmail ?? "";
-                var idCard = profile.Personnel.IdCardNumber ?? "";
-                if (email.Contains("faculty", StringComparison.OrdinalIgnoreCase) || idCard.StartsWith("FAC", StringComparison.OrdinalIgnoreCase))
-                {
-                    roleStr = "UniversityStaff";
-                }
-                else
-                {
-                    roleStr = "NonAcademicPersonnel";
-                }
+                roleStr = profile.Personnel.Role == Roles.NonAcademicPersonnel
+                    ? "NonAcademicPersonnel"
+                    : "UniversityStaff";
             }
 
             string corStatusStr = "NotSubmitted";

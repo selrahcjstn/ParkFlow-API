@@ -20,5 +20,7 @@ public record UserProfileDto(
     CorVerificationStatus? CorVerificationStatus = null,
     string? RejectionReason = null,
     string? RejectedTarget = null,
-    string? Status = null
+    string? Status = null,
+    string? Role = null
 );
+

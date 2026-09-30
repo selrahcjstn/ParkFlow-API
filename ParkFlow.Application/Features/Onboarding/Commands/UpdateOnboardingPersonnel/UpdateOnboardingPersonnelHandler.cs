@@ -55,16 +55,23 @@ public class UpdateOnboardingPersonnelHandler : IRequestHandler<UpdateOnboarding
             await _studentRepository.DeleteAsync(existingStudent);
         }
 
+        var reqRole = request.Role?.Trim() ?? "";
+        var personnelRole = (reqRole.Equals("NonAcademicPersonnel", StringComparison.OrdinalIgnoreCase) ||
+                             reqRole.Equals("Staff", StringComparison.OrdinalIgnoreCase) ||
+                             reqRole.Equals("3", StringComparison.OrdinalIgnoreCase))
+            ? Roles.NonAcademicPersonnel
+            : Roles.UniversityStaff;
+
         var existingPersonnel = await _personnelRepository.GetByUserProfileIdAsync(profile.Id);
         if (existingPersonnel == null)
         {
-            var personnel = new Personnel(profile.Id, request.IdCardNumber, request.Department);
+            var personnel = new Personnel(profile.Id, request.IdCardNumber, request.Department, personnelRole);
             await _personnelRepository.AddAsync(personnel);
             existingPersonnel = personnel;
         }
         else
         {
-            existingPersonnel.UpdateDetails(request.IdCardNumber, request.Department);
+            existingPersonnel.UpdateDetails(request.IdCardNumber, request.Department, personnelRole);
             await _personnelRepository.UpdateAsync(existingPersonnel);
         }
 

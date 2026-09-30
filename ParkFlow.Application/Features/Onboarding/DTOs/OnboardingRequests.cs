@@ -17,7 +17,8 @@ public record OnboardingStudentRequest(
 
 public record OnboardingPersonnelRequest(
     string IdCardNumber,
-    string Department);
+    string Department,
+    string? Role = null);
 
 public record OnboardingVehicleRequest(
     string PlateNumber,

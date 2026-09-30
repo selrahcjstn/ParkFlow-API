@@ -74,7 +74,8 @@ public class OnboardingController : ControllerBase
         var command = new UpdateOnboardingPersonnelCommand(
             userId,
             request.IdCardNumber,
-            request.Department);
+            request.Department,
+            request.Role);
 
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);

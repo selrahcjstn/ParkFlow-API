@@ -6,4 +6,6 @@ namespace ParkFlow.Application.Features.Onboarding.Commands.UpdateOnboardingPers
 public record UpdateOnboardingPersonnelCommand(
     Guid UserId,
     string IdCardNumber,
-    string Department) : IRequest<Result<Guid>>;
+    string Department,
+    string? Role = null) : IRequest<Result<Guid>>;
+

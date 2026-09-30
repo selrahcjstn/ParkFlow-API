@@ -154,7 +154,12 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
                 if (string.IsNullOrWhiteSpace(dept))
                     dept = "General Administration";
 
-                var personnel = new Personnel(userProfile.Id, idCard, dept);
+                var personnelRole = (roleStr.Equals("NonAcademicPersonnel", StringComparison.OrdinalIgnoreCase) ||
+                                     roleStr.Equals("Staff", StringComparison.OrdinalIgnoreCase))
+                    ? Roles.NonAcademicPersonnel
+                    : Roles.UniversityStaff;
+
+                var personnel = new Personnel(userProfile.Id, idCard, dept, personnelRole);
                 await _personnelRepository.AddAsync(personnel);
             }
         }
@@ -170,9 +175,12 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
                     ? $"{request.FirstName?.Trim()} {request.LastName?.Trim()}"
                     : normalizedEmail;
 
+                var reqRole = request.Role?.Trim() ?? "";
                 var roleDisplayName = resolvedRole.Equals("student", StringComparison.OrdinalIgnoreCase) ? "Student" :
                                       resolvedRole.Equals("guard", StringComparison.OrdinalIgnoreCase) ? "Security Guard" :
-                                      resolvedRole.Equals("personnel", StringComparison.OrdinalIgnoreCase) ? "University Staff" : "User Account";
+                                      (reqRole.Equals("NonAcademicPersonnel", StringComparison.OrdinalIgnoreCase) || reqRole.Equals("Staff", StringComparison.OrdinalIgnoreCase)
+                                          ? "University Staff"
+                                          : "Faculty Member");
 
                 var emailSubject = "Welcome to ParkFlow - Your Account Credentials";
                 var emailBody = $@"
