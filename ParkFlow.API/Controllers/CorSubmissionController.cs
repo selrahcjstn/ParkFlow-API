@@ -4,6 +4,7 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Cor.Commands.CreateCorSubmission;
 using ParkFlow.Application.Features.Cor.Commands.DeleteCorSubmission;
 using ParkFlow.Application.Features.Cor.Commands.UpdateCorSubmission;
+using ParkFlow.Application.Features.Cor.Commands.UpdateCorSchedules;
 using ParkFlow.Application.Features.Cor.Commands.ValidateCorSubmission;
 using ParkFlow.Application.Features.Cor.DTOs;
 using ParkFlow.Application.Features.Cor.Queries.ListCorSubmissions;
@@ -60,6 +61,14 @@ public class CorSubmissionController : ControllerBase
     {
         var command = new ValidateCorSubmissionCommand(corSubmissionId, request.VerificationStatus, request.RejectionReason);
 
+        var result = await _mediator.Send(command);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPut("{corSubmissionId:guid}/schedules")]
+    public async Task<ActionResult<Result<bool>>> UpdateSchedules(Guid corSubmissionId, [FromBody] List<UpdateScheduleItemDto> schedules)
+    {
+        var command = new UpdateCorSchedulesCommand(corSubmissionId, schedules);
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }

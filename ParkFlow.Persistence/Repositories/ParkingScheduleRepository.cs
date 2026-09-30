@@ -54,10 +54,11 @@ public class ParkingScheduleRepository : IParkingScheduleRepository
             targetUserAccountId = profile.UserAccountId;
         }
 
-        // 2. Fetch all COR submissions for this user account
+        // 2. Fetch all COR submissions for this user account ordered by creation descending
         var submissions = await _appDbContext.CorSubmissions
             .AsNoTracking()
             .Where(c => c.UserAccountId == targetUserAccountId)
+            .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
         if (!submissions.Any())
@@ -65,7 +66,20 @@ public class ParkingScheduleRepository : IParkingScheduleRepository
             return Enumerable.Empty<ParkingSchedule>();
         }
 
-        // 3. Fetch all schedules linked to those submissions
+        // Check if the latest submission has schedules
+        var latestSubmission = submissions.First();
+        var latestSchedules = await _appDbContext.ParkingSchedules
+            .Include(x => x.CorSubmission)
+            .AsNoTracking()
+            .Where(x => x.SubmissionId == latestSubmission.Id)
+            .ToListAsync();
+
+        if (latestSchedules.Any())
+        {
+            return latestSchedules;
+        }
+
+        // 3. Fallback: Fetch all schedules linked to any of the user's submissions
         var submissionIds = submissions.Select(c => c.Id).ToList();
 
         return await _appDbContext.ParkingSchedules

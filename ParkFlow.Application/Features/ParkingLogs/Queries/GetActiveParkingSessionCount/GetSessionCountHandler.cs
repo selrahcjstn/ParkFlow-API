@@ -29,9 +29,9 @@ public class GetSessionCountHandler
 		CancellationToken cancellationToken)
 	{
 		var sysSettings = SystemSettingsStore.Current;
-		var effectiveCapacity = sysSettings.TotalCapacity > 0 
-			? sysSettings.TotalCapacity 
-			: (request.ParkingCapacity > 0 ? request.ParkingCapacity : 500);
+		var effectiveCapacity = request.ParkingCapacity > 0 
+			? request.ParkingCapacity 
+			: (sysSettings.TotalCapacity > 0 ? sysSettings.TotalCapacity : 500);
 
 		var logs = await _parkingLogRepository.GetActiveParkingLogsAsync(Math.Max(1000, effectiveCapacity));
 		var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
