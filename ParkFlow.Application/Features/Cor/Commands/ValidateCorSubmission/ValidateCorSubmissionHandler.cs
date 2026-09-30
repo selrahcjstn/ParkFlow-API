@@ -71,7 +71,12 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
         {
             if (request.VerificationStatus == CorVerificationStatus.Verified)
             {
-                user.Verify();
+                var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(user.Id);
+                var hasVerifiedVehicle = userVehicles.Any(v => v.VerificationStatus == CorVerificationStatus.Verified);
+                if (hasVerifiedVehicle)
+                {
+                    user.Verify();
+                }
 
                 if (submission == null)
                 {
