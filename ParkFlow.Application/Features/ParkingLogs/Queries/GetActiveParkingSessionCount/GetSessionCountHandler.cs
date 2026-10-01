@@ -13,15 +13,18 @@ public class GetSessionCountHandler
 	private readonly IParkingLogRepository _parkingLogRepository;
 	private readonly ICorSubmissionRepository _corSubmissionRepository;
 	private readonly IParkingScheduleRepository _parkingScheduleRepository;
+	private readonly IParkingReservationRepository? _reservationRepository;
 
 	public GetSessionCountHandler(
 		IParkingLogRepository parkingLogRepository,
 		ICorSubmissionRepository corSubmissionRepository,
-		IParkingScheduleRepository parkingScheduleRepository)
+		IParkingScheduleRepository parkingScheduleRepository,
+		IParkingReservationRepository? reservationRepository = null)
 	{
 		_parkingLogRepository = parkingLogRepository;
 		_corSubmissionRepository = corSubmissionRepository;
 		_parkingScheduleRepository = parkingScheduleRepository;
+		_reservationRepository = reservationRepository;
 	}
 
 	public async Task<Result<SessionCountResponse>> Handle(
@@ -47,37 +50,67 @@ public class GetSessionCountHandler
 		foreach (var log in activeLogs)
 		{
 			var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
+			DateTime? maximumExitTimeUtc = null;
+
+			var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(log.Vehicle.OwnerId) : [];
+			var entryReservation = userReservations.FirstOrDefault(r =>
+				(r.VehicleId == log.VehicleId || r.VehicleId == null) &&
+				r.ReservationDate.Date == philippinesEntry.Date &&
+				r.Status == ReservationStatus.Approved);
+
+			if (entryReservation != null)
+			{
+				if (entryReservation.Type == ReservationType.Special)
+				{
+					maximumExitTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
+				}
+				else
+				{
+					var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, entryReservation.EndTime);
+					maximumExitTimeUtc = resEndTimeUtc.AddMinutes(graceMin);
+				}
+			}
+			else
+			{
+				var verifiedCor = corSubmissions.FirstOrDefault(c =>
+					c.UserAccountId == log.Vehicle.OwnerId &&
+					c.VerificationStatus == CorVerificationStatus.Verified);
+
+				if (log.EntryMethod != EntryMethod.Manual && verifiedCor != null)
+				{
+					var schedules = await _parkingScheduleRepository
+						.GetBySubmissionIdAsync(verifiedCor.Id);
+
+					var todaySchedule = schedules?
+						.FirstOrDefault(s =>
+							s.DayOfWeek == philippinesEntry.DayOfWeek);
+
+					if (todaySchedule != null)
+					{
+						var scheduleEndUtc =
+							ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
+								philippinesEntry,
+								todaySchedule.EndTime);
+						maximumExitTimeUtc = scheduleEndUtc.AddMinutes(graceMin);
+					}
+				}
+			}
 
 			if (log.EntryMethod == EntryMethod.Manual)
 			{
 				var entryMidnightUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
-				if (nowUtc > entryMidnightUtc)
-				{
-					overstayCount++;
-				}
-				continue;
+				maximumExitTimeUtc = entryMidnightUtc;
+			}
+			else if (maximumExitTimeUtc == null)
+			{
+				var defaultClosingUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(22, 0, 0));
+				maximumExitTimeUtc = defaultClosingUtc > log.EntryTime ? defaultClosingUtc : log.EntryTime.AddHours(4);
 			}
 
-			var verifiedCor = corSubmissions.FirstOrDefault(c =>
-				c.UserAccountId == log.Vehicle.OwnerId &&
-				c.VerificationStatus == CorVerificationStatus.Verified);
-
-			if (verifiedCor == null)
-				continue;
-
-			var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-			var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == philippinesEntry.DayOfWeek);
-
-			if (todaySchedule == null)
-				continue;
-
-			var scheduleEndUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
-				philippinesEntry,
-				todaySchedule.EndTime);
-			var maximumExitTimeUtc = scheduleEndUtc.AddMinutes(graceMin);
-
-			if (nowUtc > maximumExitTimeUtc)
+			if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
+			{
 				overstayCount++;
+			}
 		}
 
 		var manualSessionCount = activeLogs.Count(x => x.EntryMethod == EntryMethod.Manual);

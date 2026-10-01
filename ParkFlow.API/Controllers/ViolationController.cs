@@ -73,7 +73,7 @@ public class ViolationController : ControllerBase
 
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 15;
-        if (pageSize > 45) pageSize = 45;
+        if (pageSize > 1000) pageSize = 1000;
 
         var result = await _mediator.Send(new GetViolationHistoryQuery(userId, pageNumber, pageSize, unpaidOnly));
 

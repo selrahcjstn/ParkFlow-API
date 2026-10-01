@@ -171,7 +171,7 @@ public class GetActiveParkingSessionHandler
                 Role: roleDetails.Role,
                 Email: ownerEmail,
 
-                Status: log.Status.ToString(),
+                Status: overstayHours > 0 ? "Overstay" : log.Status.ToString(),
                 PlateNumber: log.Vehicle.PlateNumber,
                 Brand: log.Vehicle.Brand,
                 VehicleType: log.Vehicle.VehicleType.ToString(),
