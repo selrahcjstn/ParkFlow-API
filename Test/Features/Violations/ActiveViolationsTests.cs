@@ -113,6 +113,8 @@ public class FakeGuardRepository : IGuardRepository
     public Task<Guard?> GetByIdAsync(Guid id) => Task.FromResult(Guard);
     public Task<Guard?> GetByUserProfileIdAsync(Guid userProfileId) => Task.FromResult(Guard);
     public Task AddAsync(Guard guard) => Task.CompletedTask;
+    public Task UpdateAsync(Guard guard) => Task.CompletedTask;
+    public Task DeleteAsync(Guard guard) => Task.CompletedTask;
 }
 
 public class FakeAdminRepository : IAdminRepository
@@ -121,6 +123,7 @@ public class FakeAdminRepository : IAdminRepository
     public Task<Admin?> GetByIdAsync(Guid id) => Task.FromResult(Admin);
     public Task<Admin?> GetByUserProfileIdAsync(Guid userProfileId) => Task.FromResult(Admin);
     public Task AddAsync(Admin admin) => Task.CompletedTask;
+    public Task DeleteAsync(Admin admin) => Task.CompletedTask;
     public Task<IEnumerable<Admin>> ListAllAsync() => Task.FromResult<IEnumerable<Admin>>(Admin != null ? new[] { Admin } : Array.Empty<Admin>());
 }
 

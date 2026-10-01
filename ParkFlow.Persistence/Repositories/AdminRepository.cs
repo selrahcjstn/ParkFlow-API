@@ -26,6 +26,12 @@ public class AdminRepository : IAdminRepository
             .FirstOrDefaultAsync(x => x.UserProfileId == userProfileId);
     }
 
+    public async Task DeleteAsync(Admin admin)
+    {
+        _context.Admins.Remove(admin);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task<IEnumerable<Admin>> ListAllAsync()
     {
         return await _context.Admins

@@ -42,14 +42,16 @@ public class UpdateCorSubmissionHandler : IRequestHandler<UpdateCorSubmissionCom
         if (submission == null)
             return Result<Guid>.Failure("COR submission not found.", ErrorCode.NotFound);
 
+        var statusToSet = request.VerificationStatus ?? ParkFlow.Domain.Enums.CorVerificationStatus.Pending;
+
         submission.UpdateSubmission(
             request.AcademicTerm,
             request.CorDocumentUrl,
-            request.VerificationStatus);
+            statusToSet);
 
         await _corSubmissionRepository.UpdateCorSubmissionAsync(submission);
 
-        if (request.VerificationStatus == ParkFlow.Domain.Enums.CorVerificationStatus.Pending)
+        if (statusToSet == ParkFlow.Domain.Enums.CorVerificationStatus.Pending)
         {
             // Reset user account status to PendingVerification
             if (_userAccountRepository != null)

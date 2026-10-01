@@ -7,9 +7,12 @@ using ParkFlow.Application.Features.Users.Commands.ForgotPasswordUserAccount;
 using ParkFlow.Application.Features.Users.Commands.LoginUserAccount;
 using ParkFlow.Application.Features.Users.Commands.MicrosoftAuthUserAccount;
 using ParkFlow.Application.Features.Users.Commands.ResetPasswordUserAccount;
+using ParkFlow.Application.Features.Users.Commands.SendTempPassword;
+using ParkFlow.Application.Features.Users.Commands.UpdateUserAccountAdmin;
 using ParkFlow.Application.Features.Users.Commands.UpdatePhoneNumber;
 using ParkFlow.Application.Features.Users.Commands.SetPrimaryEmail;
 using ParkFlow.Application.Features.Users.Commands.VerifyResetPasswordCode;
+using ParkFlow.Application.Features.Users.Queries.GetUserById;
 using ParkFlow.Application.Features.Users.Queries.GetUserCredentials;
 using ParkFlow.Application.Features.Users.Queries.GetUsersList;
 using ParkFlow.Application.Features.Users.Commands.DeleteUserAccount;
@@ -181,6 +184,32 @@ namespace ParkFlow.API.Controllers
         public async Task<ActionResult<Result<Guid>>> UpdateStatus(Guid id, [FromBody] UpdateUserStatusRequest request)
         {
             var command = new UpdateUserStatusCommand(id, request.Status);
+            var result = await _mediator.Send(command);
+            return this.ToActionResult(result);
+        }
+
+        [Authorize]
+        [HttpGet("{id:guid}")]
+        public async Task<ActionResult<Result<UserWithDetailsDto>>> GetUserById(Guid id)
+        {
+            var result = await _mediator.Send(new GetUserByIdQuery(id));
+            return this.ToActionResult(result);
+        }
+
+        [Authorize]
+        [HttpPut("{id:guid}")]
+        public async Task<ActionResult<Result<Guid>>> UpdateUser(Guid id, [FromBody] UpdateUserAccountAdminRequest request)
+        {
+            var command = new UpdateUserAccountAdminCommand(id, request);
+            var result = await _mediator.Send(command);
+            return this.ToActionResult(result);
+        }
+
+        [Authorize]
+        [HttpPost("send-temp-password")]
+        public async Task<ActionResult<Result<string>>> SendTempPassword([FromBody] SendTempPasswordRequestDTO request)
+        {
+            var command = new SendTempPasswordCommand(request.Email, request.TargetEmail, request.TemporaryPassword);
             var result = await _mediator.Send(command);
             return this.ToActionResult(result);
         }

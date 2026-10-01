@@ -45,6 +45,12 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
     {
         return await _appDbContext.UserAccounts
             .Include(u => u.UserProfile)
+                .ThenInclude(p => p!.Student)
+            .Include(u => u.UserProfile)
+                .ThenInclude(p => p!.Personnel)
+            .Include(u => u.UserProfile)
+                .ThenInclude(p => p!.Guard)
+            .Include(u => u.UserProfile)
                 .ThenInclude(p => p!.Admin)
             .Include(u => u.AuthIdentities)
             .Include(u => u.PasswordHistories)

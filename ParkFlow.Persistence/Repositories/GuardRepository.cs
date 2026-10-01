@@ -19,6 +19,23 @@ public class GuardRepository : IGuardRepository
         await _context.SaveChangesAsync();
     }
 
+    public async Task UpdateAsync(Guard guard)
+    {
+        var entry = _context.Entry(guard);
+        if (entry.State == EntityState.Detached)
+        {
+            guard.UserProfile = null!;
+            _context.Guards.Update(guard);
+        }
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Guard guard)
+    {
+        _context.Guards.Remove(guard);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task<Guard?> GetByUserProfileIdAsync(Guid userProfileId)
     {
         return await _context.Guards

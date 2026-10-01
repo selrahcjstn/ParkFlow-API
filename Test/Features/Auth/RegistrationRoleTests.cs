@@ -76,6 +76,11 @@ public class RegRoleAdminRepository : IAdminRepository
     }
 
     public Task UpdateAsync(Admin admin) => Task.CompletedTask;
+    public Task DeleteAsync(Admin admin)
+    {
+        Admins.Remove(admin);
+        return Task.CompletedTask;
+    }
     public Task<Admin?> GetByUserProfileIdAsync(Guid userProfileId) =>
         Task.FromResult(Admins.FirstOrDefault(a => a.UserProfileId == userProfileId));
     public Task<IEnumerable<Admin>> ListAllAsync() => Task.FromResult<IEnumerable<Admin>>(Admins);
@@ -92,6 +97,11 @@ public class RegRoleGuardRepository : IGuardRepository
     }
 
     public Task UpdateAsync(Guard guard) => Task.CompletedTask;
+    public Task DeleteAsync(Guard guard)
+    {
+        Guards.Remove(guard);
+        return Task.CompletedTask;
+    }
     public Task<Guard?> GetByUserProfileIdAsync(Guid userProfileId) =>
         Task.FromResult(Guards.FirstOrDefault(g => g.UserProfileId == userProfileId));
     public Task<IEnumerable<Guard>> ListAllAsync() => Task.FromResult<IEnumerable<Guard>>(Guards);

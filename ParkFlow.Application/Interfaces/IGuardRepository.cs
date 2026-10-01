@@ -6,4 +6,6 @@ public interface IGuardRepository
 {
     Task<Guard?> GetByUserProfileIdAsync(Guid userProfileId);
     Task AddAsync(Guard guard);
+    Task UpdateAsync(Guard guard);
+    Task DeleteAsync(Guard guard);
 }

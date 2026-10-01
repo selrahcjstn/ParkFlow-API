@@ -9,4 +9,5 @@ public interface IAdminRepository
     Task<Admin?> GetByUserProfileIdAsync(Guid userProfileId);
     Task<IEnumerable<Admin>> ListAllAsync();
     Task AddAsync(Admin admin);
+    Task DeleteAsync(Admin admin);
 }
