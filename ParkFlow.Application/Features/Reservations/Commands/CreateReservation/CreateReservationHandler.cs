@@ -113,6 +113,23 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
                 ErrorCode.Forbidden);
         }
 
+        // Restrict reservations to 1 per day for non-admin users
+        if (!isAdmin)
+        {
+            var userReservations = (await _reservationRepository.GetByUserIdAsync(user.Id)).ToList();
+            var hasReservationOnDate = userReservations.Any(r =>
+                r.ReservationDate.Date == request.ReservationDate.Date &&
+                r.Status != ReservationStatus.Cancelled &&
+                r.Status != ReservationStatus.Rejected);
+
+            if (hasReservationOnDate)
+            {
+                return Result<ParkingReservationDto>.Failure(
+                    $"You already have an active or pending reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
+                    ErrorCode.Conflict);
+            }
+        }
+
         // Find vehicle to bind (user's primary vehicle if vehicleId not specified)
         Guid? assignedVehicleId = request.VehicleId;
         Vehicle? assignedVehicle = null;
