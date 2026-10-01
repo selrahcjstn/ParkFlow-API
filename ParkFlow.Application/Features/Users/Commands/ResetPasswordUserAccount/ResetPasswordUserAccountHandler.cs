@@ -57,11 +57,6 @@ public class ResetPasswordUserAccountHandler
                 manualIdentity = user.AuthIdentities.FirstOrDefault(i => i.Provider == AuthProvider.Manual);
             }
 
-            var hasPassword = (manualIdentity != null && !string.IsNullOrWhiteSpace(manualIdentity.PasswordHash)) || !string.IsNullOrWhiteSpace(user.PasswordHash);
-
-            if (!hasPassword)
-                return Result<Guid>.Failure("Password reset is only available for accounts with a password.", ErrorCode.BadRequest);
-
             // Check password histories to avoid reusing any old passwords
             var isPreviousPassword = user.PasswordHistories.Any(h => _passwordHasher.VerifyPassword(h.PasswordHash, request.NewPassword));
             if (isPreviousPassword)

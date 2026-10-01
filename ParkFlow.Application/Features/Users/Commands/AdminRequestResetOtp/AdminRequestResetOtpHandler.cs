@@ -38,7 +38,7 @@ public class AdminRequestResetOtpHandler : IRequestHandler<AdminRequestResetOtpC
         if (string.IsNullOrWhiteSpace(adminEmail) && request.AdminUserId != Guid.Empty)
         {
             var adminUser = await _userAccountRepository.GetByIdAsync(request.AdminUserId);
-            adminEmail = adminUser?.AuthIdentities?.FirstOrDefault()?.Email;
+            adminEmail = adminUser?.PrimaryEmail ?? adminUser?.AuthIdentities?.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Email))?.Email;
         }
 
         if (string.IsNullOrWhiteSpace(adminEmail))
@@ -113,7 +113,14 @@ public class AdminRequestResetOtpHandler : IRequestHandler<AdminRequestResetOtpC
 </body>
 </html>";
 
-        await _emailService.SendEmailAsync(adminEmail, subject, htmlBody);
+        try
+        {
+            await _emailService.SendEmailAsync(adminEmail, subject, htmlBody);
+        }
+        catch (Exception ex)
+        {
+            return Result<string>.Success(code, $"Verification code generated: {code} (Email notification note: {ex.Message})");
+        }
 
         return Result<string>.Success(code, $"Verification code generated and sent to administrator email ({adminEmail}).");
     }
