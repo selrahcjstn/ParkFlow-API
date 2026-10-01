@@ -81,7 +81,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
         var dtoList = new List<ParkingHistoryResponse>();
         foreach (var log in logs)
         {
-            var ownerProfile = log.Vehicle.Owner.UserProfile;
+            var ownerProfile = log.Vehicle?.Owner?.UserProfile;
             if (ownerProfile is null)
                 continue;
 
@@ -95,7 +95,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
             var mustExitBy = log.EntryTime; // Fallback default
 
             var verifiedCor = corSubmissions.FirstOrDefault(c => 
-                c.UserAccountId == log.Vehicle.OwnerId && 
+                c.UserAccountId == log.Vehicle!.OwnerId && 
                 c.VerificationStatus == CorVerificationStatus.Verified);
 
             if (verifiedCor != null)
@@ -148,15 +148,20 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 referenceNumber = newViolation.ReferenceNumber;
             }
 
+            var ownerEmail = log.Vehicle!.Owner?.PrimaryEmail
+                ?? log.Vehicle!.Owner?.AuthIdentities?.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Email))?.Email
+                ?? string.Empty;
+
             dtoList.Add(new ParkingHistoryResponse
             {
                 FirstName = ownerProfile.FirstName,
                 LastName = ownerProfile.LastName,
                 MiddleName = ownerProfile.MiddleName,
+                Email = ownerEmail,
                 RoleName = roleDetails.Role,
-                PlateNumber = log.Vehicle.PlateNumber,
-                Brand = log.Vehicle.Brand,
-                Type = log.Vehicle.VehicleType.ToString(),
+                PlateNumber = log.Vehicle!.PlateNumber,
+                Brand = log.Vehicle!.Brand,
+                Type = log.Vehicle!.VehicleType.ToString(),
                 EntryTime = log.EntryTime,
                 ExitTime = exitTimeVal,
                 ParkingDuration = duration,

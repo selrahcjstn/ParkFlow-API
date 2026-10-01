@@ -4,10 +4,15 @@ using System.Collections.Generic;
 namespace ParkFlow.Application.Features.Users.DTOs;
 
 public record UserVehicleDto(
+    Guid Id,
     string PlateNumber,
     string Brand,
     string VehicleType,
-    bool IsPrimary
+    bool IsPrimary,
+    string? OrcrDocumentUrl = null,
+    string? VehiclePictureUrl = null,
+    string? VerificationStatus = null,
+    string? RejectionReason = null
 );
 
 public record UserStudentDto(

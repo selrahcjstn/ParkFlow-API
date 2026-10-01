@@ -143,12 +143,18 @@ public class GetActiveParkingSessionHandler
             }
 
             var ownerProfile = log.Vehicle.Owner?.UserProfile;
-            var ownerPhoneNumber = ownerProfile?.UserAccount?.PhoneNumber;
+            var ownerPhoneNumber = ownerProfile?.UserAccount?.PhoneNumber
+                ?? log.Vehicle.Owner?.PhoneNumber
+                ?? string.Empty;
 
-            if (ownerProfile == null || string.IsNullOrWhiteSpace(ownerPhoneNumber))
+            if (ownerProfile == null)
             {
                 continue;
             }
+
+            var ownerEmail = log.Vehicle.Owner?.PrimaryEmail
+                ?? log.Vehicle.Owner?.AuthIdentities?.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Email))?.Email
+                ?? string.Empty;
 
             var student = ownerProfile.Student;
             var personnel = ownerProfile.Personnel;
@@ -163,6 +169,7 @@ public class GetActiveParkingSessionHandler
                 MiddleName: ownerProfile.MiddleName,
                 PhoneNumber: ownerPhoneNumber,
                 Role: roleDetails.Role,
+                Email: ownerEmail,
 
                 Status: log.Status.ToString(),
                 PlateNumber: log.Vehicle.PlateNumber,

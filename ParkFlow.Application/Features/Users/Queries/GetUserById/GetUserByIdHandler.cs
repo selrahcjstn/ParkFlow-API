@@ -40,7 +40,17 @@ public class GetUserByIdHandler : IRequestHandler<GetUserByIdQuery, Result<UserW
         var adminProfileIds = admins.Select(a => a.UserProfileId).ToHashSet();
 
         var vehicles = await _vehicleRepository.GetByOwnerIdAsync(user.Id);
-        var userVehicles = vehicles.Select(v => new UserVehicleDto(v.PlateNumber, v.Brand, v.VehicleType.ToString(), v.IsPrimary)).ToList();
+        var userVehicles = vehicles.Select(v => new UserVehicleDto(
+            v.Id,
+            v.PlateNumber,
+            v.Brand,
+            v.VehicleType.ToString(),
+            v.IsPrimary,
+            v.OrcrDocumentUrl,
+            v.VehiclePictureUrl,
+            v.VerificationStatus.ToString(),
+            v.RejectionReason
+        )).ToList();
 
         var latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(user.Id);
         string corStatusStr = latestCor?.VerificationStatus.ToString() ?? "NotSubmitted";

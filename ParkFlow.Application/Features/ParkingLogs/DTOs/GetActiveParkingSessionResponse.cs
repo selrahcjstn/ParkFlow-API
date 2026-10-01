@@ -7,6 +7,7 @@ namespace ParkFlow.Application.Features.ParkingLogs.DTOs
     string? MiddleName,
     string PhoneNumber,
     string Role,
+    string? Email,
 
     // Vehicle Info
     string Status,

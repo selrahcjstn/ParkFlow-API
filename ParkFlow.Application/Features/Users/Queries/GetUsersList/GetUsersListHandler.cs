@@ -50,7 +50,17 @@ public class GetUsersListHandler : IRequestHandler<GetUsersListQuery, Result<IEn
         foreach (var user in users)
         {
             var userVehicles = vehiclesByOwner.TryGetValue(user.Id, out var vList)
-                ? vList.Select(v => new UserVehicleDto(v.PlateNumber, v.Brand, v.VehicleType.ToString(), v.IsPrimary)).ToList()
+                ? vList.Select(v => new UserVehicleDto(
+                    v.Id,
+                    v.PlateNumber,
+                    v.Brand,
+                    v.VehicleType.ToString(),
+                    v.IsPrimary,
+                    v.OrcrDocumentUrl,
+                    v.VehiclePictureUrl,
+                    v.VerificationStatus.ToString(),
+                    v.RejectionReason
+                )).ToList()
                 : new List<UserVehicleDto>();
 
             var profile = user.UserProfile;
