@@ -121,7 +121,7 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
                     : string.IsNullOrWhiteSpace(request.RejectionReason)
                         ? "Your registration was rejected by the admin. Please review the rejection reason and re-upload the required documents to continue the verification process."
                         : $"Your registration was rejected by the admin. Reason: {request.RejectionReason}. Please re-upload the required documents to continue the verification process.";
-                var actionRoute = isApproved ? "/(settings)/schedule" : "/(auth)/register";
+                var actionRoute = isApproved ? "/(settings)/schedule" : "/(settings)/setup-schedule";
                 var actionText = isApproved ? "View Pass Details" : "Re-upload Documents";
                 var type = isApproved ? "approved" : "registration_rejected";
 

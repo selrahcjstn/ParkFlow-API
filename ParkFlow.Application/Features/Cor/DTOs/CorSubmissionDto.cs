@@ -22,5 +22,6 @@ public record CorSubmissionDto(
     string VehiclePlate,
     string VehicleType,
     DateTime CreatedAt,
-    List<CorScheduleItemDto>? Schedules = null
+    List<CorScheduleItemDto>? Schedules = null,
+    string Brand = "—"
 );

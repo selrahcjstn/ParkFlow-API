@@ -52,6 +52,7 @@ public class ListCorSubmissionsHandler : IRequestHandler<ListCorSubmissionsQuery
             var primaryVehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
 
             var vehiclePlate = primaryVehicle?.PlateNumber ?? "N/A";
+            var vehicleBrand = primaryVehicle?.Brand ?? "—";
             var vehicleType = primaryVehicle != null ? primaryVehicle.VehicleType.ToString() : "N/A";
 
             var rawSchedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(s.Id);
@@ -82,7 +83,8 @@ public class ListCorSubmissionsHandler : IRequestHandler<ListCorSubmissionsQuery
                 vehiclePlate,
                 vehicleType,
                 s.CreatedAt,
-                scheduleDtos
+                scheduleDtos,
+                vehicleBrand
             ));
         }
 

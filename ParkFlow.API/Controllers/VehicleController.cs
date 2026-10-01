@@ -173,13 +173,9 @@ public record ValidateVehicleRequest(
                 if (submission == null || submission.VerificationStatus == CorVerificationStatus.Verified)
                 {
                     user.Verify();
+                    await userAccountRepository.UpdateAsync(user);
                 }
             }
-            else if (request.VerificationStatus == CorVerificationStatus.Rejected)
-            {
-                user.UpdateStatus(AccountStatus.PendingVerification);
-            }
-            await userAccountRepository.UpdateAsync(user);
 
             var isApproved = request.VerificationStatus == CorVerificationStatus.Verified;
 
@@ -216,7 +212,7 @@ public record ValidateVehicleRequest(
                     : string.IsNullOrWhiteSpace(request.RejectionReason)
                         ? "Your vehicle registration was rejected. Please review the reason and update/re-upload your vehicle documents."
                         : $"Your vehicle registration was rejected. Reason: {request.RejectionReason}. Please update/re-upload your vehicle documents.";
-                var actionRoute = isApproved ? "/(settings)/vehicle" : "/(auth)/register";
+                var actionRoute = "/(settings)/vehicle";
                 var actionText = isApproved ? "View Vehicle" : "Fix Vehicle Info";
                 var type = isApproved ? "vehicle_approved" : "vehicle_rejected";
 

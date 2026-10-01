@@ -67,17 +67,6 @@ public class CreateCorSubmissionHandler : IRequestHandler<CreateCorSubmissionCom
             }
         }
 
-        // Reset all vehicles for this user to Pending (Unverified)
-        if (_vehicleRepository != null)
-        {
-            var vehicles = await _vehicleRepository.GetByOwnerIdAsync(request.UserId);
-            foreach (var vehicle in vehicles)
-            {
-                vehicle.UpdateVerificationStatus(ParkFlow.Domain.Enums.CorVerificationStatus.Pending);
-                await _vehicleRepository.UpdateAsync(vehicle);
-            }
-        }
-
         if (_signalRNotificationSender != null)
         {
             try
@@ -93,13 +82,6 @@ public class CreateCorSubmissionHandler : IRequestHandler<CreateCorSubmissionCom
                 {
                     type = "schedule",
                     submissionId = corSubmission.Id,
-                    status = "Pending"
-                });
-
-                await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", new
-                {
-                    type = "vehicle",
-                    ownerId = request.UserId,
                     status = "Pending"
                 });
 
