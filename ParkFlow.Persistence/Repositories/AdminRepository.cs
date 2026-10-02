@@ -23,7 +23,7 @@ public class AdminRepository : IAdminRepository
     {
         return await _context.Admins
             .Include(a => a.UserProfile)
-            .FirstOrDefaultAsync(x => x.UserProfileId == userProfileId);
+            .FirstOrDefaultAsync(x => x.UserProfileId == userProfileId || x.UserProfile.UserAccountId == userProfileId);
     }
 
     public async Task DeleteAsync(Admin admin)

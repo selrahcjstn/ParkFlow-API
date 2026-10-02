@@ -28,6 +28,7 @@ public class AdminController : ControllerBase
 	/// </summary>
 	[AllowAnonymous]
 	[HttpPost("register")]
+	[HttpPost("")]
 	public async Task<ActionResult<Result<Guid>>> Register(
 		[FromBody] CreateAdminAccountCommand command,
 		[FromHeader(Name = "X-Admin-Registration-Key")] string? registrationKey)

@@ -17,19 +17,22 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
     private readonly IValidator<SendEmailOtpCommand> _validator;
     private readonly IAuthIdentityRepository? _authIdentityRepository;
     private readonly IUserAccountRepository? _userAccountRepository;
+    private readonly IOtpRateLimiter? _otpRateLimiter;
 
     public SendEmailOtpCommandHandler(
         IEmailOtpRepository emailOtpRepository,
         IEmailService emailService,
         IValidator<SendEmailOtpCommand> validator,
         IAuthIdentityRepository? authIdentityRepository = null,
-        IUserAccountRepository? userAccountRepository = null)
+        IUserAccountRepository? userAccountRepository = null,
+        IOtpRateLimiter? otpRateLimiter = null)
     {
         _emailOtpRepository = emailOtpRepository;
         _emailService = emailService;
         _validator = validator;
         _authIdentityRepository = authIdentityRepository;
         _userAccountRepository = userAccountRepository;
+        _otpRateLimiter = otpRateLimiter;
     }
 
     public async Task<Result<bool>> Handle(SendEmailOtpCommand request, CancellationToken cancellationToken)
@@ -56,6 +59,16 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
             var existingUser = await _userAccountRepository.GetByEmailAsync(normalizedEmail);
             if (existingUser != null)
                 return Result<bool>.Failure(false, "This email is already registered in ParkFlow. Please use a different email.", ErrorCode.Conflict);
+        }
+
+        // Rate limiting check
+        if (_otpRateLimiter != null)
+        {
+            var (isAllowed, rateLimitError, _) = _otpRateLimiter.CheckRateLimit(normalizedEmail);
+            if (!isAllowed)
+            {
+                return Result<bool>.Failure(false, rateLimitError ?? "Rate limit exceeded. Please try again later.", ErrorCode.TooManyRequests);
+            }
         }
 
         try
@@ -130,6 +143,7 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
 </html>";
 
             await _emailService.SendEmailAsync(request.Email, subject, htmlBody);
+            _otpRateLimiter?.RecordOtpDispatched(normalizedEmail);
             return Result<bool>.Success(true, $"Verification code generated: {otpCode}");
         }
         catch (Exception ex)

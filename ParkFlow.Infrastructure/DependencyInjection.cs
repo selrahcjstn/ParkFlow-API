@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<IQrCodeService, QrCodeService>();
         services.AddHttpContextAccessor();
         services.AddScoped<IUserContext, UserContext>();
+        services.AddSingleton<IOtpRateLimiter, ParkFlow.Infrastructure.Services.OtpRateLimiter>();
 
         // SignalR
         services.AddScoped<ISignalRNotificationSender, SignalRNotificationSender>();

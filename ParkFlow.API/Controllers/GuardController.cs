@@ -23,6 +23,7 @@ public class GuardController : ControllerBase
     /// </summary>
     [AllowAnonymous]
     [HttpPost("create")]
+    [HttpPost("")]
     public async Task<ActionResult<Result<Guid>>> Create([FromBody] CreateGuardAccountCommand command)
     {
         var result = await _mediator.Send(command);

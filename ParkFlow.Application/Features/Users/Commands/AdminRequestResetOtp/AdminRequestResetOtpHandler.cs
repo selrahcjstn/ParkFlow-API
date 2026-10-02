@@ -14,13 +14,16 @@ public class AdminRequestResetOtpHandler : IRequestHandler<AdminRequestResetOtpC
 {
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IEmailService _emailService;
+    private readonly IOtpRateLimiter? _otpRateLimiter;
 
     public AdminRequestResetOtpHandler(
         IUserAccountRepository userAccountRepository,
-        IEmailService emailService)
+        IEmailService emailService,
+        IOtpRateLimiter? otpRateLimiter = null)
     {
         _userAccountRepository = userAccountRepository;
         _emailService = emailService;
+        _otpRateLimiter = otpRateLimiter;
     }
 
     public async Task<Result<string>> Handle(AdminRequestResetOtpCommand request, CancellationToken cancellationToken)
@@ -44,6 +47,16 @@ public class AdminRequestResetOtpHandler : IRequestHandler<AdminRequestResetOtpC
         if (string.IsNullOrWhiteSpace(adminEmail))
         {
             adminEmail = targetEmailNormalized; // Fallback to target email if admin identity is not found
+        }
+
+        // Rate limiting check
+        if (_otpRateLimiter != null)
+        {
+            var (isAllowed, rateLimitError, _) = _otpRateLimiter.CheckRateLimit(adminEmail);
+            if (!isAllowed)
+            {
+                return Result<string>.Failure(rateLimitError ?? "Rate limit exceeded. Please try again later.", ErrorCode.TooManyRequests);
+            }
         }
 
         // Generate 6-digit random verification code
@@ -116,6 +129,7 @@ public class AdminRequestResetOtpHandler : IRequestHandler<AdminRequestResetOtpC
         try
         {
             await _emailService.SendEmailAsync(adminEmail, subject, htmlBody);
+            _otpRateLimiter?.RecordOtpDispatched(adminEmail);
         }
         catch (Exception ex)
         {

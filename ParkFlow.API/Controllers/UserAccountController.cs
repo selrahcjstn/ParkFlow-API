@@ -222,8 +222,70 @@ namespace ParkFlow.API.Controllers
             var result = await _mediator.Send(command);
             return this.ToActionResult(result);
         }
+
+        [HttpPost("staff")]
+        public async Task<ActionResult<Result<Guid>>> RegisterStaffAccount(
+            [FromBody] CreateStaffAccountRequestDTO request,
+            [FromHeader(Name = "X-Admin-Registration-Key")] string? registrationKey)
+        {
+            var email = request.Email ?? request.Account?.Email ?? string.Empty;
+            var password = request.Password ?? request.Account?.Password ?? string.Empty;
+            var phone = request.PhoneNumber ?? request.Account?.PhoneNumber ?? string.Empty;
+            var first = request.FirstName ?? request.Profile?.FirstName ?? string.Empty;
+            var last = request.LastName ?? request.Profile?.LastName ?? string.Empty;
+            var middle = request.MiddleName ?? request.Profile?.MiddleName;
+
+            var isGuard = string.Equals(request.AccountType, "Guard", StringComparison.OrdinalIgnoreCase);
+
+            if (isGuard)
+            {
+                var guardCommand = new ParkFlow.Application.Features.RegisterGuard.Commands.CreateGuardAccount.CreateGuardAccountCommand(
+                    new ParkFlow.Application.Features.RegisterGuard.Commands.CreateGuardAccount.AccountDto(email, password, phone),
+                    new ParkFlow.Application.Features.RegisterGuard.Commands.CreateGuardAccount.ProfileDto(first, last, middle, null),
+                    request.AssignedGate ?? 1
+                );
+                var guardResult = await _mediator.Send(guardCommand);
+                return this.ToActionResult(guardResult);
+            }
+            else
+            {
+                Guid? currentUserId = null;
+                try
+                {
+                    var userId = _userContext.GetUserId();
+                    if (userId != Guid.Empty)
+                        currentUserId = userId;
+                }
+                catch { }
+
+                var roleLevel = request.RoleLevel == 0 ? ParkFlow.Domain.Enums.RoleLevel.SuperAdmin : ParkFlow.Domain.Enums.RoleLevel.Admin;
+
+                var adminCommand = new ParkFlow.Application.Features.RegisterAdmin.Commands.CreateAdminAccount.CreateAdminAccountCommand(
+                    new ParkFlow.Application.Features.RegisterAdmin.Commands.CreateAdminAccount.AccountDto(email, password, phone),
+                    new ParkFlow.Application.Features.RegisterAdmin.Commands.CreateAdminAccount.ProfileDto(first, last, middle, null),
+                    roleLevel,
+                    RegistrationKey: registrationKey,
+                    CurrentUserId: currentUserId
+                );
+                var adminResult = await _mediator.Send(adminCommand);
+                return this.ToActionResult(adminResult);
+            }
+        }
     }
 
     public record UpdateUserStatusRequest(string Status);
     public record AdminRequestResetOtpRequestDTO(string TargetEmail, string? AdminEmail);
+    public record CreateStaffAccountRequestDTO(
+        string? Email,
+        string? Password,
+        string? PhoneNumber,
+        string? FirstName,
+        string? LastName,
+        string? MiddleName,
+        string? AccountType,
+        int? AssignedGate,
+        int? RoleLevel,
+        ParkFlow.Application.Features.RegisterAdmin.Commands.CreateAdminAccount.AccountDto? Account,
+        ParkFlow.Application.Features.RegisterAdmin.Commands.CreateAdminAccount.ProfileDto? Profile
+    );
 }

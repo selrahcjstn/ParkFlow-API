@@ -18,15 +18,18 @@ public class ForgotPasswordUserAccountHandler
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IEmailService _emailService;
     private readonly IValidator<ForgotPasswordUserAccountCommand> _validator;
+    private readonly IOtpRateLimiter? _otpRateLimiter;
 
     public ForgotPasswordUserAccountHandler(
         IUserAccountRepository userAccountRepository,
         IEmailService emailService,
-        IValidator<ForgotPasswordUserAccountCommand> validator)
+        IValidator<ForgotPasswordUserAccountCommand> validator,
+        IOtpRateLimiter? otpRateLimiter = null)
     {
         _userAccountRepository = userAccountRepository;
         _emailService = emailService;
         _validator = validator;
+        _otpRateLimiter = otpRateLimiter;
     }
 
     public async Task<Result<string>> Handle(ForgotPasswordUserAccountCommand request, CancellationToken cancellationToken)
@@ -54,6 +57,16 @@ public class ForgotPasswordUserAccountHandler
 
             if (!hasPassword)
                 return Result<string>.Failure("Password reset is only available for accounts with a password. If you registered with Microsoft, please use Microsoft sign-in.", ErrorCode.BadRequest);
+
+            // Rate limiting check
+            if (_otpRateLimiter != null)
+            {
+                var (isAllowed, rateLimitError, _) = _otpRateLimiter.CheckRateLimit(normalizedEmail);
+                if (!isAllowed)
+                {
+                    return Result<string>.Failure(rateLimitError ?? "Rate limit exceeded. Please try again later.", ErrorCode.TooManyRequests);
+                }
+            }
 
             // Generate a random 6-digit verification code
             var random = new Random();
@@ -124,6 +137,7 @@ public class ForgotPasswordUserAccountHandler
             try
             {
                 await _emailService.SendEmailAsync(normalizedEmail, subject, htmlBody);
+                _otpRateLimiter?.RecordOtpDispatched(normalizedEmail);
             }
             catch (Exception ex)
             {
