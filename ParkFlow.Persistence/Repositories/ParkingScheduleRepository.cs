@@ -66,12 +66,15 @@ public class ParkingScheduleRepository : IParkingScheduleRepository
             return Enumerable.Empty<ParkingSchedule>();
         }
 
-        // Check if the latest submission has schedules
-        var latestSubmission = submissions.First();
+        var submissionIds = submissions.Select(c => c.Id).ToList();
+
+        // Check latest submission schedules first
+        var latestSubmissionId = submissions.First().Id;
         var latestSchedules = await _appDbContext.ParkingSchedules
             .Include(x => x.CorSubmission)
             .AsNoTracking()
-            .Where(x => x.SubmissionId == latestSubmission.Id)
+            .Where(x => x.SubmissionId == latestSubmissionId)
+            .OrderBy(x => x.DayOfWeek)
             .ToListAsync();
 
         if (latestSchedules.Any())
@@ -79,14 +82,19 @@ public class ParkingScheduleRepository : IParkingScheduleRepository
             return latestSchedules;
         }
 
-        // 3. Fallback: Fetch all schedules linked to any of the user's submissions
-        var submissionIds = submissions.Select(c => c.Id).ToList();
-
-        return await _appDbContext.ParkingSchedules
+        // Fallback: Fetch all schedules across any user submission, pick latest per DayOfWeek
+        var allUserSchedules = await _appDbContext.ParkingSchedules
             .Include(x => x.CorSubmission)
             .AsNoTracking()
             .Where(x => submissionIds.Contains(x.SubmissionId))
+            .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
+
+        return allUserSchedules
+            .GroupBy(s => s.DayOfWeek)
+            .Select(g => g.First())
+            .OrderBy(s => s.DayOfWeek)
+            .ToList();
     }
 
     public async Task UpdateAsync(ParkingSchedule parkingSchedule)

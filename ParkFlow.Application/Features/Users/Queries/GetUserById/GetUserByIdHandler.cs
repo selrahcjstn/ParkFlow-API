@@ -17,17 +17,20 @@ public class GetUserByIdHandler : IRequestHandler<GetUserByIdQuery, Result<UserW
     private readonly IAdminRepository _adminRepository;
     private readonly IVehicleRepository _vehicleRepository;
     private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IParkingScheduleRepository _parkingScheduleRepository;
 
     public GetUserByIdHandler(
         IUserAccountRepository userAccountRepository,
         IAdminRepository adminRepository,
         IVehicleRepository vehicleRepository,
-        ICorSubmissionRepository corSubmissionRepository)
+        ICorSubmissionRepository corSubmissionRepository,
+        IParkingScheduleRepository parkingScheduleRepository)
     {
         _userAccountRepository = userAccountRepository;
         _adminRepository = adminRepository;
         _vehicleRepository = vehicleRepository;
         _corSubmissionRepository = corSubmissionRepository;
+        _parkingScheduleRepository = parkingScheduleRepository;
     }
 
     public async Task<Result<UserWithDetailsDto>> Handle(GetUserByIdQuery request, CancellationToken cancellationToken)
@@ -54,6 +57,9 @@ public class GetUserByIdHandler : IRequestHandler<GetUserByIdQuery, Result<UserW
 
         var latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(user.Id);
         string corStatusStr = latestCor?.VerificationStatus.ToString() ?? "NotSubmitted";
+
+        var schedules = await _parkingScheduleRepository.GetByUserIdAsync(user.Id);
+        var scheduleDtos = schedules.Select(s => new UserScheduleItemDto((int)s.DayOfWeek, s.StartTime, s.EndTime)).ToList();
 
         var profile = user.UserProfile;
         bool isAdmin = profile != null && adminProfileIds.Contains(profile.Id);
@@ -102,7 +108,10 @@ public class GetUserByIdHandler : IRequestHandler<GetUserByIdQuery, Result<UserW
             studentDto,
             personnelDto,
             guardDto,
-            userVehicles
+            userVehicles,
+            latestCor?.CorDocumentUrl,
+            latestCor?.AcademicTerm,
+            scheduleDtos
         );
 
         return Result<UserWithDetailsDto>.Success(dto, "User details retrieved successfully.");

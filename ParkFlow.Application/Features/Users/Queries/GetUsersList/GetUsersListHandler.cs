@@ -17,17 +17,20 @@ public class GetUsersListHandler : IRequestHandler<GetUsersListQuery, Result<IEn
     private readonly IAdminRepository _adminRepository;
     private readonly IVehicleRepository _vehicleRepository;
     private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IParkingScheduleRepository _parkingScheduleRepository;
 
     public GetUsersListHandler(
         IUserAccountRepository userAccountRepository,
         IAdminRepository adminRepository,
         IVehicleRepository vehicleRepository,
-        ICorSubmissionRepository corSubmissionRepository)
+        ICorSubmissionRepository corSubmissionRepository,
+        IParkingScheduleRepository parkingScheduleRepository)
     {
         _userAccountRepository = userAccountRepository;
         _adminRepository = adminRepository;
         _vehicleRepository = vehicleRepository;
         _corSubmissionRepository = corSubmissionRepository;
+        _parkingScheduleRepository = parkingScheduleRepository;
     }
 
     public async Task<Result<IEnumerable<UserWithDetailsDto>>> Handle(GetUsersListQuery request, CancellationToken cancellationToken)
@@ -78,7 +81,8 @@ public class GetUsersListHandler : IRequestHandler<GetUsersListQuery, Result<IEn
             }
 
             string corStatusStr = "NotSubmitted";
-            if (latestCorByUser.TryGetValue(user.Id, out var latestCor))
+            latestCorByUser.TryGetValue(user.Id, out var latestCor);
+            if (latestCor != null)
             {
                 corStatusStr = latestCor.VerificationStatus.ToString();
             }
@@ -116,7 +120,9 @@ public class GetUsersListHandler : IRequestHandler<GetUsersListQuery, Result<IEn
                 studentDto,
                 personnelDto,
                 guardDto,
-                userVehicles
+                userVehicles,
+                latestCor?.CorDocumentUrl,
+                latestCor?.AcademicTerm
             ));
         }
 

@@ -31,6 +31,12 @@ public record UserGuardDto(
     int AssignedGate
 );
 
+public record UserScheduleItemDto(
+    int DayOfWeek,
+    TimeSpan StartTime,
+    TimeSpan EndTime
+);
+
 public record UserWithDetailsDto(
     Guid Id,
     string FirstName,
@@ -48,5 +54,8 @@ public record UserWithDetailsDto(
     UserStudentDto? Student,
     UserPersonnelDto? Personnel,
     UserGuardDto? Guard,
-    IEnumerable<UserVehicleDto> Vehicles
+    IEnumerable<UserVehicleDto> Vehicles,
+    string? CorDocumentUrl = null,
+    string? AcademicTerm = null,
+    IEnumerable<UserScheduleItemDto>? Schedules = null
 );

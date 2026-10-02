@@ -94,6 +94,12 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
 
     public async Task UpdateAsync(UserAccount user)
     {
+        var userEntry = _appDbContext.Entry(user);
+        if (userEntry.State == EntityState.Detached)
+        {
+            _appDbContext.UserAccounts.Update(user);
+        }
+
         foreach (var history in user.PasswordHistories)
         {
             var entry = _appDbContext.Entry(history);

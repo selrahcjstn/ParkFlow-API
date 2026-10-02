@@ -62,6 +62,13 @@ public class UpdateCorSchedulesHandler : IRequestHandler<UpdateCorSchedulesComma
 
         await _parkingScheduleRepository.ReplaceSchedulesAsync(submission.Id, newSchedules);
 
+        var latestSubmission = await _corSubmissionRepository.GetLatestByUserIdAsync(submission.UserAccountId);
+        if (latestSubmission != null && latestSubmission.Id != submission.Id)
+        {
+            var latestSchedules = newSchedules.Select(s => new ParkingSchedule(latestSubmission.Id, s.DayOfWeek, s.StartTime, s.EndTime)).ToList();
+            await _parkingScheduleRepository.ReplaceSchedulesAsync(latestSubmission.Id, latestSchedules);
+        }
+
         // Realtime SignalR event dispatch to user and web clients
         if (_signalRNotificationSender != null)
         {

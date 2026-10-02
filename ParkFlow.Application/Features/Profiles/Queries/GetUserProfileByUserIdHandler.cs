@@ -49,7 +49,7 @@ public class GetUserProfileByUserIdHandler : IRequestHandler<GetUserProfileByUse
             var rejectedVehicle = vehicles.FirstOrDefault(v => v.VerificationStatus == CorVerificationStatus.Rejected);
             if (rejectedVehicle != null)
             {
-                corStatus = CorVerificationStatus.Rejected;
+                // Only set remarks metadata without altering user's account clearance status
                 rejectionReason = rejectedVehicle.RejectionReason;
                 rejectedTarget = "vehicle";
             }
