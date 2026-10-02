@@ -16,5 +16,6 @@ public record VehicleDto(
     bool IsPrimary,
     string? OrcrDocumentUrl = null,
     string? VehiclePictureUrl = null,
-    CorVerificationStatus VerificationStatus = CorVerificationStatus.Pending
+    CorVerificationStatus VerificationStatus = CorVerificationStatus.Pending,
+    string? RejectionReason = null
 );

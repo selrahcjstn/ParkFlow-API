@@ -54,17 +54,7 @@ public class GetMyProfileHandler
         {
             rejectionReason = latestCor.RejectionReason;
             rejectedTarget = "documents";
-        }
-        else if (_vehicleRepository != null)
-        {
-            var vehicles = await _vehicleRepository.GetByOwnerIdAsync(profile.UserAccountId);
-            var rejectedVehicle = vehicles.FirstOrDefault(v => v.VerificationStatus == CorVerificationStatus.Rejected);
-            if (rejectedVehicle != null)
-            {
-                corStatus = CorVerificationStatus.Rejected;
-                rejectionReason = rejectedVehicle.RejectionReason;
-                rejectedTarget = "vehicle";
-            }
+            corStatus = CorVerificationStatus.Rejected;
         }
 
         string? roleStr = null;

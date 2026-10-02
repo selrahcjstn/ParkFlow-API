@@ -37,7 +37,8 @@ public class GetVehiclesByOwnerIdHandler : IRequestHandler<GetVehiclesByOwnerIdQ
                 vehicle.IsPrimary,
                 vehicle.OrcrDocumentUrl,
                 vehicle.VehiclePictureUrl,
-                vehicle.VerificationStatus));
+                vehicle.VerificationStatus,
+                vehicle.RejectionReason));
         }
 
         return Result<IEnumerable<VehicleDto>>.Success(vehicleDtos, "Vehicles retrieved.");

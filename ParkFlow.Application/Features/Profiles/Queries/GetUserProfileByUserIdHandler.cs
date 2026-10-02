@@ -42,17 +42,7 @@ public class GetUserProfileByUserIdHandler : IRequestHandler<GetUserProfileByUse
         {
             rejectionReason = latestCor.RejectionReason;
             rejectedTarget = "documents";
-        }
-        else if (_vehicleRepository != null)
-        {
-            var vehicles = await _vehicleRepository.GetByOwnerIdAsync(profile.UserAccountId);
-            var rejectedVehicle = vehicles.FirstOrDefault(v => v.VerificationStatus == CorVerificationStatus.Rejected);
-            if (rejectedVehicle != null)
-            {
-                // Only set remarks metadata without altering user's account clearance status
-                rejectionReason = rejectedVehicle.RejectionReason;
-                rejectedTarget = "vehicle";
-            }
+            corStatus = CorVerificationStatus.Rejected;
         }
 
         var dto = new UserProfileDto(
