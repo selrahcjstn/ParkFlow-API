@@ -16,6 +16,7 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
 
     public async Task<UserAccount?> GetByEmailAsync(string email)
     {
+        var normalized = email.Trim().ToLower();
         return await _appDbContext.UserAccounts
             .Include(u => u.UserProfile)
                 .ThenInclude(p => p!.Student)
@@ -27,7 +28,7 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
                 .ThenInclude(p => p!.Admin)
             .Include(u => u.AuthIdentities)
             .Include(u => u.PasswordHistories)
-            .FirstOrDefaultAsync(u => u.AuthIdentities.Any(i => i.Email != null && i.Email.ToLower() == email.ToLower()));
+            .FirstOrDefaultAsync(u => u.AuthIdentities.Any(i => i.Email != null && i.Email.ToLower() == normalized));
     }
 
     public async Task<UserAccount?> GetByAuthProviderExternalIdAsync(AuthProvider authProvider, string externalProviderId)
