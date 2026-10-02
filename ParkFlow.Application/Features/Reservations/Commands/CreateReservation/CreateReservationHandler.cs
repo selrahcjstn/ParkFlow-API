@@ -113,21 +113,20 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
                 ErrorCode.Forbidden);
         }
 
-        // Restrict reservations to 1 per day for non-admin users
-        if (!isAdmin)
-        {
-            var userReservations = (await _reservationRepository.GetByUserIdAsync(user.Id)).ToList();
-            var hasReservationOnDate = userReservations.Any(r =>
-                r.ReservationDate.Date == request.ReservationDate.Date &&
-                r.Status != ReservationStatus.Cancelled &&
-                r.Status != ReservationStatus.Rejected);
+        // Enforce restriction: 1 parking reservation per day per user across all platforms (Mobile & Web)
+        var userReservations = (await _reservationRepository.GetByUserIdAsync(user.Id)).ToList();
+        var hasReservationOnDate = userReservations.Any(r =>
+            r.ReservationDate.Year == request.ReservationDate.Year &&
+            r.ReservationDate.Month == request.ReservationDate.Month &&
+            r.ReservationDate.Day == request.ReservationDate.Day &&
+            r.Status != ReservationStatus.Cancelled &&
+            r.Status != ReservationStatus.Rejected);
 
-            if (hasReservationOnDate)
-            {
-                return Result<ParkingReservationDto>.Failure(
-                    $"You already have an active or pending reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
-                    ErrorCode.Conflict);
-            }
+        if (hasReservationOnDate)
+        {
+            return Result<ParkingReservationDto>.Failure(
+                $"You already have an active or pending reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
+                ErrorCode.Conflict);
         }
 
         // Find vehicle to bind (user's primary vehicle if vehicleId not specified)
@@ -142,6 +141,26 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
         {
             assignedVehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
             assignedVehicleId = assignedVehicle?.Id;
+        }
+
+        // Verify vehicle does not already have an active reservation on this date
+        if (assignedVehicleId.HasValue)
+        {
+            var vehicleReservations = (await _reservationRepository.GetAllAsync())
+                .Where(r => r.VehicleId == assignedVehicleId.Value &&
+                            r.ReservationDate.Year == request.ReservationDate.Year &&
+                            r.ReservationDate.Month == request.ReservationDate.Month &&
+                            r.ReservationDate.Day == request.ReservationDate.Day &&
+                            r.Status != ReservationStatus.Cancelled &&
+                            r.Status != ReservationStatus.Rejected)
+                .ToList();
+
+            if (vehicleReservations.Any())
+            {
+                return Result<ParkingReservationDto>.Failure(
+                    $"This vehicle already has an active or pending reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
+                    ErrorCode.Conflict);
+            }
         }
 
         // Generate Reference Number: RES-YYYYMMDD-XXXX
