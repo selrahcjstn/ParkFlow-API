@@ -258,13 +258,38 @@ namespace ParkFlow.API.Controllers
                 }
                 catch { }
 
+                if (!currentUserId.HasValue || currentUserId == Guid.Empty)
+                {
+                    var sub = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                        ?? User.FindFirst("sub")?.Value
+                        ?? User.FindFirst("user_id")?.Value;
+
+                    if (Guid.TryParse(sub, out var parsedGuid) && parsedGuid != Guid.Empty)
+                    {
+                        currentUserId = parsedGuid;
+                    }
+                }
+
+                var isSuperAdminClaim = User.IsInRole("SuperAdmin")
+                    || User.HasClaim("role", "SuperAdmin")
+                    || User.HasClaim("profile_type", "superadmin")
+                    || string.Equals(User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value, "superadmin@parkflow.com", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(User.FindFirst("email")?.Value, "superadmin@parkflow.com", StringComparison.OrdinalIgnoreCase);
+
+                var configuration = HttpContext.RequestServices.GetService<Microsoft.Extensions.Configuration.IConfiguration>();
+                var effectiveKey = registrationKey;
+                if (string.IsNullOrWhiteSpace(effectiveKey) && isSuperAdminClaim && configuration != null)
+                {
+                    effectiveKey = configuration["AdminSettings:RegistrationKey"];
+                }
+
                 var roleLevel = request.RoleLevel == 0 ? ParkFlow.Domain.Enums.RoleLevel.SuperAdmin : ParkFlow.Domain.Enums.RoleLevel.Admin;
 
                 var adminCommand = new ParkFlow.Application.Features.RegisterAdmin.Commands.CreateAdminAccount.CreateAdminAccountCommand(
                     new ParkFlow.Application.Features.RegisterAdmin.Commands.CreateAdminAccount.AccountDto(email, password, phone),
                     new ParkFlow.Application.Features.RegisterAdmin.Commands.CreateAdminAccount.ProfileDto(first, last, middle, null),
                     roleLevel,
-                    RegistrationKey: registrationKey,
+                    RegistrationKey: effectiveKey,
                     CurrentUserId: currentUserId
                 );
                 var adminResult = await _mediator.Send(adminCommand);

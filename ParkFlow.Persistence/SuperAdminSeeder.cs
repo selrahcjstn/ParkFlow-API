@@ -72,6 +72,25 @@ public static class SuperAdminSeeder
                 identity.MarkVerified();
                 await authIdentityRepository.UpdateAsync(identity);
             }
+
+            var profile = await userProfileRepository.GetByUserIdAsync(existingSuperAdmin.Id);
+            if (profile == null)
+            {
+                profile = new UserProfile(existingSuperAdmin.Id, "Super", "Admin", "System", null);
+                await userProfileRepository.AddAsync(profile);
+            }
+
+            var admin = await adminRepository.GetByUserProfileIdAsync(profile.Id);
+            if (admin == null)
+            {
+                admin = new Admin(profile, RoleLevel.SuperAdmin);
+                await adminRepository.AddAsync(admin);
+            }
+            else if (admin.RoleLevel != RoleLevel.SuperAdmin)
+            {
+                admin.RoleLevel = RoleLevel.SuperAdmin;
+                await dbContext.SaveChangesAsync();
+            }
         }
 
         // 2. Regular Admin Account
