@@ -106,7 +106,16 @@ public class UpdateUserAccountAdminHandler : IRequestHandler<UpdateUserAccountAd
             else
             {
                 var email = user.PrimaryEmail ?? request.Request.Email?.Trim() ?? string.Empty;
-                user.AuthIdentities.Add(AuthIdentity.CreateManual(user.Id, email, passwordHash, true));
+                var existingWithEmail = user.AuthIdentities.FirstOrDefault(i => i.Email != null && i.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+                if (existingWithEmail != null)
+                {
+                    existingWithEmail.UpdatePasswordHash(passwordHash);
+                }
+                else
+                {
+                    var hasPrimary = user.AuthIdentities.Any(i => i.IsPrimary);
+                    user.AuthIdentities.Add(AuthIdentity.CreateManual(user.Id, email, passwordHash, !hasPrimary));
+                }
             }
 
             user.PasswordHistories.Add(new PasswordHistory(user.Id, passwordHash));

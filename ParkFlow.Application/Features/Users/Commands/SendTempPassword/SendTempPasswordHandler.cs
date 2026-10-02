@@ -53,8 +53,17 @@ public class SendTempPasswordHandler : IRequestHandler<SendTempPasswordCommand, 
         }
         else
         {
-            var newIdentity = AuthIdentity.CreateManual(user.Id, targetEmail, passwordHash, true);
-            user.AuthIdentities.Add(newIdentity);
+            var existingWithEmail = user.AuthIdentities.FirstOrDefault(i => i.Email != null && i.Email.Equals(targetEmail, StringComparison.OrdinalIgnoreCase));
+            if (existingWithEmail != null)
+            {
+                existingWithEmail.UpdatePasswordHash(passwordHash);
+            }
+            else
+            {
+                var hasPrimary = user.AuthIdentities.Any(i => i.IsPrimary);
+                var newIdentity = AuthIdentity.CreateManual(user.Id, targetEmail, passwordHash, !hasPrimary);
+                user.AuthIdentities.Add(newIdentity);
+            }
         }
 
         user.PasswordHistories.Add(new PasswordHistory(user.Id, passwordHash));
