@@ -64,6 +64,18 @@ public class FakeViolationRepository : IViolationRepository
         return Task.FromResult(HasActiveViolationValue);
     }
 
+    public Task<int> GetActiveViolationCountAsync(Guid vehicleId, Guid? userId = null)
+    {
+        if (HasActiveViolationValue) return Task.FromResult(3);
+        return Task.FromResult(0);
+    }
+
+    public Task<int> GetActiveViolationCountByUserIdAsync(Guid userId)
+    {
+        if (HasActiveViolationValue) return Task.FromResult(3);
+        return Task.FromResult(0);
+    }
+
     public Task<Violation?> GetLatestUnsettledByPlateNumberAsync(string plateNumber)
     {
         return Task.FromResult(Violations.FirstOrDefault(v => v.SettlementStatus != SettlementStatus.Settled && (v.ParkingLog?.Vehicle?.PlateNumber.Equals(plateNumber, StringComparison.OrdinalIgnoreCase) ?? false)));

@@ -196,6 +196,37 @@ public class ViolationRepository : IViolationRepository
         }
     }
 
+    public async Task<int> GetActiveViolationCountAsync(Guid vehicleId, Guid? userId = null)
+    {
+        try
+        {
+            var vehicle = await _context.Set<Vehicle>().AsNoTracking().FirstOrDefaultAsync(v => v.Id == vehicleId);
+            var ownerId = userId ?? vehicle?.OwnerId;
+
+            return await _context.Set<Violation>()
+                .CountAsync(v => 
+                    (v.ParkingLog.VehicleId == vehicleId || (ownerId.HasValue && v.ParkingLog.Vehicle.OwnerId == ownerId.Value)) && 
+                    v.SettlementStatus != global::SettlementStatus.Settled);
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            return 0;
+        }
+    }
+
+    public async Task<int> GetActiveViolationCountByUserIdAsync(Guid userId)
+    {
+        try
+        {
+            return await _context.Set<Violation>()
+                .CountAsync(v => v.ParkingLog.Vehicle.OwnerId == userId && v.SettlementStatus != global::SettlementStatus.Settled);
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            return 0;
+        }
+    }
+
     public async Task<Violation?> GetLatestUnsettledByPlateNumberAsync(string plateNumber)
     {
         try

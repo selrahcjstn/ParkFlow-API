@@ -102,10 +102,11 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
         {
             statusMessage = $"Reservation is for {reservation.ReservationDate:MMMM dd, yyyy}. Not valid today.";
         }
-        else if (_violationRepository != null && (await _violationRepository.HasActiveViolationByUserIdAsync(reservation.UserId) || (vehicle != null && await _violationRepository.HasActiveViolationAsync(vehicle.Id))))
+        else if (_violationRepository != null && (await _violationRepository.GetActiveViolationCountAsync(vehicle?.Id ?? Guid.Empty, reservation.UserId)) >= 3)
         {
             isValid = false;
-            statusMessage = "Entry denied: User has active/unpaid violations. Please settle pending charges before parking.";
+            var vCount = await _violationRepository.GetActiveViolationCountAsync(vehicle?.Id ?? Guid.Empty, reservation.UserId);
+            statusMessage = $"Entry denied: User has {vCount} unpaid violations (maximum limit is 3). Please settle pending charges before parking.";
         }
         else
         {

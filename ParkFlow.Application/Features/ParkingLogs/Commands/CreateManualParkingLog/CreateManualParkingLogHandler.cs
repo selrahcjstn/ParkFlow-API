@@ -138,12 +138,11 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         }
 
         // 3b. Check active violations
-        var hasActiveViolation = await _violationRepository.HasActiveViolationAsync(vehicle.Id)
-            || await _violationRepository.HasActiveViolationByUserIdAsync(vehicle.OwnerId);
-        if (hasActiveViolation)
+        var activeViolationCount = await _violationRepository.GetActiveViolationCountAsync(vehicle.Id, vehicle.OwnerId);
+        if (activeViolationCount >= 3)
         {
             return Result<CreateParkingLogResponse>.Failure(
-                "Vehicle/User has active/unpaid violations. Entry denied. Please settle pending charges before parking.",
+                $"Vehicle/User has {activeViolationCount} active/unpaid violations (maximum limit is 3). Entry denied. Please settle pending charges before parking.",
                 ErrorCode.Forbidden);
         }
 

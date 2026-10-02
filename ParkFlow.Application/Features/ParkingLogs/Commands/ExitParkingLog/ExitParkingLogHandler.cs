@@ -353,6 +353,36 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                 IsViolation = isViolation
             };
 
+            var fullExitPayload = new
+            {
+                ReferenceNumber = referenceNumber ?? response.ReferenceNumber ?? $"EXIT-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
+                RefNumber = referenceNumber ?? response.ReferenceNumber ?? $"EXIT-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
+                IssuedDate = exitTime,
+                IssuedTime = exitTime,
+                IssuedBy = guardName,
+                GuardName = guardName,
+                OverstayHours = overstayTime,
+                PlateNumber = vehicle.PlateNumber,
+                Amount = penaltyFee,
+                PenaltyFee = penaltyFee,
+                ViolationType = violationType ?? (isViolation ? "Overstay" : "Normal Exit"),
+                IsViolation = isViolation,
+                SettlementStatus = isViolation ? settlementStatus : "Settled",
+                IsPaid = !isViolation || settlementStatus == "Settled",
+                FirstName = ownerProfile.FirstName,
+                LastName = ownerProfile.LastName,
+                MiddleName = ownerProfile.MiddleName,
+                DriverName = $"{ownerProfile.FirstName} {ownerProfile.LastName}".Trim(),
+                Role = roleDetails.Role,
+                Status = response.Status,
+                Brand = vehicle.Brand,
+                VehicleBrand = vehicle.Brand,
+                VehicleType = vehicle.VehicleType.ToString(),
+                EntryTime = response.EntryTime,
+                ExitTime = response.ExitTime,
+                OverstayTime = overstayTime
+            };
+
             if (_notificationService != null)
             {
                 var notifTitle = isViolation ? "Parking Violation Issued on Exit" : "Vehicle Exit Recorded";
@@ -378,24 +408,26 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                     driverName: $"{ownerProfile.FirstName} {ownerProfile.LastName}".Trim(),
                     driverRole: roleDetails.Role,
                     vehicleBrand: vehicle.Brand,
-                    signalRData: response
+                    signalRData: fullExitPayload
                 );
             }
-            else
+
+            try
             {
-                try
+                await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ParkingSessionUpdated", response);
+                if (isViolation)
                 {
-                    await _notificationSender.SendEventNotificationAsync(vehicle.OwnerId.ToString(), notificationDto);
-                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ParkingSessionUpdated", response);
-                    if (isViolation)
-                    {
-                        await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReceiveViolation", notificationDto);
-                    }
+                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReceiveViolation", fullExitPayload);
                 }
-                catch
+                else
                 {
-                    // Ignore SignalR dispatch failure
+                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ExitResponse", fullExitPayload);
+                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReceiveParkingReceipt", fullExitPayload);
                 }
+            }
+            catch
+            {
+                // Ignore SignalR dispatch failure
             }
 
             try

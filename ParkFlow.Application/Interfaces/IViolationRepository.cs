@@ -13,6 +13,8 @@ public interface IViolationRepository
 	Task<IReadOnlyList<Violation>> GetViolationsByUserIdAsync(Guid userId);
 	Task<bool> HasActiveViolationAsync(Guid vehicleId);
 	Task<bool> HasActiveViolationByUserIdAsync(Guid userId);
+	Task<int> GetActiveViolationCountAsync(Guid vehicleId, Guid? userId = null);
+	Task<int> GetActiveViolationCountByUserIdAsync(Guid userId);
 	Task<Violation?> GetLatestUnsettledByPlateNumberAsync(string plateNumber);
 	Task UpdateAsync(Violation violation);
 	Task DeleteAsync(Violation violation);

@@ -132,11 +132,15 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
             if (primaryVehicle != null)
             {
                 hasRegisteredVehicle = true;
-                hasActiveViolation = await _violationRepository.HasActiveViolationAsync(primaryVehicle.Id)
-                    || await _violationRepository.HasActiveViolationByUserIdAsync(userAccountId);
-                if (hasActiveViolation)
+                var activeViolationCount = await _violationRepository.GetActiveViolationCountAsync(primaryVehicle.Id, userAccountId);
+                hasActiveViolation = activeViolationCount >= 3;
+                if (activeViolationCount >= 3)
                 {
-                    violationNotice = "Vehicle/User has active/unpaid violations.";
+                    violationNotice = $"User has {activeViolationCount} unpaid violations (maximum limit is 3). Entry suspended.";
+                }
+                else if (activeViolationCount > 0)
+                {
+                    violationNotice = $"User has {activeViolationCount} unpaid violation(s). Entry permitted (maximum 3 allowed before suspension).";
                 }
 
                 var activeLog = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(primaryVehicle.Id);
@@ -265,7 +269,7 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
         {
             isValid = false;
             entryStatus = "HasViolation";
-            statusMessage = "Entry denied: User has active/unpaid violations. Please settle pending charges before parking.";
+            statusMessage = "Entry denied: User has reached 3 or more unpaid violations. Please settle pending charges before parking.";
         }
         else if (isValid && (primaryVehicle == null || primaryVehicle.VerificationStatus != CorVerificationStatus.Verified))
         {

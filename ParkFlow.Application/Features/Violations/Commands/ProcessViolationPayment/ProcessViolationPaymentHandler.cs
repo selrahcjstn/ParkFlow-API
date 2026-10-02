@@ -185,17 +185,15 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
                 signalRData: notificationData
             );
         }
-        else
+
+        try
         {
-            try
+            if (vehicle?.OwnerId != null && vehicle.OwnerId != Guid.Empty)
             {
-                if (vehicle?.OwnerId != null && vehicle.OwnerId != Guid.Empty)
-                {
-                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "PaymentProcessed", notificationData);
-                }
+                await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "PaymentProcessed", notificationData);
             }
-            catch { }
         }
+        catch { }
 
         try
         {
