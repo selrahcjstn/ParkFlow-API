@@ -197,6 +197,13 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
             catch { }
         }
 
+        try
+        {
+            await _notificationSender.SendToAllAsync("ApprovalUpdated", notificationData);
+            await _notificationSender.SendToAllAsync("ViolationSettled", notificationData);
+        }
+        catch { }
+
         return Result<ViolationPaymentReceiptDto>.Success(
             receipt,
             $"Violation reference '{request.ReferenceNumber}' has been successfully processed and marked as settled.");

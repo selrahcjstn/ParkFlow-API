@@ -11,7 +11,16 @@ using ParkFlow.Application.Interfaces;
 
 namespace ParkFlow.API.Controllers;
 
-public record ProcessViolationPaymentRequest(string ReferenceNumber);
+public record ProcessViolationPaymentRequest(
+    string? ReferenceNumber = null,
+    string? ViolationId = null,
+    string? PlateNumber = null)
+{
+    public string GetEffectiveReference() =>
+        !string.IsNullOrWhiteSpace(ReferenceNumber) ? ReferenceNumber :
+        !string.IsNullOrWhiteSpace(ViolationId) ? ViolationId :
+        !string.IsNullOrWhiteSpace(PlateNumber) ? PlateNumber : string.Empty;
+}
 
 [Route("api/violations")]
 [ApiController]
@@ -85,7 +94,7 @@ public class ViolationController : ControllerBase
 
     /// <summary>
     /// Verifies and processes payment for a violation, marking it as settled.
-    /// Only guards are allowed to perform this action.
+    /// Only guards or administrators are allowed to perform this action.
     /// </summary>
     [HttpPost("process-payment")]
     [Authorize]
@@ -97,7 +106,26 @@ public class ViolationController : ControllerBase
             return Unauthorized(Result<ViolationPaymentReceiptDto>.Failure(
                 "User not identified.", ErrorCode.Unauthorized));
 
-        var result = await _mediator.Send(new ProcessViolationPaymentCommand(request.ReferenceNumber, userId));
+        var effectiveReference = request.GetEffectiveReference();
+        var result = await _mediator.Send(new ProcessViolationPaymentCommand(effectiveReference, userId));
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>
+    /// Settle a violation by ID or reference number.
+    /// </summary>
+    [HttpPatch("{id}/settle")]
+    [HttpPost("{id}/settle")]
+    [Authorize]
+    public async Task<ActionResult<Result<ViolationPaymentReceiptDto>>> SettleViolation(
+        [FromRoute] string id)
+    {
+        var userId = _userContext.GetUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized(Result<ViolationPaymentReceiptDto>.Failure(
+                "User not identified.", ErrorCode.Unauthorized));
+
+        var result = await _mediator.Send(new ProcessViolationPaymentCommand(id, userId));
         return this.ToActionResult(result);
     }
 }
