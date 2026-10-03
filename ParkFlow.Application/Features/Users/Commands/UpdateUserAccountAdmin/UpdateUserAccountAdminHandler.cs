@@ -40,257 +40,271 @@ public class UpdateUserAccountAdminHandler : IRequestHandler<UpdateUserAccountAd
 
     public async Task<Result<Guid>> Handle(UpdateUserAccountAdminCommand request, CancellationToken cancellationToken)
     {
-        var user = await _userAccountRepository.GetByIdAsync(request.UserId);
-        if (user == null)
-            return Result<Guid>.Failure("User account not found.", ErrorCode.NotFound);
-
-        // 1. Phone Number
-        if (!string.IsNullOrWhiteSpace(request.Request.PhoneNumber))
+        try
         {
-            user.UpdatePhoneNumber(request.Request.PhoneNumber.Trim());
-        }
+            var user = await _userAccountRepository.GetByIdAsync(request.UserId);
+            if (user == null)
+                return Result<Guid>.Failure("User account not found.", ErrorCode.NotFound);
 
-        // 2. Status
-        if (!string.IsNullOrWhiteSpace(request.Request.Status))
-        {
-            if (Enum.TryParse<AccountStatus>(request.Request.Status.Trim(), true, out var status))
+            // 1. Phone Number
+            if (!string.IsNullOrWhiteSpace(request.Request.PhoneNumber))
             {
-                user.UpdateStatus(status);
+                user.UpdatePhoneNumber(request.Request.PhoneNumber.Trim());
             }
-        }
 
-        // 3. Email Update
-        if (!string.IsNullOrWhiteSpace(request.Request.Email))
-        {
-            var normalizedEmail = request.Request.Email.Trim().ToLower();
-            var currentEmail = user.PrimaryEmail?.Trim().ToLower();
-            if (!string.Equals(normalizedEmail, currentEmail, StringComparison.OrdinalIgnoreCase))
+            // 2. Status
+            if (!string.IsNullOrWhiteSpace(request.Request.Status))
             {
-                var exists = await _userAccountRepository.EmailExistsAsync(normalizedEmail, user.Id);
-                if (exists)
+                if (Enum.TryParse<AccountStatus>(request.Request.Status.Trim(), true, out var status))
                 {
-                    return Result<Guid>.Failure("Email address is already in use by another user.", ErrorCode.Conflict);
+                    user.UpdateStatus(status);
+                }
+            }
+
+            // 3. Email Update
+            if (!string.IsNullOrWhiteSpace(request.Request.Email))
+            {
+                var normalizedEmail = request.Request.Email.Trim().ToLower();
+                var currentEmail = user.PrimaryEmail?.Trim().ToLower();
+                if (!string.Equals(normalizedEmail, currentEmail, StringComparison.OrdinalIgnoreCase))
+                {
+                    var exists = await _userAccountRepository.EmailExistsAsync(normalizedEmail, user.Id);
+                    if (exists)
+                    {
+                        return Result<Guid>.Failure("Email address is already in use by another user.", ErrorCode.Conflict);
+                    }
+
+                    var primaryIdentity = user.AuthIdentities.FirstOrDefault(i => i.IsPrimary)
+                        ?? user.AuthIdentities.FirstOrDefault(i => i.Email != null);
+
+                    if (primaryIdentity != null)
+                    {
+                        primaryIdentity.UpdateEmail(normalizedEmail);
+                    }
+                    else
+                    {
+                        user.AuthIdentities.Add(AuthIdentity.CreateManual(user.Id, normalizedEmail, user.PasswordHash ?? string.Empty, true));
+                    }
+                }
+            }
+
+            // 4. Password Override (Optional)
+            if (!string.IsNullOrWhiteSpace(request.Request.Password))
+            {
+                var newPassword = request.Request.Password.Trim();
+                if (newPassword.Length < 6)
+                {
+                    return Result<Guid>.Failure("Password must be at least 6 characters.", ErrorCode.BadRequest);
                 }
 
-                var primaryIdentity = user.AuthIdentities.FirstOrDefault(i => i.IsPrimary)
-                    ?? user.AuthIdentities.FirstOrDefault(i => i.Email != null);
+                var passwordHash = _passwordHasher.HashPassword(newPassword);
+                user.UpdatePassword(passwordHash);
 
-                if (primaryIdentity != null)
+                var manualIdentity = user.AuthIdentities.FirstOrDefault(i => i.Provider == AuthProvider.Manual);
+                if (manualIdentity != null)
                 {
-                    primaryIdentity.UpdateEmail(normalizedEmail);
+                    manualIdentity.UpdatePasswordHash(passwordHash);
                 }
                 else
                 {
-                    user.AuthIdentities.Add(AuthIdentity.CreateManual(user.Id, normalizedEmail, user.PasswordHash ?? string.Empty, true));
+                    var email = user.PrimaryEmail ?? request.Request.Email?.Trim() ?? string.Empty;
+                    var existingWithEmail = user.AuthIdentities.FirstOrDefault(i => i.Email != null && i.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+                    if (existingWithEmail != null)
+                    {
+                        existingWithEmail.UpdatePasswordHash(passwordHash);
+                    }
+                    else
+                    {
+                        var hasPrimary = user.AuthIdentities.Any(i => i.IsPrimary);
+                        user.AuthIdentities.Add(AuthIdentity.CreateManual(user.Id, email, passwordHash, !hasPrimary));
+                    }
                 }
-            }
-        }
 
-        // 4. Password Override (Optional)
-        if (!string.IsNullOrWhiteSpace(request.Request.Password))
-        {
-            var newPassword = request.Request.Password.Trim();
-            if (newPassword.Length < 6)
-            {
-                return Result<Guid>.Failure("Password must be at least 6 characters.", ErrorCode.BadRequest);
+                user.PasswordHistories.Add(new PasswordHistory(user.Id, passwordHash));
             }
 
-            var passwordHash = _passwordHasher.HashPassword(newPassword);
-            user.UpdatePassword(passwordHash);
-
-            var manualIdentity = user.AuthIdentities.FirstOrDefault(i => i.Provider == AuthProvider.Manual);
-            if (manualIdentity != null)
+            // 5. User Profile
+            var photoUrl = request.Request.PhotoUrl;
+            if (!string.IsNullOrWhiteSpace(photoUrl) && photoUrl.Length > 2048)
             {
-                manualIdentity.UpdatePasswordHash(passwordHash);
+                // Prevent database character varying(2048) overflow if raw data URL was passed directly
+                photoUrl = user.UserProfile?.ProfilePictureUrl;
+            }
+
+            var profile = user.UserProfile;
+            if (profile == null)
+            {
+                profile = new UserProfile(
+                    user.Id,
+                    request.Request.FirstName?.Trim() ?? string.Empty,
+                    request.Request.LastName?.Trim() ?? string.Empty,
+                    request.Request.MiddleName?.Trim(),
+                    photoUrl
+                );
+                await _userProfileRepository.AddAsync(profile);
+                user.UserProfile = profile;
             }
             else
             {
-                var email = user.PrimaryEmail ?? request.Request.Email?.Trim() ?? string.Empty;
-                var existingWithEmail = user.AuthIdentities.FirstOrDefault(i => i.Email != null && i.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
-                if (existingWithEmail != null)
+                profile.UpdateProfile(
+                    request.Request.FirstName?.Trim(),
+                    request.Request.LastName?.Trim(),
+                    request.Request.MiddleName?.Trim(),
+                    photoUrl
+                );
+                await _userProfileRepository.UpdateAsync(profile);
+            }
+
+            // 6. Role-Specific Details & Role Switching
+            var role = request.Request.Role?.Trim();
+            if (!string.IsNullOrWhiteSpace(role))
+            {
+                if (string.Equals(role, "Student", StringComparison.OrdinalIgnoreCase))
                 {
-                    existingWithEmail.UpdatePasswordHash(passwordHash);
+                    // Remove non-student roles if previously assigned
+                    if (profile.Personnel != null)
+                    {
+                        await _personnelRepository.DeleteAsync(profile.Personnel);
+                        profile.Personnel = null;
+                    }
+                    if (profile.Guard != null)
+                    {
+                        await _guardRepository.DeleteAsync(profile.Guard);
+                        profile.Guard = null;
+                    }
+                    if (profile.Admin != null)
+                    {
+                        await _adminRepository.DeleteAsync(profile.Admin);
+                        profile.Admin = null;
+                    }
+
+                    var sReq = request.Request.Student;
+                    var sNum = sReq?.StudentNumber?.Trim() ?? string.Empty;
+                    var sCourse = sReq?.Course?.Trim() ?? string.Empty;
+                    var sSection = sReq?.Section?.Trim() ?? "A";
+                    var sYear = sReq?.YearLevel ?? 1;
+
+                    if (profile.Student != null)
+                    {
+                        profile.Student.UpdateDetails(sNum, sCourse, sSection, sYear);
+                        await _studentRepository.UpdateAsync(profile.Student);
+                    }
+                    else
+                    {
+                        var newStudent = new Student(profile.Id, sNum, sCourse, sSection, sYear);
+                        await _studentRepository.AddAsync(newStudent);
+                        profile.Student = newStudent;
+                    }
                 }
-                else
+                else if (string.Equals(role, "UniversityStaff", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(role, "NonAcademicPersonnel", StringComparison.OrdinalIgnoreCase))
                 {
-                    var hasPrimary = user.AuthIdentities.Any(i => i.IsPrimary);
-                    user.AuthIdentities.Add(AuthIdentity.CreateManual(user.Id, email, passwordHash, !hasPrimary));
+                    // Remove non-personnel roles if previously assigned
+                    if (profile.Student != null)
+                    {
+                        await _studentRepository.DeleteAsync(profile.Student);
+                        profile.Student = null;
+                    }
+                    if (profile.Guard != null)
+                    {
+                        await _guardRepository.DeleteAsync(profile.Guard);
+                        profile.Guard = null;
+                    }
+                    if (profile.Admin != null)
+                    {
+                        await _adminRepository.DeleteAsync(profile.Admin);
+                        profile.Admin = null;
+                    }
+
+                    var pRole = string.Equals(role, "NonAcademicPersonnel", StringComparison.OrdinalIgnoreCase)
+                        ? Roles.NonAcademicPersonnel
+                        : Roles.UniversityStaff;
+
+                    var pReq = request.Request.Personnel;
+                    var pIdCard = pReq?.IdCardNumber?.Trim() ?? string.Empty;
+                    var pDept = pReq?.Department?.Trim() ?? string.Empty;
+
+                    if (profile.Personnel != null)
+                    {
+                        profile.Personnel.UpdateDetails(pIdCard, pDept, pRole);
+                        await _personnelRepository.UpdateAsync(profile.Personnel);
+                    }
+                    else
+                    {
+                        var newPersonnel = new Personnel(profile.Id, pIdCard, pDept, pRole);
+                        await _personnelRepository.AddAsync(newPersonnel);
+                        profile.Personnel = newPersonnel;
+                    }
+                }
+                else if (string.Equals(role, "Guard", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Remove non-guard roles if previously assigned
+                    if (profile.Student != null)
+                    {
+                        await _studentRepository.DeleteAsync(profile.Student);
+                        profile.Student = null;
+                    }
+                    if (profile.Personnel != null)
+                    {
+                        await _personnelRepository.DeleteAsync(profile.Personnel);
+                        profile.Personnel = null;
+                    }
+                    if (profile.Admin != null)
+                    {
+                        await _adminRepository.DeleteAsync(profile.Admin);
+                        profile.Admin = null;
+                    }
+
+                    var gReq = request.Request.Guard;
+                    var gGate = gReq?.AssignedGate ?? 1;
+
+                    if (profile.Guard != null)
+                    {
+                        profile.Guard.ChangeAssignedGate(gGate);
+                        await _guardRepository.UpdateAsync(profile.Guard);
+                    }
+                    else
+                    {
+                        var newGuard = new Guard(profile, gGate);
+                        await _guardRepository.AddAsync(newGuard);
+                        profile.Guard = newGuard;
+                    }
+                }
+                else if (string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Remove non-admin roles if previously assigned
+                    if (profile.Student != null)
+                    {
+                        await _studentRepository.DeleteAsync(profile.Student);
+                        profile.Student = null;
+                    }
+                    if (profile.Personnel != null)
+                    {
+                        await _personnelRepository.DeleteAsync(profile.Personnel);
+                        profile.Personnel = null;
+                    }
+                    if (profile.Guard != null)
+                    {
+                        await _guardRepository.DeleteAsync(profile.Guard);
+                        profile.Guard = null;
+                    }
+
+                    if (profile.Admin == null)
+                    {
+                        var newAdmin = new Admin(profile, RoleLevel.Admin);
+                        await _adminRepository.AddAsync(newAdmin);
+                        profile.Admin = newAdmin;
+                    }
                 }
             }
 
-            user.PasswordHistories.Add(new PasswordHistory(user.Id, passwordHash));
-        }
+            await _userAccountRepository.UpdateAsync(user);
 
-        // 5. User Profile
-        var profile = user.UserProfile;
-        if (profile == null)
+            return Result<Guid>.Success(user.Id, "User account successfully updated.");
+        }
+        catch (Exception ex)
         {
-            profile = new UserProfile(
-                user.Id,
-                request.Request.FirstName?.Trim() ?? string.Empty,
-                request.Request.LastName?.Trim() ?? string.Empty,
-                request.Request.MiddleName?.Trim(),
-                request.Request.PhotoUrl
-            );
-            await _userProfileRepository.AddAsync(profile);
-            user.UserProfile = profile;
+            return Result<Guid>.Failure($"Failed to update user account profile: {ex.Message}", ErrorCode.BadRequest);
         }
-        else
-        {
-            profile.UpdateProfile(
-                request.Request.FirstName?.Trim(),
-                request.Request.LastName?.Trim(),
-                request.Request.MiddleName?.Trim(),
-                request.Request.PhotoUrl
-            );
-            await _userProfileRepository.UpdateAsync(profile);
-        }
-
-        // 6. Role-Specific Details & Role Switching
-        var role = request.Request.Role?.Trim();
-        if (!string.IsNullOrWhiteSpace(role))
-        {
-            if (string.Equals(role, "Student", StringComparison.OrdinalIgnoreCase))
-            {
-                // Remove non-student roles if previously assigned
-                if (profile.Personnel != null)
-                {
-                    await _personnelRepository.DeleteAsync(profile.Personnel);
-                    profile.Personnel = null;
-                }
-                if (profile.Guard != null)
-                {
-                    await _guardRepository.DeleteAsync(profile.Guard);
-                    profile.Guard = null;
-                }
-                if (profile.Admin != null)
-                {
-                    await _adminRepository.DeleteAsync(profile.Admin);
-                    profile.Admin = null;
-                }
-
-                var sReq = request.Request.Student;
-                var sNum = sReq?.StudentNumber?.Trim() ?? string.Empty;
-                var sCourse = sReq?.Course?.Trim() ?? string.Empty;
-                var sSection = sReq?.Section?.Trim() ?? "A";
-                var sYear = sReq?.YearLevel ?? 1;
-
-                if (profile.Student != null)
-                {
-                    profile.Student.UpdateDetails(sNum, sCourse, sSection, sYear);
-                    await _studentRepository.UpdateAsync(profile.Student);
-                }
-                else
-                {
-                    var newStudent = new Student(profile.Id, sNum, sCourse, sSection, sYear);
-                    await _studentRepository.AddAsync(newStudent);
-                    profile.Student = newStudent;
-                }
-            }
-            else if (string.Equals(role, "UniversityStaff", StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(role, "NonAcademicPersonnel", StringComparison.OrdinalIgnoreCase))
-            {
-                // Remove non-personnel roles if previously assigned
-                if (profile.Student != null)
-                {
-                    await _studentRepository.DeleteAsync(profile.Student);
-                    profile.Student = null;
-                }
-                if (profile.Guard != null)
-                {
-                    await _guardRepository.DeleteAsync(profile.Guard);
-                    profile.Guard = null;
-                }
-                if (profile.Admin != null)
-                {
-                    await _adminRepository.DeleteAsync(profile.Admin);
-                    profile.Admin = null;
-                }
-
-                var pRole = string.Equals(role, "NonAcademicPersonnel", StringComparison.OrdinalIgnoreCase)
-                    ? Roles.NonAcademicPersonnel
-                    : Roles.UniversityStaff;
-
-                var pReq = request.Request.Personnel;
-                var pIdCard = pReq?.IdCardNumber?.Trim() ?? string.Empty;
-                var pDept = pReq?.Department?.Trim() ?? string.Empty;
-
-                if (profile.Personnel != null)
-                {
-                    profile.Personnel.UpdateDetails(pIdCard, pDept, pRole);
-                    await _personnelRepository.UpdateAsync(profile.Personnel);
-                }
-                else
-                {
-                    var newPersonnel = new Personnel(profile.Id, pIdCard, pDept, pRole);
-                    await _personnelRepository.AddAsync(newPersonnel);
-                    profile.Personnel = newPersonnel;
-                }
-            }
-            else if (string.Equals(role, "Guard", StringComparison.OrdinalIgnoreCase))
-            {
-                // Remove non-guard roles if previously assigned
-                if (profile.Student != null)
-                {
-                    await _studentRepository.DeleteAsync(profile.Student);
-                    profile.Student = null;
-                }
-                if (profile.Personnel != null)
-                {
-                    await _personnelRepository.DeleteAsync(profile.Personnel);
-                    profile.Personnel = null;
-                }
-                if (profile.Admin != null)
-                {
-                    await _adminRepository.DeleteAsync(profile.Admin);
-                    profile.Admin = null;
-                }
-
-                var gReq = request.Request.Guard;
-                var gGate = gReq?.AssignedGate ?? 1;
-
-                if (profile.Guard != null)
-                {
-                    profile.Guard.ChangeAssignedGate(gGate);
-                    await _guardRepository.UpdateAsync(profile.Guard);
-                }
-                else
-                {
-                    var newGuard = new Guard(profile, gGate);
-                    await _guardRepository.AddAsync(newGuard);
-                    profile.Guard = newGuard;
-                }
-            }
-            else if (string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase))
-            {
-                // Remove non-admin roles if previously assigned
-                if (profile.Student != null)
-                {
-                    await _studentRepository.DeleteAsync(profile.Student);
-                    profile.Student = null;
-                }
-                if (profile.Personnel != null)
-                {
-                    await _personnelRepository.DeleteAsync(profile.Personnel);
-                    profile.Personnel = null;
-                }
-                if (profile.Guard != null)
-                {
-                    await _guardRepository.DeleteAsync(profile.Guard);
-                    profile.Guard = null;
-                }
-
-                if (profile.Admin == null)
-                {
-                    var newAdmin = new Admin(profile, RoleLevel.Admin);
-                    await _adminRepository.AddAsync(newAdmin);
-                    profile.Admin = newAdmin;
-                }
-            }
-        }
-
-        await _userAccountRepository.UpdateAsync(user);
-
-        return Result<Guid>.Success(user.Id, "User account successfully updated.");
     }
 }

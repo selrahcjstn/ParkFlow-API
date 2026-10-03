@@ -47,7 +47,7 @@ public class UserProfile : BaseEntity
 
         MiddleName = middleName;
 
-        if (!string.IsNullOrWhiteSpace(profilePictureUrl))
-            ProfilePictureUrl = profilePictureUrl;
+        if (profilePictureUrl != null)
+            ProfilePictureUrl = string.IsNullOrWhiteSpace(profilePictureUrl) ? null : profilePictureUrl;
     }
 }
