@@ -60,58 +60,74 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
                 ErrorCode.Forbidden);
         }
 
-        var isAccountActive = user.Status == AccountStatus.Active;
-
-        // 1. Check if user is an Admin or Guard
         var isAdmin = user.UserProfile?.Admin != null;
         var isGuard = user.UserProfile?.Guard != null;
 
-        // 2. Check COR verification status
-        CorSubmission? latestCor = null;
-        if (_corSubmissionRepository != null)
-        {
-            latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(user.Id);
-            if (latestCor != null && latestCor.VerificationStatus == CorVerificationStatus.Verified)
-            {
-                isAccountActive = true;
-                if (user.Status != AccountStatus.Active)
-                {
-                    user.Verify();
-                    await _userRepository.UpdateAsync(user);
-                }
-            }
-            else if (latestCor != null && latestCor.VerificationStatus != CorVerificationStatus.Verified)
-            {
-                isAccountActive = false;
-            }
-        }
-
-        // 3. Check Vehicle verification status
         var userVehicles = (await _vehicleRepository.GetByOwnerIdAsync(user.Id)).ToList();
-        if (userVehicles.Any(v => v.VerificationStatus == CorVerificationStatus.Verified))
+        Guid? assignedVehicleId = request.VehicleId;
+        Vehicle? assignedVehicle = null;
+
+        if (assignedVehicleId.HasValue)
         {
-            // If user has a verified vehicle and COR is not explicitly rejected, user is verified
-            if (latestCor == null || latestCor.VerificationStatus == CorVerificationStatus.Verified)
+            assignedVehicle = await _vehicleRepository.GetByIdAsync(assignedVehicleId.Value);
+        }
+        else
+        {
+            assignedVehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
+            assignedVehicleId = assignedVehicle?.Id;
+        }
+
+        if (!isAdmin)
+        {
+            // 1. Enforce COR verification for non-admin users
+            if (_corSubmissionRepository != null)
             {
-                isAccountActive = true;
-                if (user.Status != AccountStatus.Active)
+                var latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(user.Id);
+                if (latestCor == null)
                 {
-                    user.Verify();
-                    await _userRepository.UpdateAsync(user);
+                    return Result<ParkingReservationDto>.Failure(
+                        "You must submit and have a verified Certificate of Registration (COR) / ID document before creating reservations.",
+                        ErrorCode.Forbidden);
+                }
+
+                if (latestCor.VerificationStatus != CorVerificationStatus.Verified)
+                {
+                    var corMsg = latestCor.VerificationStatus == CorVerificationStatus.Pending
+                        ? "Your Certificate of Registration (COR) / ID document is pending verification. You cannot create a reservation until it is approved."
+                        : "Your Certificate of Registration (COR) / ID document was rejected. You cannot create a reservation.";
+                    return Result<ParkingReservationDto>.Failure(corMsg, ErrorCode.Forbidden);
                 }
             }
-        }
 
-        if (isAdmin || isGuard)
-        {
-            isAccountActive = true;
-        }
+            // 2. Enforce Vehicle verification
+            if (!userVehicles.Any())
+            {
+                return Result<ParkingReservationDto>.Failure(
+                    "You must have at least one registered vehicle before creating a reservation.",
+                    ErrorCode.Forbidden);
+            }
 
-        if (!isAccountActive)
-        {
-            return Result<ParkingReservationDto>.Failure(
-                "Your account must be verified and approved by an administrator before you can create parking reservations.",
-                ErrorCode.Forbidden);
+            if (assignedVehicle == null)
+            {
+                return Result<ParkingReservationDto>.Failure(
+                    "Selected vehicle was not found.",
+                    ErrorCode.NotFound);
+            }
+
+            if (assignedVehicle.VerificationStatus != CorVerificationStatus.Verified)
+            {
+                var vMsg = assignedVehicle.VerificationStatus == CorVerificationStatus.Pending
+                    ? $"Your vehicle ({assignedVehicle.PlateNumber}) is pending admin verification. You cannot create a reservation until the vehicle is approved."
+                    : $"Your vehicle ({assignedVehicle.PlateNumber}) registration was rejected. You cannot create a reservation with an unverified vehicle.";
+                return Result<ParkingReservationDto>.Failure(vMsg, ErrorCode.Forbidden);
+            }
+
+            if (user.Status != AccountStatus.Active)
+            {
+                return Result<ParkingReservationDto>.Failure(
+                    "Your account is not active. Please wait for admin approval.",
+                    ErrorCode.Forbidden);
+            }
         }
 
         // Enforce restriction: 1 parking reservation per day per user across all platforms (Mobile & Web)
@@ -126,25 +142,11 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
         if (hasReservationOnDate)
         {
             return Result<ParkingReservationDto>.Failure(
-                $"You already have an active or pending reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
+                $"You already have a reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
                 ErrorCode.Conflict);
         }
 
-        // Find vehicle to bind (user's primary vehicle if vehicleId not specified)
-        Guid? assignedVehicleId = request.VehicleId;
-        Vehicle? assignedVehicle = null;
-
-        if (assignedVehicleId.HasValue)
-        {
-            assignedVehicle = await _vehicleRepository.GetByIdAsync(assignedVehicleId.Value);
-        }
-        else
-        {
-            assignedVehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
-            assignedVehicleId = assignedVehicle?.Id;
-        }
-
-        // Verify vehicle does not already have an active reservation on this date
+        // Verify vehicle does not already have an active/pending/completed reservation on this date
         if (assignedVehicleId.HasValue)
         {
             var vehicleReservations = (await _reservationRepository.GetAllAsync())
@@ -159,7 +161,7 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
             if (vehicleReservations.Any())
             {
                 return Result<ParkingReservationDto>.Failure(
-                    $"This vehicle already has an active or pending reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
+                    $"This vehicle already has a reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
                     ErrorCode.Conflict);
             }
         }

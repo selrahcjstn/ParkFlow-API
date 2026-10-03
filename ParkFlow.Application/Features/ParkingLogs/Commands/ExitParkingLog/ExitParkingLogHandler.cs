@@ -303,6 +303,13 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         }
 
 
+        if (entryReservation != null && _reservationRepository != null)
+        {
+            entryReservation.MarkCompleted();
+            await _reservationRepository.UpdateAsync(entryReservation);
+            await _reservationRepository.SaveChangesAsync();
+        }
+
         var actualExitTime = active.ExitTime ?? exitTime;
 
         var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);

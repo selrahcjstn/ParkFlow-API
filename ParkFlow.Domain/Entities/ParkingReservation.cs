@@ -108,9 +108,14 @@ public class ParkingReservation : BaseEntity
 
     public void Cancel()
     {
-        if (Status == ReservationStatus.Approved || Status == ReservationStatus.Rejected)
-            throw new InvalidOperationException("Cannot cancel a reservation that has already been reviewed.");
+        if (Status == ReservationStatus.Approved || Status == ReservationStatus.Rejected || Status == ReservationStatus.Completed)
+            throw new InvalidOperationException("Cannot cancel a reservation that has already been reviewed or completed.");
 
         Status = ReservationStatus.Cancelled;
+    }
+
+    public void MarkCompleted()
+    {
+        Status = ReservationStatus.Completed;
     }
 }

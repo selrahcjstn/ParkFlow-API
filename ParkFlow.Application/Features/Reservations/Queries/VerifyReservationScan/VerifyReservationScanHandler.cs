@@ -94,7 +94,11 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
         bool isValid = isApproved && isToday;
         string statusMessage;
 
-        if (!isApproved)
+        if (reservation.Status == ReservationStatus.Completed)
+        {
+            statusMessage = "This reservation pass has already been used and is now void. Re-entry is not permitted.";
+        }
+        else if (!isApproved)
         {
             statusMessage = $"Reservation status is {reservation.Status}. Access not granted.";
         }

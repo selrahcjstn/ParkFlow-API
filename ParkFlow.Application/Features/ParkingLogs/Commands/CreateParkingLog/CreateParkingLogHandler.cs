@@ -72,6 +72,22 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             var reservationPass = await _reservationRepository.GetByReferenceNumberAsync(request.QrCodeHash);
             if (reservationPass != null)
             {
+                if (reservationPass.Status == ReservationStatus.Completed)
+                {
+                    return Result<CreateParkingLogResponse>.Failure("Entry denied: This reservation pass has already been used and is now void.", ErrorCode.Forbidden);
+                }
+
+                if (reservationPass.Status != ReservationStatus.Approved)
+                {
+                    return Result<CreateParkingLogResponse>.Failure($"Entry denied: Reservation status is {reservationPass.Status}.", ErrorCode.Forbidden);
+                }
+
+                var phNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
+                if (reservationPass.ReservationDate.Date != phNow.Date)
+                {
+                    return Result<CreateParkingLogResponse>.Failure($"Entry denied: Reservation is for {reservationPass.ReservationDate:MMMM dd, yyyy}. Not valid today.", ErrorCode.Forbidden);
+                }
+
                 if (reservationPass.VehicleId.HasValue)
                 {
                     vehicle = await _vehicleRepository.GetByIdAsync(reservationPass.VehicleId.Value);
