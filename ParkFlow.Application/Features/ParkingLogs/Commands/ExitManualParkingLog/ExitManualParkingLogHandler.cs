@@ -479,9 +479,12 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
                         var entryPhTime = ParkingTimeHelper.ConvertUtcToPhilippinesTime(active.EntryTime);
                         var subject = $"ParkFlow Exit Pass Notice - Vehicle [{vehicle.PlateNumber}]";
 
-                        var penaltyText = penaltyFee > 0m 
+                        var penaltyText = isViolation
                             ? $"<span style=\"color: #dc2626; font-weight: bold;\">₱{penaltyFee:0.00} (Overstay Citation)</span>" 
-                            : "<span style=\"color: #16a34a; font-weight: bold;\">₱0.00 (Cleared)</span>";
+                            : penaltyFee > 0m
+                                ? $"<span style=\"color: #16a34a; font-weight: bold;\">₱{penaltyFee:0.00} (Reservation Rate)</span>"
+                                : "<span style=\"color: #16a34a; font-weight: bold;\">₱0.00 (Cleared)</span>";
+                        var feeLabel = isViolation ? "Overstay Penalty Fee:" : "Parking Fee:";
 
                         var bodyHtml = $@"
                             <div style=""font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 14px; background-color: #ffffff;"">
@@ -510,7 +513,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
                                       <td style=""padding: 6px 0; color: #0f172a; text-align: right;"">{exitPhTime:MMMM dd, yyyy · hh:mm tt}</td>
                                     </tr>
                                     <tr>
-                                      <td style=""padding: 6px 0; color: #64748b;"">Overstay Penalty Fee:</td>
+                                      <td style=""padding: 6px 0; color: #64748b;"">{feeLabel}</td>
                                       <td style=""padding: 6px 0; text-align: right;"">{penaltyText}</td>
                                     </tr>
                                   </table>
