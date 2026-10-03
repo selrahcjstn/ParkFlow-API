@@ -181,17 +181,18 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId) : [];
         var utcNow = DateTime.UtcNow;
         var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
-        var todayReservation = userReservations.FirstOrDefault(r => 
+        var todayApprovedReservation = userReservations.FirstOrDefault(r => 
             (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
             r.ReservationDate.Date == philippinesNow.Date &&
             r.Status == ReservationStatus.Approved)
             ?? userReservations.FirstOrDefault(r =>
                 r.ReservationDate.Date == philippinesNow.Date &&
-                r.Status == ReservationStatus.Approved)
-            ?? userReservations.FirstOrDefault(r =>
-                (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
-                r.ReservationDate.Date == philippinesNow.Date &&
-                r.Status == ReservationStatus.Completed)
+                r.Status == ReservationStatus.Approved);
+
+        var todayCompletedReservation = userReservations.FirstOrDefault(r => 
+            (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
+            r.ReservationDate.Date == philippinesNow.Date &&
+            r.Status == ReservationStatus.Completed)
             ?? userReservations.FirstOrDefault(r =>
                 r.ReservationDate.Date == philippinesNow.Date &&
                 r.Status == ReservationStatus.Completed);
@@ -199,30 +200,23 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         var systemSettings = SystemSettingsStore.Current;
         var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
 
-        if (todayReservation != null)
+        if (todayApprovedReservation != null)
         {
-            if (todayReservation.Status == ReservationStatus.Completed)
-            {
-                return Result<CreateParkingLogResponse>.Failure(
-                    "Entry denied: This reservation pass has already been used and is now void. Re-entry is not permitted.",
-                    ErrorCode.Forbidden);
-            }
-
-            if (todayReservation.Type == ReservationType.Special)
+            if (todayApprovedReservation.Type == ReservationType.Special)
             {
                 maximumExitTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, new TimeSpan(23, 59, 59));
             }
             else
             {
-                if (philippinesNow.TimeOfDay > todayReservation.EndTime)
+                if (philippinesNow.TimeOfDay > todayApprovedReservation.EndTime)
                 {
                     return Result<CreateParkingLogResponse>.Failure(
-                        $"Entry denied: Reservation schedule for today ended at {DateTime.Today.Add(todayReservation.EndTime):hh:mm tt}.",
+                        $"Entry denied: Reservation schedule for today ended at {DateTime.Today.Add(todayApprovedReservation.EndTime):hh:mm tt}.",
                         ErrorCode.Forbidden);
                 }
 
                 var earlyBuffer = systemSettings.IsEarlyParkingAllowed ? systemSettings.EarlyParkingMinutes : 0;
-                var earliestResEntry = todayReservation.StartTime.Subtract(TimeSpan.FromMinutes(earlyBuffer));
+                var earliestResEntry = todayApprovedReservation.StartTime.Subtract(TimeSpan.FromMinutes(earlyBuffer));
                 if (philippinesNow.TimeOfDay < earliestResEntry)
                 {
                     return Result<CreateParkingLogResponse>.Failure(
@@ -230,7 +224,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
                         ErrorCode.BadRequest);
                 }
 
-                var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todayReservation.EndTime);
+                var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todayApprovedReservation.EndTime);
                 maximumExitTimeUtc = resEndTimeUtc.AddMinutes(gracePeriodMinutes);
             }
         }
@@ -251,6 +245,12 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
 
             if (verifiedCor == null)
             {
+                if (todayCompletedReservation != null)
+                {
+                    return Result<CreateParkingLogResponse>.Failure(
+                        "Entry denied: This reservation pass has already been used and is now void. Re-entry is not permitted.",
+                        ErrorCode.Forbidden);
+                }
                 var docName = student != null ? "Student COR" : "Personnel ID / Registration";
                 return Result<CreateParkingLogResponse>.Failure(
                     $"Entry denied: {docName} document is unverified or pending admin approval.",
@@ -272,6 +272,12 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
 
             if (todaySchedules.Count == 0)
             {
+                if (todayCompletedReservation != null)
+                {
+                    return Result<CreateParkingLogResponse>.Failure(
+                        "Entry denied: This reservation pass has already been used and is now void. Re-entry is not permitted.",
+                        ErrorCode.Forbidden);
+                }
                 return Result<CreateParkingLogResponse>.Failure(
                     $"Entry denied: No class or work schedule submitted for today ({todayDayOfWeek}).",
                     ErrorCode.Forbidden);
@@ -280,6 +286,13 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             var validSchedule = todaySchedules.FirstOrDefault(s => _scheduleService.CanEnter(philippinesNow, s));
             if (validSchedule == null)
             {
+                if (todayCompletedReservation != null)
+                {
+                    return Result<CreateParkingLogResponse>.Failure(
+                        "Entry denied: This reservation pass has already been used and is now void. Re-entry is not permitted.",
+                        ErrorCode.Forbidden);
+                }
+
                 var latestEnd = todaySchedules.Max(s => s.EndTime);
                 if (philippinesNow.TimeOfDay > latestEnd)
                 {

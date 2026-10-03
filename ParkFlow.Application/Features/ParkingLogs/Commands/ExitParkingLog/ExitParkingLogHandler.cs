@@ -183,6 +183,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         string? referenceNumber = null;
 
         var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(active.EntryTime);
+        var philippinesExit = ParkingTimeHelper.ConvertUtcToPhilippinesTime(exitTime);
 
         var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId) : [];
         var entryReservation = userReservations.FirstOrDefault(r => 
@@ -201,7 +202,6 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             var entryMidnightUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
             maximumExitTime = entryMidnightUtc;
 
-            var philippinesExit = ParkingTimeHelper.ConvertUtcToPhilippinesTime(exitTime);
             var overdueDays = (philippinesExit.Date - philippinesEntry.Date).Days;
             if (overdueDays < 0) overdueDays = 0;
 
@@ -233,7 +233,6 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                 maximumExitTime = resEndTimeUtc.AddMinutes(gracePeriodMinutes);
             }
 
-            var philippinesExit = ParkingTimeHelper.ConvertUtcToPhilippinesTime(exitTime);
             var overdueDays = (philippinesExit.Date - philippinesEntry.Date).Days;
             if (overdueDays < 0) overdueDays = 0;
 
@@ -321,11 +320,43 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         }
 
 
-        if (entryReservation != null && _reservationRepository != null)
+        if (_reservationRepository != null)
         {
-            entryReservation.MarkCompleted();
-            await _reservationRepository.UpdateAsync(entryReservation);
-            await _reservationRepository.SaveChangesAsync();
+            var activeTodayReservations = userReservations.Where(r =>
+                (r.VehicleId == vehicle.Id || r.VehicleId == null || r.UserId == vehicle.OwnerId) &&
+                (r.ReservationDate.Date == philippinesEntry.Date || r.ReservationDate.Date == philippinesExit.Date) &&
+                r.Status == ReservationStatus.Approved).ToList();
+
+            if (entryReservation != null && !activeTodayReservations.Any(r => r.Id == entryReservation.Id))
+            {
+                activeTodayReservations.Add(entryReservation);
+            }
+
+            foreach (var res in activeTodayReservations)
+            {
+                res.MarkCompleted();
+                await _reservationRepository.UpdateAsync(res);
+            }
+
+            if (activeTodayReservations.Any())
+            {
+                await _reservationRepository.SaveChangesAsync();
+                try
+                {
+                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReservationStatusChanged", new
+                    {
+                        status = "Completed",
+                        userId = vehicle.OwnerId
+                    });
+                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReservationUpdated", new
+                    {
+                        status = "Completed",
+                        userId = vehicle.OwnerId
+                    });
+                    await _notificationSender.SendToAllAsync("ReservationListUpdated", new { });
+                }
+                catch { }
+            }
         }
 
         var actualExitTime = active.ExitTime ?? exitTime;
