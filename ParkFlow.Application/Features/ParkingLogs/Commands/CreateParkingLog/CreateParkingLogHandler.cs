@@ -198,15 +198,15 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         }
         else
         {
-            if (admin == null && vehicle.VerificationStatus != CorVerificationStatus.Verified)
+            if (admin == null)
             {
-                return Result<CreateParkingLogResponse>.Failure(
-                    "Entry denied: Vehicle is unverified or pending admin approval.",
-                    ErrorCode.Forbidden);
-            }
+                if (vehicle.VerificationStatus != CorVerificationStatus.Verified)
+                {
+                    return Result<CreateParkingLogResponse>.Failure(
+                        "Entry denied: Vehicle is unverified or pending admin approval.",
+                        ErrorCode.Forbidden);
+                }
 
-            if (isStudentOrPersonnel)
-            {
                 var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
 
                 var verifiedCor = corSubmissions.FirstOrDefault(c =>
@@ -224,23 +224,27 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
                 var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
                 var todayDayOfWeek = philippinesNow.DayOfWeek;
 
-                var todaySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == todayDayOfWeek);
+                var todaySchedules = schedules
+                    .Where(s => s.DayOfWeek == todayDayOfWeek)
+                    .OrderBy(s => s.StartTime)
+                    .ToList();
 
-                if (todaySchedule == null)
+                if (todaySchedules.Count == 0)
                 {
                     return Result<CreateParkingLogResponse>.Failure(
-                        "Entry denied: No class or work schedule submitted for today.",
+                        $"Entry denied: No class or work schedule submitted for today ({todayDayOfWeek}).",
                         ErrorCode.Forbidden);
                 }
 
-                if (!_scheduleService.CanEnter(philippinesNow, todaySchedule))
+                var validSchedule = todaySchedules.FirstOrDefault(s => _scheduleService.CanEnter(philippinesNow, s));
+                if (validSchedule == null)
                 {
                     return Result<CreateParkingLogResponse>.Failure(
                         "Entry denied: Entry time does not align with authorized schedule.",
                         ErrorCode.BadRequest);
                 }
 
-                var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todaySchedule.EndTime);
+                var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, validSchedule.EndTime);
                 maximumExitTimeUtc = scheduleEndTimeUtc.AddMinutes(gracePeriodMinutes);
             }
         }
