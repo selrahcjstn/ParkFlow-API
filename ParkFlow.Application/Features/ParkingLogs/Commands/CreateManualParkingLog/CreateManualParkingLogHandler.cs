@@ -26,6 +26,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
     private readonly IParkingLogRoleService _parkingLogRoleService;
     private readonly ISignalRNotificationSender _signalRNotificationSender;
     private readonly INotificationService? _notificationService;
+    private readonly IParkingReservationRepository? _reservationRepository;
 
     public CreateManualParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -43,7 +44,8 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         IScheduleService scheduleService,
         IParkingLogRoleService parkingLogRoleService,
         ISignalRNotificationSender signalRNotificationSender,
-        INotificationService? notificationService = null)
+        INotificationService? notificationService = null,
+        IParkingReservationRepository? reservationRepository = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
@@ -61,6 +63,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         _parkingLogRoleService = parkingLogRoleService;
         _signalRNotificationSender = signalRNotificationSender;
         _notificationService = notificationService;
+        _reservationRepository = reservationRepository;
     }
 
     public async Task<Result<CreateParkingLogResponse>> Handle(CreateManualParkingLogCommand request, CancellationToken cancellationToken)
@@ -175,7 +178,63 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
 
         DateTime? maximumExitTimeUtc = null;
 
-        if (admin == null && !isGuest)
+        var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId) : [];
+        var utcNow = DateTime.UtcNow;
+        var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
+        var todayReservation = userReservations.FirstOrDefault(r => 
+            (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
+            r.ReservationDate.Date == philippinesNow.Date &&
+            r.Status == ReservationStatus.Approved)
+            ?? userReservations.FirstOrDefault(r =>
+                r.ReservationDate.Date == philippinesNow.Date &&
+                r.Status == ReservationStatus.Approved)
+            ?? userReservations.FirstOrDefault(r =>
+                (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
+                r.ReservationDate.Date == philippinesNow.Date &&
+                r.Status == ReservationStatus.Completed)
+            ?? userReservations.FirstOrDefault(r =>
+                r.ReservationDate.Date == philippinesNow.Date &&
+                r.Status == ReservationStatus.Completed);
+
+        var systemSettings = SystemSettingsStore.Current;
+        var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
+
+        if (todayReservation != null)
+        {
+            if (todayReservation.Status == ReservationStatus.Completed)
+            {
+                return Result<CreateParkingLogResponse>.Failure(
+                    "Entry denied: This reservation pass has already been used and is now void. Re-entry is not permitted.",
+                    ErrorCode.Forbidden);
+            }
+
+            if (todayReservation.Type == ReservationType.Special)
+            {
+                maximumExitTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, new TimeSpan(23, 59, 59));
+            }
+            else
+            {
+                if (philippinesNow.TimeOfDay > todayReservation.EndTime)
+                {
+                    return Result<CreateParkingLogResponse>.Failure(
+                        $"Entry denied: Reservation schedule for today ended at {DateTime.Today.Add(todayReservation.EndTime):hh:mm tt}.",
+                        ErrorCode.Forbidden);
+                }
+
+                var earlyBuffer = systemSettings.IsEarlyParkingAllowed ? systemSettings.EarlyParkingMinutes : 0;
+                var earliestResEntry = todayReservation.StartTime.Subtract(TimeSpan.FromMinutes(earlyBuffer));
+                if (philippinesNow.TimeOfDay < earliestResEntry)
+                {
+                    return Result<CreateParkingLogResponse>.Failure(
+                        $"Entry denied: Too early for reservation. Earliest allowed entry is {DateTime.Today.Add(earliestResEntry):hh:mm tt}.",
+                        ErrorCode.BadRequest);
+                }
+
+                var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, todayReservation.EndTime);
+                maximumExitTimeUtc = resEndTimeUtc.AddMinutes(gracePeriodMinutes);
+            }
+        }
+        else if (admin == null && !isGuest)
         {
             if (vehicle.VerificationStatus != CorVerificationStatus.Verified)
             {
@@ -204,8 +263,6 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
                 schedules = (await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id)).ToList();
             }
 
-            var utcNow = DateTime.UtcNow;
-            var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
             var todayDayOfWeek = philippinesNow.DayOfWeek;
 
             var todaySchedules = schedules
@@ -223,21 +280,33 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             var validSchedule = todaySchedules.FirstOrDefault(s => _scheduleService.CanEnter(philippinesNow, s));
             if (validSchedule == null)
             {
+                var latestEnd = todaySchedules.Max(s => s.EndTime);
+                if (philippinesNow.TimeOfDay > latestEnd)
+                {
+                    return Result<CreateParkingLogResponse>.Failure(
+                        $"Entry denied: Scheduled classes for today ended at {DateTime.Today.Add(latestEnd):hh:mm tt}.",
+                        ErrorCode.Forbidden);
+                }
+
+                var earliestStart = todaySchedules.Min(s => _scheduleService.GetEarliestAllowedEntryTime(s));
+                if (philippinesNow.TimeOfDay < earliestStart)
+                {
+                    return Result<CreateParkingLogResponse>.Failure(
+                        $"Entry denied: Too early for class schedule. Earliest allowed entry is {DateTime.Today.Add(earliestStart):hh:mm tt}.",
+                        ErrorCode.BadRequest);
+                }
+
                 return Result<CreateParkingLogResponse>.Failure(
                     "Entry denied: Entry time does not align with authorized schedule.",
                     ErrorCode.BadRequest);
             }
 
-            var systemSettings = SystemSettingsStore.Current;
-            var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
             var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, validSchedule.EndTime);
             maximumExitTimeUtc = scheduleEndTimeUtc.AddMinutes(gracePeriodMinutes);
         }
 
         if (maximumExitTimeUtc == null)
         {
-            var utcNow = DateTime.UtcNow;
-            var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
             maximumExitTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, new TimeSpan(23, 59, 59));
         }
 

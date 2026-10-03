@@ -91,20 +91,40 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
         var isToday = reservation.ReservationDate.Date == philippinesNow.Date;
         var isApproved = reservation.Status == ReservationStatus.Approved;
 
-        bool isValid = isApproved && isToday;
+        var settings = SystemSettingsStore.Current;
+        var earlyBuffer = settings.IsEarlyParkingAllowed ? settings.EarlyParkingMinutes : 0;
+        var earliestAllowed = reservation.StartTime.Subtract(TimeSpan.FromMinutes(earlyBuffer));
+
+        var hasEnded = reservation.Type != ReservationType.Special && philippinesNow.TimeOfDay > reservation.EndTime;
+        var isTooEarly = reservation.Type != ReservationType.Special && philippinesNow.TimeOfDay < earliestAllowed;
+
+        bool isValid = isApproved && isToday && !hasEnded && !isTooEarly && reservation.Status != ReservationStatus.Completed;
         string statusMessage;
 
         if (reservation.Status == ReservationStatus.Completed)
         {
+            isValid = false;
             statusMessage = "This reservation pass has already been used and is now void. Re-entry is not permitted.";
         }
         else if (!isApproved)
         {
+            isValid = false;
             statusMessage = $"Reservation status is {reservation.Status}. Access not granted.";
         }
         else if (!isToday)
         {
+            isValid = false;
             statusMessage = $"Reservation is for {reservation.ReservationDate:MMMM dd, yyyy}. Not valid today.";
+        }
+        else if (hasEnded)
+        {
+            isValid = false;
+            statusMessage = $"Entry denied: Reservation schedule for today ended at {DateTime.Today.Add(reservation.EndTime):hh:mm tt}.";
+        }
+        else if (isTooEarly)
+        {
+            isValid = false;
+            statusMessage = $"Entry denied: Too early for reservation. Earliest allowed entry is {DateTime.Today.Add(earliestAllowed):hh:mm tt}.";
         }
         else if (_violationRepository != null && (await _violationRepository.GetActiveViolationCountAsync(vehicle?.Id ?? Guid.Empty, reservation.UserId)) >= 3)
         {
