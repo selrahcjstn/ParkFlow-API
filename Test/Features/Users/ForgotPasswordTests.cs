@@ -250,4 +250,117 @@ public class ForgotPasswordTests
         Assert.Equal(ErrorCode.BadRequest, result.ErrorCode);
         Assert.Equal("You cannot reuse any of your previous passwords.", result.Message);
     }
+
+    [Fact]
+    public async Task VerifyResetCode_ShouldSucceedOnConsecutiveOrConcurrentCallsWithSameCode()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var email = "concurrent@parkflow.com";
+        var user = new UserAccount("old_hash", "+639000000000");
+
+        var idProperty = typeof(BaseEntity).GetProperty("Id");
+        idProperty?.SetValue(user, userId);
+
+        var manualIdentity = AuthIdentity.CreateManual(userId, email, "old_hash", isPrimary: true);
+        user.AuthIdentities.Add(manualIdentity);
+        await _userAccountRepository.AddAsync(user);
+
+        // Generate 6-digit code
+        var forgotCommand = new ForgotPasswordUserAccountCommand(email);
+        var forgotHandler = new ForgotPasswordUserAccountHandler(_userAccountRepository, _emailService, _forgotValidator);
+        var forgotResult = await forgotHandler.Handle(forgotCommand, CancellationToken.None);
+        var verificationCode = forgotResult.Data ?? throw new Exception("Code was null");
+
+        // Verify call 1
+        var verifyCommand1 = new VerifyResetPasswordCodeCommand(email, verificationCode);
+        var verifyHandler = new VerifyResetPasswordCodeCommandHandler(_userAccountRepository, _verifyValidator);
+        var verifyResult1 = await verifyHandler.Handle(verifyCommand1, CancellationToken.None);
+
+        Assert.True(verifyResult1.IsSuccess);
+        Assert.NotNull(verifyResult1.Data);
+
+        // Verify call 2 (simulating duplicate/concurrent request)
+        var verifyCommand2 = new VerifyResetPasswordCodeCommand(email, verificationCode);
+        var verifyResult2 = await verifyHandler.Handle(verifyCommand2, CancellationToken.None);
+
+        Assert.True(verifyResult2.IsSuccess);
+        Assert.NotNull(verifyResult2.Data);
+
+        // Password reset should succeed with the token from verifyResult2
+        var newPassword = "BrandNewPassword123!";
+        var resetCommand = new ResetPasswordUserAccountCommand(email, verifyResult2.Data!, newPassword);
+        var resetHandler = new ResetPasswordUserAccountHandler(_userAccountRepository, _resetValidator, _passwordHasher);
+        var resetResult = await resetHandler.Handle(resetCommand, CancellationToken.None);
+
+        Assert.True(resetResult.IsSuccess);
+    }
+
+    [Fact]
+    public async Task VerifyResetCode_ShouldSucceed_WhenCodeContainsWhitespaceOrFormatting()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var email = "whitespace@parkflow.com";
+        var user = new UserAccount("old_hash", "+639000000000");
+
+        var idProperty = typeof(BaseEntity).GetProperty("Id");
+        idProperty?.SetValue(user, userId);
+
+        var manualIdentity = AuthIdentity.CreateManual(userId, email, "old_hash", isPrimary: true);
+        user.AuthIdentities.Add(manualIdentity);
+        await _userAccountRepository.AddAsync(user);
+
+        // Generate 6-digit code
+        var forgotCommand = new ForgotPasswordUserAccountCommand(email);
+        var forgotHandler = new ForgotPasswordUserAccountHandler(_userAccountRepository, _emailService, _forgotValidator);
+        var forgotResult = await forgotHandler.Handle(forgotCommand, CancellationToken.None);
+        var verificationCode = forgotResult.Data ?? throw new Exception("Code was null");
+
+        // Code with leading, trailing, and internal space
+        var formattedCode = $"  {verificationCode.Substring(0, 3)} {verificationCode.Substring(3)}  ";
+
+        var verifyCommand = new VerifyResetPasswordCodeCommand(email, formattedCode);
+        var verifyHandler = new VerifyResetPasswordCodeCommandHandler(_userAccountRepository, _verifyValidator);
+        var verifyResult = await verifyHandler.Handle(verifyCommand, CancellationToken.None);
+
+        Assert.True(verifyResult.IsSuccess);
+        Assert.NotNull(verifyResult.Data);
+    }
+
+    [Fact]
+    public async Task ResetPassword_ShouldSucceed_WhenUsingDirectVerificationCode()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var email = "directcode@parkflow.com";
+        var user = new UserAccount("old_hash", "+639000000000");
+
+        var idProperty = typeof(BaseEntity).GetProperty("Id");
+        idProperty?.SetValue(user, userId);
+
+        var manualIdentity = AuthIdentity.CreateManual(userId, email, "old_hash", isPrimary: true);
+        user.AuthIdentities.Add(manualIdentity);
+        await _userAccountRepository.AddAsync(user);
+
+        // Generate 6-digit code
+        var forgotCommand = new ForgotPasswordUserAccountCommand(email);
+        var forgotHandler = new ForgotPasswordUserAccountHandler(_userAccountRepository, _emailService, _forgotValidator);
+        var forgotResult = await forgotHandler.Handle(forgotCommand, CancellationToken.None);
+        var verificationCode = forgotResult.Data ?? throw new Exception("Code was null");
+
+        // Verify code
+        var verifyCommand = new VerifyResetPasswordCodeCommand(email, verificationCode);
+        var verifyHandler = new VerifyResetPasswordCodeCommandHandler(_userAccountRepository, _verifyValidator);
+        var verifyResult = await verifyHandler.Handle(verifyCommand, CancellationToken.None);
+        Assert.True(verifyResult.IsSuccess);
+
+        // Reset password passing the verification code directly (like ChangePasswordPage does)
+        var newPassword = "DirectResetPassword123!";
+        var resetCommand = new ResetPasswordUserAccountCommand(email, verificationCode, newPassword);
+        var resetHandler = new ResetPasswordUserAccountHandler(_userAccountRepository, _resetValidator, _passwordHasher);
+        var resetResult = await resetHandler.Handle(resetCommand, CancellationToken.None);
+
+        Assert.True(resetResult.IsSuccess);
+    }
 }

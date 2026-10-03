@@ -65,13 +65,26 @@ public class ResetPasswordUserAccountHandler
             }
 
             var resetTokenHash = Sha256Base64(request.ResetToken?.Trim() ?? string.Empty);
+            var cleanResetToken = new string(request.ResetToken?.Where(char.IsDigit).ToArray() ?? Array.Empty<char>());
+            var cleanResetTokenHash = !string.IsNullOrEmpty(cleanResetToken) ? Sha256Base64(cleanResetToken) : string.Empty;
             var newPasswordHash = _passwordHasher.HashPassword(request.NewPassword);
 
             var utcNow = DateTime.UtcNow;
-            if (!user.CanResetPasswordWithToken(resetTokenHash, utcNow))
+            string? matchedHash = null;
+
+            if (user.CanResetPasswordWithToken(resetTokenHash, utcNow))
+            {
+                matchedHash = resetTokenHash;
+            }
+            else if (!string.IsNullOrEmpty(cleanResetTokenHash) && user.CanResetPasswordWithToken(cleanResetTokenHash, utcNow))
+            {
+                matchedHash = cleanResetTokenHash;
+            }
+
+            if (matchedHash == null)
                 return Result<Guid>.Failure("Invalid or expired reset token.", ErrorCode.Unauthorized);
 
-            user.ResetPasswordWithToken(resetTokenHash, newPasswordHash, utcNow);
+            user.ResetPasswordWithToken(matchedHash, newPasswordHash, utcNow);
             if (manualIdentity != null)
             {
                 manualIdentity.UpdatePasswordHash(newPasswordHash);

@@ -70,7 +70,7 @@ public class ForgotPasswordUserAccountHandler
 
             // Generate a random 6-digit verification code
             var random = new Random();
-            var code = random.Next(100000, 999999).ToString();
+            var code = random.Next(100000, 1000000).ToString();
             var codeHash = Sha256Base64(code);
 
             // Code expires in exactly 10 minutes

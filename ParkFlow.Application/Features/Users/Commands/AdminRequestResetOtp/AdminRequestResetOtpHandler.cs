@@ -61,7 +61,7 @@ public class AdminRequestResetOtpHandler : IRequestHandler<AdminRequestResetOtpC
 
         // Generate 6-digit random verification code
         var random = new Random();
-        var code = random.Next(100000, 999999).ToString();
+        var code = random.Next(100000, 1000000).ToString();
         var codeHash = Sha256Base64(code);
 
         var expiresAt = DateTime.UtcNow.AddMinutes(10);

@@ -50,10 +50,15 @@ public class VerifyResetPasswordCodeCommandHandler
             if (!hasPassword)
                 return Result<string>.Failure("Password reset is only available for manual accounts.", ErrorCode.BadRequest);
 
-            var codeHash = Sha256Base64(request.Code?.Trim() ?? string.Empty);
+            var cleanCode = new string(request.Code?.Where(char.IsDigit).ToArray() ?? Array.Empty<char>());
+            var cleanCodeHash = !string.IsNullOrEmpty(cleanCode) ? Sha256Base64(cleanCode) : string.Empty;
+            var rawTrimmedHash = Sha256Base64(request.Code?.Trim() ?? string.Empty);
             var utcNow = DateTime.UtcNow;
 
-            if (!user.CanResetPasswordWithToken(codeHash, utcNow))
+            var isValid = (!string.IsNullOrEmpty(cleanCodeHash) && user.CanResetPasswordWithToken(cleanCodeHash, utcNow)) ||
+                          user.CanResetPasswordWithToken(rawTrimmedHash, utcNow);
+
+            if (!isValid)
                 return Result<string>.Failure("Invalid or expired verification code.", ErrorCode.Unauthorized);
 
             // Code verified successfully! Now exchange it for a secure single-use reset token
@@ -61,7 +66,15 @@ public class VerifyResetPasswordCodeCommandHandler
             var secureResetTokenHash = Sha256Base64(secureResetToken);
             var expiresAt = DateTime.UtcNow.AddMinutes(15); // Reset token lasts 15 minutes
 
-            user.SetPasswordResetToken(secureResetTokenHash, expiresAt);
+            // Store both the secure token hash and the verified code hash so that:
+            // 1. Concurrent or retried verify requests with the same code do not fail with 401
+            // 2. Direct reset with code (like ChangePasswordPage) and secure token reset both succeed
+            var activeCodeHash = (!string.IsNullOrEmpty(cleanCodeHash) && user.CanResetPasswordWithToken(cleanCodeHash, utcNow))
+                ? cleanCodeHash
+                : rawTrimmedHash;
+
+            var combinedHash = $"{secureResetTokenHash};{activeCodeHash}";
+            user.SetPasswordResetToken(combinedHash, expiresAt);
             await _userAccountRepository.UpdateAsync(user);
 
             return Result<string>.Success(secureResetToken, "Verification successful. Reset token generated.");

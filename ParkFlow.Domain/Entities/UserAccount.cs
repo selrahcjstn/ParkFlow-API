@@ -129,7 +129,11 @@ public class UserAccount : BaseEntity
         if (expiresAtUtc < utcNow)
             return false;
 
-        return PasswordResetTokenHash == resetTokenHash;
+        if (PasswordResetTokenHash == resetTokenHash)
+            return true;
+
+        var tokens = PasswordResetTokenHash.Split(';', StringSplitOptions.RemoveEmptyEntries);
+        return tokens.Any(t => t == resetTokenHash);
     }
 
     public void ResetPasswordWithToken(string resetTokenHash, string newPasswordHash, DateTime utcNow)
