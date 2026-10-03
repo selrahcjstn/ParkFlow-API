@@ -198,7 +198,11 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
                     ErrorCode.Forbidden);
             }
 
-            var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
+            var schedules = (await _parkingScheduleRepository.GetByUserIdAsync(vehicle.OwnerId)).ToList();
+            if (!schedules.Any())
+            {
+                schedules = (await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id)).ToList();
+            }
 
             var utcNow = DateTime.UtcNow;
             var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);

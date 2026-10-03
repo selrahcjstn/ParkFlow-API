@@ -203,7 +203,11 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
             else
             {
                 corStatus = "Verified";
-                var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
+                var schedules = (await _parkingScheduleRepository.GetByUserIdAsync(userAccountId)).ToList();
+                if (!schedules.Any())
+                {
+                    schedules = (await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id)).ToList();
+                }
                 var todaySchedules = schedules
                     .Where(s => s.DayOfWeek == todayDayOfWeek)
                     .OrderBy(s => s.StartTime)
