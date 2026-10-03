@@ -81,37 +81,39 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
         var dtoList = new List<ParkingHistoryResponse>();
         foreach (var log in logs)
         {
-            var ownerProfile = log.Vehicle?.Owner?.UserProfile;
-            if (ownerProfile is null)
-                continue;
-
-            var student = ownerProfile.Student;
-            var personnel = ownerProfile.Personnel;
-            var admin = await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id);
-
-            var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);
+            var vehicle = log.Vehicle;
+            var ownerProfile = vehicle?.Owner?.UserProfile;
+            var student = ownerProfile?.Student;
+            var personnel = ownerProfile?.Personnel;
+            var admin = ownerProfile != null ? await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id) : null;
+            var roleDetails = ownerProfile != null
+                ? _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin)
+                : null;
 
             var entryLocal = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
             var mustExitBy = log.EntryTime; // Fallback default
 
-            var verifiedCor = corSubmissions.FirstOrDefault(c => 
-                c.UserAccountId == log.Vehicle!.OwnerId && 
-                c.VerificationStatus == CorVerificationStatus.Verified);
-
-            if (verifiedCor != null)
+            if (vehicle != null)
             {
-                var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-                var schedule = schedules.FirstOrDefault(s => s.DayOfWeek == entryLocal.DayOfWeek);
-                if (schedule != null)
+                var verifiedCor = corSubmissions.FirstOrDefault(c => 
+                    c.UserAccountId == vehicle.OwnerId && 
+                    c.VerificationStatus == CorVerificationStatus.Verified);
+
+                if (verifiedCor != null)
                 {
-                    mustExitBy = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entryLocal, schedule.EndTime);
+                    var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
+                    var schedule = schedules.FirstOrDefault(s => s.DayOfWeek == entryLocal.DayOfWeek);
+                    if (schedule != null)
+                    {
+                        mustExitBy = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entryLocal, schedule.EndTime);
+                    }
                 }
             }
 
             // Use the actual exit time from DB — null means the session is still active
-            var exitTimeVal = log.ExitTime;
+            var exitTimeVal = log.ExitTime ?? log.UpdatedAt;
             var duration = exitTimeVal.HasValue
-                ? (exitTimeVal.Value - log.EntryTime).TotalHours
+                ? Math.Round((exitTimeVal.Value - log.EntryTime).TotalHours, 2)
                 : (double?)null;
 
             var hasViolation = false;
@@ -127,16 +129,16 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 violationFee = existingViolation.PenaltyFee;
                 isPaid = existingViolation.SettlementStatus == SettlementStatus.Settled;
                 referenceNumber = existingViolation.ReferenceNumber;
-                if (log.ExitTime.HasValue && log.ExitTime.Value > mustExitBy)
+                if (exitTimeVal.HasValue && exitTimeVal.Value > mustExitBy)
                 {
-                    overstayHours = Math.Round((log.ExitTime.Value - mustExitBy).TotalHours, 2);
+                    overstayHours = Math.Round((exitTimeVal.Value - mustExitBy).TotalHours, 2);
                 }
             }
-            else if (log.ExitTime.HasValue && log.ExitTime.Value > mustExitBy)
+            else if (exitTimeVal.HasValue && exitTimeVal.Value > mustExitBy)
             {
                 hasViolation = true;
                 isPaid = false;
-                var overstayDuration = log.ExitTime.Value - mustExitBy;
+                var overstayDuration = exitTimeVal.Value - mustExitBy;
                 overstayHours = Math.Round(overstayDuration.TotalHours, 2);
                 violationFee = _violationService.CalculatePenalty(overstayDuration);
                 if (violationFee == 0m)
@@ -148,28 +150,41 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 referenceNumber = newViolation.ReferenceNumber;
             }
 
-            var ownerEmail = log.Vehicle!.Owner?.PrimaryEmail
-                ?? log.Vehicle!.Owner?.AuthIdentities?.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Email))?.Email
+            var ownerEmail = vehicle?.Owner?.PrimaryEmail
+                ?? vehicle?.Owner?.AuthIdentities?.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Email))?.Email
                 ?? string.Empty;
+
+            var firstName = ownerProfile?.FirstName ?? (string.IsNullOrWhiteSpace(vehicle?.PlateNumber) ? "Registered" : "Guest");
+            var lastName = ownerProfile?.LastName ?? (string.IsNullOrWhiteSpace(vehicle?.PlateNumber) ? "Driver" : "Visitor");
+            var roleName = !string.IsNullOrWhiteSpace(roleDetails?.Role) ? roleDetails.Role : "Client";
+            var plateNum = vehicle?.PlateNumber ?? "N/A";
+            var brand = vehicle?.Brand ?? "—";
+            var vehType = vehicle?.VehicleType.ToString() ?? "Car";
 
             dtoList.Add(new ParkingHistoryResponse
             {
-                FirstName = ownerProfile.FirstName,
-                LastName = ownerProfile.LastName,
-                MiddleName = ownerProfile.MiddleName,
+                SessionId = log.Id,
+                EntryMethod = log.EntryMethod.ToString(),
+                FirstName = firstName,
+                LastName = lastName,
+                MiddleName = ownerProfile?.MiddleName,
                 Email = ownerEmail,
-                RoleName = roleDetails.Role,
-                PlateNumber = log.Vehicle!.PlateNumber,
-                Brand = log.Vehicle!.Brand,
-                Type = log.Vehicle!.VehicleType.ToString(),
+                RoleName = roleName,
+                PlateNumber = plateNum,
+                Brand = brand,
+                Type = vehType,
                 EntryTime = log.EntryTime,
                 ExitTime = exitTimeVal,
                 ParkingDuration = duration,
+                TotalParkingHours = duration,
                 HasViolation = hasViolation,
                 ViolationFee = violationFee,
+                PenaltyFee = violationFee,
+                Amount = violationFee,
                 OverstayHours = overstayHours,
                 IsPaid = isPaid,
-                ReferenceNumber = referenceNumber
+                ReferenceNumber = referenceNumber,
+                Status = hasViolation ? "Overdue" : "Completed"
             });
         }
 

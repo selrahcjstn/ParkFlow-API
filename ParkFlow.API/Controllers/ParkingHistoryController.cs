@@ -37,7 +37,7 @@ public class ParkingHistoryController : ControllerBase
         // Validation constraints
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 15;
-        if (pageSize > 45) pageSize = 45;
+        if (pageSize > 1000) pageSize = 1000;
 
         var result = await _mediator.Send(new GetParkingHistoryQuery(userId, pageNumber, pageSize));
 
@@ -55,7 +55,7 @@ public class ParkingHistoryController : ControllerBase
         // Validation constraints
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 15;
-        if (pageSize > 45) pageSize = 45;
+        if (pageSize > 1000) pageSize = 1000;
 
         var result = await _mediator.Send(new GetParkingHistoryQuery(Guid.Empty, pageNumber, pageSize));
 

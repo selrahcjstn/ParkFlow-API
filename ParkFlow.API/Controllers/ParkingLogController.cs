@@ -101,4 +101,17 @@ public class ParkingLogController : ControllerBase
         var result = await _mediator.Send(new GetActiveSessionByVehicleIdQuery(vehicleId));
         return this.ToActionResult(result);
     }
+
+    [HttpGet("history/page/{pageNumber:int}/{pageSize:int}")]
+    public async Task<ActionResult<Result<ParkFlow.Application.Features.History.DTOs.PagedParkingHistoryResponse>>> GetParkingHistory(
+        int pageNumber,
+        int pageSize)
+    {
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 15;
+        if (pageSize > 1000) pageSize = 1000;
+
+        var result = await _mediator.Send(new ParkFlow.Application.Features.History.Queries.GetParkingHistoryQuery(Guid.Empty, pageNumber, pageSize));
+        return this.ToActionResult(result);
+    }
 }

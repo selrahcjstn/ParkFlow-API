@@ -105,7 +105,7 @@ public class ParkingLogRepository : IParkingLogRepository
     {
         var query = _context.Set<ParkingLog>()
             .AsNoTracking()
-            .Where(p => p.Status == ParkingStatus.Exited)
+            .Where(p => p.Status == ParkingStatus.Exited || p.ExitTime != null)
             .Include(p => p.Vehicle)
                 .ThenInclude(v => v.Owner)
                     .ThenInclude(o => o.AuthIdentities)
@@ -131,7 +131,7 @@ public class ParkingLogRepository : IParkingLogRepository
         }
 
         return await query
-            .OrderByDescending(p => p.EntryTime)
+            .OrderByDescending(p => p.ExitTime ?? p.EntryTime)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
