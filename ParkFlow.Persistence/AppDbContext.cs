@@ -35,5 +35,69 @@ namespace ParkFlow.Persistence
 
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
         }
+
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            await FixUnsavedChildEntitiesAsync(cancellationToken);
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+
+        public override int SaveChanges()
+        {
+            FixUnsavedChildEntities();
+            return base.SaveChanges();
+        }
+
+        private async Task FixUnsavedChildEntitiesAsync(CancellationToken cancellationToken)
+        {
+            foreach (var entry in ChangeTracker.Entries())
+            {
+                if (entry.State == EntityState.Modified)
+                {
+                    if (entry.Entity is PasswordHistory history)
+                    {
+                        var exists = await PasswordHistories.AsNoTracking().AnyAsync(p => p.Id == history.Id, cancellationToken);
+                        if (!exists)
+                        {
+                            entry.State = EntityState.Added;
+                        }
+                    }
+                    else if (entry.Entity is AuthIdentity identity)
+                    {
+                        var exists = await AuthIdentities.AsNoTracking().AnyAsync(i => i.Id == identity.Id, cancellationToken);
+                        if (!exists)
+                        {
+                            entry.State = EntityState.Added;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void FixUnsavedChildEntities()
+        {
+            foreach (var entry in ChangeTracker.Entries())
+            {
+                if (entry.State == EntityState.Modified)
+                {
+                    if (entry.Entity is PasswordHistory history)
+                    {
+                        var exists = PasswordHistories.AsNoTracking().Any(p => p.Id == history.Id);
+                        if (!exists)
+                        {
+                            entry.State = EntityState.Added;
+                        }
+                    }
+                    else if (entry.Entity is AuthIdentity identity)
+                    {
+                        var exists = AuthIdentities.AsNoTracking().Any(i => i.Id == identity.Id);
+                        if (!exists)
+                        {
+                            entry.State = EntityState.Added;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
