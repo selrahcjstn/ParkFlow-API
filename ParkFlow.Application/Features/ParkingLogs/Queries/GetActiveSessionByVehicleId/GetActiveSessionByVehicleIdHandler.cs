@@ -106,10 +106,24 @@ public class GetActiveSessionByVehicleIdHandler
                 maximumExitTimeUtc = scheduleDeadlineUtc.Value.AddMinutes(graceMin);
             }
         }
-        else if (activeLog.EntryMethod != EntryMethod.Manual && verifiedCor != null)
+        else if (activeLog.EntryMethod != EntryMethod.Manual)
         {
-            var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-            var todaySchedule = schedules?.FirstOrDefault(s => s.DayOfWeek == philippinesEntry.DayOfWeek);
+            var schedules = verifiedCor != null
+                ? (await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id)).ToList()
+                : new List<ParkFlow.Domain.Entities.ParkingSchedule>();
+
+            if (!schedules.Any())
+            {
+                schedules = (await _parkingScheduleRepository.GetByUserIdAsync(vehicle.OwnerId)).ToList();
+            }
+
+            var todaySchedules = schedules
+                .Where(s => s.DayOfWeek == philippinesEntry.DayOfWeek)
+                .OrderBy(s => s.StartTime)
+                .ToList();
+
+            var todaySchedule = todaySchedules.FirstOrDefault(s => philippinesEntry.TimeOfDay >= s.StartTime && philippinesEntry.TimeOfDay <= s.EndTime)
+                ?? todaySchedules.LastOrDefault();
 
             if (todaySchedule != null)
             {
@@ -168,8 +182,8 @@ public class GetActiveSessionByVehicleIdHandler
             ElapsedMinutes = Math.Max(0, elapsedMinutes),
             OverstayHours = overstayHours,
             AccruedCharge = accruedCharge,
-            ExitBy = scheduleDeadlineUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ")
-                ?? maximumExitTimeUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            ExitBy = maximumExitTimeUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                ?? scheduleDeadlineUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ")
                 ?? "N/A"
         };
 

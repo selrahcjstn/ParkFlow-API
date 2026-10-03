@@ -96,14 +96,24 @@ public class GetActiveParkingSessionHandler
                     c.UserAccountId == log.Vehicle.OwnerId &&
                     c.VerificationStatus == CorVerificationStatus.Verified);
 
-                if (log.EntryMethod != EntryMethod.Manual && verifiedCor != null)
+                if (log.EntryMethod != EntryMethod.Manual)
                 {
-                    var schedules = await _parkingScheduleRepository
-                        .GetBySubmissionIdAsync(verifiedCor.Id);
+                    var schedules = verifiedCor != null
+                        ? (await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id)).ToList()
+                        : new List<ParkFlow.Domain.Entities.ParkingSchedule>();
 
-                    var todaySchedule = schedules?
-                        .FirstOrDefault(s =>
-                            s.DayOfWeek == philippinesEntry.DayOfWeek);
+                    if (!schedules.Any())
+                    {
+                        schedules = (await _parkingScheduleRepository.GetByUserIdAsync(log.Vehicle.OwnerId)).ToList();
+                    }
+
+                    var todaySchedules = schedules
+                        .Where(s => s.DayOfWeek == philippinesEntry.DayOfWeek)
+                        .OrderBy(s => s.StartTime)
+                        .ToList();
+
+                    var todaySchedule = todaySchedules.FirstOrDefault(s => philippinesEntry.TimeOfDay >= s.StartTime && philippinesEntry.TimeOfDay <= s.EndTime)
+                        ?? todaySchedules.LastOrDefault();
 
                     if (todaySchedule != null)
                     {
