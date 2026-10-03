@@ -73,7 +73,10 @@ public class GetActiveParkingSessionHandler
             var entryReservation = userReservations.FirstOrDefault(r =>
                 (r.VehicleId == log.VehicleId || r.VehicleId == null) &&
                 r.ReservationDate.Date == philippinesEntry.Date &&
-                r.Status == ReservationStatus.Approved);
+                r.Status == ReservationStatus.Approved)
+                ?? userReservations.FirstOrDefault(r =>
+                    r.ReservationDate.Date == philippinesEntry.Date &&
+                    r.Status == ReservationStatus.Approved);
 
             if (entryReservation != null)
             {

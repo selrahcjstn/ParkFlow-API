@@ -15,19 +15,22 @@ public class GetActiveSessionByVehicleIdHandler
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IViolationService _violationService;
+    private readonly IParkingReservationRepository? _reservationRepository;
 
     public GetActiveSessionByVehicleIdHandler(
         IParkingLogRepository parkingLogRepository,
         IVehicleRepository vehicleRepository,
         IParkingScheduleRepository parkingScheduleRepository,
         ICorSubmissionRepository corSubmissionRepository,
-        IViolationService violationService)
+        IViolationService violationService,
+        IParkingReservationRepository? reservationRepository = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
         _corSubmissionRepository = corSubmissionRepository;
         _violationService = violationService;
+        _reservationRepository = reservationRepository;
     }
 
     public async Task<Result<ActiveParkingSessionResponse>> Handle(
@@ -73,14 +76,39 @@ public class GetActiveSessionByVehicleIdHandler
         decimal accruedCharge = 0m;
         var overstayHours = 0d;
 
-        // scheduleDeadlineUtc = the raw schedule end time (shown to user as ExitBy)
-        // maximumExitTimeUtc  = schedule end + 30 min grace (overtime starts after this)
+        // scheduleDeadlineUtc = the raw schedule / reservation end time (shown to user as ExitBy)
+        // maximumExitTimeUtc  = schedule end + grace period (overtime penalty starts after this)
         DateTime? scheduleDeadlineUtc = null;
         DateTime? maximumExitTimeUtc = null;
-        if (activeLog.EntryMethod != EntryMethod.Manual && verifiedCor != null)
+        var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(activeLog.EntryTime);
+        var sysSettings = SystemSettingsStore.Current;
+        var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
+
+        var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId) : [];
+        var entryReservation = userReservations.FirstOrDefault(r =>
+            (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
+            r.ReservationDate.Date == philippinesEntry.Date &&
+            r.Status == ReservationStatus.Approved)
+            ?? userReservations.FirstOrDefault(r =>
+                r.ReservationDate.Date == philippinesEntry.Date &&
+                r.Status == ReservationStatus.Approved);
+
+        if (entryReservation != null)
+        {
+            if (entryReservation.Type == ReservationType.Special)
+            {
+                scheduleDeadlineUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
+                maximumExitTimeUtc = scheduleDeadlineUtc;
+            }
+            else
+            {
+                scheduleDeadlineUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, entryReservation.EndTime);
+                maximumExitTimeUtc = scheduleDeadlineUtc.Value.AddMinutes(graceMin);
+            }
+        }
+        else if (activeLog.EntryMethod != EntryMethod.Manual && verifiedCor != null)
         {
             var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-            var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(activeLog.EntryTime);
             var todaySchedule = schedules?.FirstOrDefault(s => s.DayOfWeek == philippinesEntry.DayOfWeek);
 
             if (todaySchedule != null)
@@ -88,25 +116,46 @@ public class GetActiveSessionByVehicleIdHandler
                 scheduleDeadlineUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
                     philippinesEntry,
                     todaySchedule.EndTime);
-                var sysSettings = SystemSettingsStore.Current;
-                var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
                 maximumExitTimeUtc = scheduleDeadlineUtc.Value.AddMinutes(graceMin);
             }
         }
 
-        if (maximumExitTimeUtc == null)
+        if (activeLog.EntryMethod == EntryMethod.Manual)
         {
-            var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(activeLog.EntryTime);
-            var defaultClosingUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(22, 0, 0));
-            maximumExitTimeUtc = defaultClosingUtc > activeLog.EntryTime ? defaultClosingUtc : activeLog.EntryTime.AddHours(4);
-            scheduleDeadlineUtc = maximumExitTimeUtc;
-        }
+            var entryMidnightUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
+            maximumExitTimeUtc = entryMidnightUtc;
+            scheduleDeadlineUtc = entryMidnightUtc;
 
-        if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
+            var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(nowUtc);
+            var overdueDays = (philippinesNow.Date - philippinesEntry.Date).Days;
+            if (overdueDays < 0) overdueDays = 0;
+
+            accruedCharge = 20m + (overdueDays * 100m);
+            overstayHours = overdueDays > 0 ? (nowUtc - entryMidnightUtc).TotalHours : 0;
+        }
+        else
         {
-            var overstayDuration = nowUtc - maximumExitTimeUtc.Value;
-            overstayHours = overstayDuration.TotalHours;
-            accruedCharge = _violationService.CalculatePenalty(overstayDuration);
+            if (maximumExitTimeUtc == null)
+            {
+                var defaultClosingUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(22, 0, 0));
+                maximumExitTimeUtc = defaultClosingUtc > activeLog.EntryTime ? defaultClosingUtc : activeLog.EntryTime.AddHours(4);
+                scheduleDeadlineUtc = maximumExitTimeUtc;
+            }
+
+            if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
+            {
+                var overstayDuration = nowUtc - maximumExitTimeUtc.Value;
+                overstayHours = overstayDuration.TotalHours;
+                if (entryReservation?.Type == ReservationType.Special)
+                {
+                    accruedCharge = 0m;
+                    overstayHours = 0;
+                }
+                else
+                {
+                    accruedCharge = _violationService.CalculatePenalty(overstayDuration);
+                }
+            }
         }
 
         // ElapsedMinutes: always from actual DB entry time to now
@@ -119,8 +168,8 @@ public class GetActiveSessionByVehicleIdHandler
             ElapsedMinutes = Math.Max(0, elapsedMinutes),
             OverstayHours = overstayHours,
             AccruedCharge = accruedCharge,
-            ExitBy = maximumExitTimeUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ")
-                ?? scheduleDeadlineUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            ExitBy = scheduleDeadlineUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                ?? maximumExitTimeUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ")
                 ?? "N/A"
         };
 

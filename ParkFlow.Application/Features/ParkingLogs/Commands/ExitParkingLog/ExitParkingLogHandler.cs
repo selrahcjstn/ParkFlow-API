@@ -188,7 +188,10 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         var entryReservation = userReservations.FirstOrDefault(r => 
             (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
             r.ReservationDate.Date == philippinesEntry.Date &&
-            r.Status == ReservationStatus.Approved);
+            r.Status == ReservationStatus.Approved)
+            ?? userReservations.FirstOrDefault(r =>
+                r.ReservationDate.Date == philippinesEntry.Date &&
+                r.Status == ReservationStatus.Approved);
 
         var systemSettings = SystemSettingsStore.Current;
         var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;

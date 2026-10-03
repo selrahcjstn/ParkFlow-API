@@ -160,7 +160,10 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         var todayReservation = userReservations.FirstOrDefault(r => 
             (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
             r.ReservationDate.Date == philippinesNow.Date &&
-            r.Status == ReservationStatus.Approved);
+            r.Status == ReservationStatus.Approved)
+            ?? userReservations.FirstOrDefault(r =>
+                r.ReservationDate.Date == philippinesNow.Date &&
+                r.Status == ReservationStatus.Approved);
 
         var systemSettings = SystemSettingsStore.Current;
         var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
