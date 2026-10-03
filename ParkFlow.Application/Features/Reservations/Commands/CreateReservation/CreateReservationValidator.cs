@@ -10,8 +10,8 @@ public class CreateReservationValidator : AbstractValidator<CreateReservationCom
             .NotEmpty().WithMessage("UserId is required.");
 
         RuleFor(x => x.ReservationDate)
-            .GreaterThanOrEqualTo(DateTime.UtcNow.Date.AddDays(-1))
-            .WithMessage("Reservation date must not be in the past.");
+            .Must(date => date.Date > ParkFlow.Application.Features.ParkingLogs.Services.ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow).Date)
+            .WithMessage("Reservations must be booked at least 1 day in advance. Same-day reservations are not allowed.");
 
         RuleFor(x => x.EndTime)
             .GreaterThan(x => x.StartTime)

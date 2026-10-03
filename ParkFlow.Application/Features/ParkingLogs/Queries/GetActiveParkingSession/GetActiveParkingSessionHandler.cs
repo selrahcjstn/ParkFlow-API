@@ -128,6 +128,24 @@ public class GetActiveParkingSessionHandler
                 amount = 20m + (overdueDays * 100m);
                 overstayHours = overdueDays > 0 ? (nowUtc - entryMidnightUtc).TotalHours : 0;
             }
+            else if (entryReservation != null)
+            {
+                var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(nowUtc);
+                var overdueDays = (philippinesNow.Date - philippinesEntry.Date).Days;
+                if (overdueDays < 0) overdueDays = 0;
+
+                if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
+                {
+                    var overstayDuration = nowUtc - maximumExitTimeUtc.Value;
+                    overstayHours = overstayDuration.TotalHours;
+                    amount = 20m + 100m + (overdueDays * 100m);
+                }
+                else
+                {
+                    amount = 20m;
+                    overstayHours = 0;
+                }
+            }
             else
             {
                 // If no schedule or reservation was found for entry day, apply default campus closing time (10:00 PM)

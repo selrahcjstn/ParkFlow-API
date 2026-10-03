@@ -130,6 +130,15 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
             }
         }
 
+        // Enforce advance booking: Reservations must be booked at least 1 day in advance (no same-day booking)
+        var phToday = ParkFlow.Application.Features.ParkingLogs.Services.ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow).Date;
+        if (request.ReservationDate.Date <= phToday)
+        {
+            return Result<ParkingReservationDto>.Failure(
+                "Reservations must be booked at least 1 day in advance. Same-day reservations are not permitted.",
+                ErrorCode.BadRequest);
+        }
+
         // Enforce restriction: 1 parking reservation per day per user across all platforms (Mobile & Web)
         var userReservations = (await _reservationRepository.GetByUserIdAsync(user.Id)).ToList();
         var hasReservationOnDate = userReservations.Any(r =>
