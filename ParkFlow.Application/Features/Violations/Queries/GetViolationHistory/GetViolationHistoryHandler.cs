@@ -85,7 +85,7 @@ public class GetViolationHistoryHandler
                 // Violation
                 ViolationId = violation.Id,
                 ReferenceNumber = violation.ReferenceNumber,
-                ViolationType = violation.ViolationType.ToString(),
+                ViolationType = FormatViolationType(violation.ViolationType),
                 PenaltyFee = violation.PenaltyFee,
                 SettlementStatus = violation.SettlementStatus.ToString(),
                 IsPaid = violation.SettlementStatus == global::SettlementStatus.Settled,
@@ -105,4 +105,15 @@ public class GetViolationHistoryHandler
 
         return Result<PagedViolationHistoryResponse>.Success(response, "Violation history retrieved successfully.");
     }
+
+    private static string FormatViolationType(ParkFlow.Domain.Enums.ViolationType type) => type switch
+    {
+        ParkFlow.Domain.Enums.ViolationType.ReservationCharge => "Reservation Parking Charge",
+        ParkFlow.Domain.Enums.ViolationType.ManualParkingCharge => "Manual Parking Charge",
+        ParkFlow.Domain.Enums.ViolationType.Overstay => "Parking Overstay",
+        ParkFlow.Domain.Enums.ViolationType.NoPayment => "Unpaid Parking",
+        ParkFlow.Domain.Enums.ViolationType.UnauthorizedParking => "Unauthorized Parking",
+        ParkFlow.Domain.Enums.ViolationType.ParkingInRestrictedArea => "Parking in Restricted Area",
+        _ => type.ToString()
+    };
 }

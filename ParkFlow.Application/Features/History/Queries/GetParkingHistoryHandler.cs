@@ -125,7 +125,10 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
             var existingViolation = await _violationRepository.GetByLogIdAsync(log.Id);
             if (existingViolation != null)
             {
-                hasViolation = true;
+                var isPureParkingCharge = existingViolation.ViolationType == ViolationType.ReservationCharge ||
+                                         existingViolation.ViolationType == ViolationType.ManualParkingCharge ||
+                                         (existingViolation.PenaltyFee <= 20m && (!exitTimeVal.HasValue || exitTimeVal.Value <= mustExitBy));
+                hasViolation = !isPureParkingCharge;
                 violationFee = existingViolation.PenaltyFee;
                 isPaid = existingViolation.SettlementStatus == SettlementStatus.Settled;
                 referenceNumber = existingViolation.ReferenceNumber;
@@ -142,7 +145,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 overstayHours = 0;
             }
 
-            var sessionCharge = hasViolation ? violationFee : (log.EntryMethod == EntryMethod.Manual ? 20m : 0m);
+            var sessionCharge = existingViolation != null ? existingViolation.PenaltyFee : (log.EntryMethod == EntryMethod.Manual ? 20m : 0m);
 
             var ownerEmail = vehicle?.Owner?.PrimaryEmail
                 ?? vehicle?.Owner?.AuthIdentities?.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Email))?.Email

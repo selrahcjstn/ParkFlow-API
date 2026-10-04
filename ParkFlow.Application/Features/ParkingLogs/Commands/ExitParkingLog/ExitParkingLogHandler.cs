@@ -209,14 +209,11 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             {
                 penaltyFee = 20m + (overdueDays * 100m);
                 overstayTime = (exitTime - entryMidnightUtc).TotalHours;
-
-                var violation = new Violation(
-                    active.Id,
-                    penaltyFee);
+                violationType = "Manual Parking Overstay";
+                var violation = new Violation(active.Id, penaltyFee, ViolationType.Overstay);
                 await _violationRepository.AddAsync(violation);
                 isViolation = true;
                 violationId = violation.Id;
-                violationType = violation.ViolationType.ToString();
                 settlementStatus = violation.SettlementStatus.ToString();
                 referenceNumber = violation.ReferenceNumber;
             }
@@ -224,7 +221,13 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             {
                 penaltyFee = 20m;
                 overstayTime = 0;
-                isViolation = false;
+                violationType = "Manual Parking Charge";
+                var violation = new Violation(active.Id, penaltyFee, ViolationType.ManualParkingCharge);
+                await _violationRepository.AddAsync(violation);
+                isViolation = true;
+                violationId = violation.Id;
+                settlementStatus = violation.SettlementStatus.ToString();
+                referenceNumber = violation.ReferenceNumber;
             }
         }
         else if (entryReservation != null)
@@ -232,37 +235,43 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             if (entryReservation.Type == ReservationType.Special)
             {
                 maximumExitTime = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
+                penaltyFee = 0m;
+                overstayTime = 0;
+                isViolation = false;
             }
             else
             {
                 var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, entryReservation.EndTime);
                 maximumExitTime = resEndTimeUtc.AddMinutes(gracePeriodMinutes);
-            }
 
-            var overdueDays = (philippinesExit.Date - philippinesEntry.Date).Days;
-            if (overdueDays < 0) overdueDays = 0;
+                var overdueDays = (philippinesExit.Date - philippinesEntry.Date).Days;
+                if (overdueDays < 0) overdueDays = 0;
 
-            if (maximumExitTime.HasValue && exitTime > maximumExitTime.Value)
-            {
-                var overstayDuration = exitTime - maximumExitTime.Value;
-                overstayTime = overstayDuration.TotalHours;
-                penaltyFee = 20m + 100m + (overdueDays * 100m);
-
-                var violation = new Violation(
-                    active.Id,
-                    penaltyFee);
-                await _violationRepository.AddAsync(violation);
-                isViolation = true;
-                violationId = violation.Id;
-                violationType = "Reservation Overstay";
-                settlementStatus = violation.SettlementStatus.ToString();
-                referenceNumber = violation.ReferenceNumber;
-            }
-            else
-            {
-                penaltyFee = 20m;
-                overstayTime = 0;
-                isViolation = false;
+                if (maximumExitTime.HasValue && exitTime > maximumExitTime.Value)
+                {
+                    var overstayDuration = exitTime - maximumExitTime.Value;
+                    overstayTime = overstayDuration.TotalHours;
+                    penaltyFee = 20m + 100m + (overdueDays * 100m);
+                    violationType = "Reservation Overstay";
+                    var violation = new Violation(active.Id, penaltyFee, ViolationType.Overstay);
+                    await _violationRepository.AddAsync(violation);
+                    isViolation = true;
+                    violationId = violation.Id;
+                    settlementStatus = violation.SettlementStatus.ToString();
+                    referenceNumber = violation.ReferenceNumber;
+                }
+                else
+                {
+                    penaltyFee = 20m;
+                    overstayTime = 0;
+                    violationType = "Reservation Parking Charge";
+                    var violation = new Violation(active.Id, penaltyFee, ViolationType.ReservationCharge);
+                    await _violationRepository.AddAsync(violation);
+                    isViolation = true;
+                    violationId = violation.Id;
+                    settlementStatus = violation.SettlementStatus.ToString();
+                    referenceNumber = violation.ReferenceNumber;
+                }
             }
         }
         else
