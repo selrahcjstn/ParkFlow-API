@@ -42,36 +42,32 @@ public static class TestDataSeeder
         var phToday = philippinesNow.Date;
         var resDateUtc = DateTime.SpecifyKind(phToday, DateTimeKind.Utc);
 
-        try
-        {
-            await dbContext.Database.ExecuteSqlRawAsync("UPDATE \"ParkingReservations\" SET \"StartTime\" = '14:00:00', \"EndTime\" = '15:00:00' WHERE \"ReferenceNumber\" LIKE 'RES-%';");
-            await dbContext.Database.ExecuteSqlRawAsync("DELETE FROM \"ParkingSchedules\" WHERE \"DayOfWeek\" = 0;");
-        }
-        catch { }
+
 
         var namesData = new (string FirstName, string MiddleName, string LastName, bool IsPersonnel, string Identifier, string ProgramOrDept, string Section, int YearLevel, VehicleType VType, string PlateNumber, string Brand, TimeSpan StartTime, TimeSpan EndTime, ReservationType ResType, string Reason)[]
         {
-            // 1-35 Students (2:00 PM to 3:00 PM)
-            ("Juan", "Dela", "Cruz", false, "2024-10001", "BSCS", "4A", 4, VehicleType.Car, "TEST-101", "Toyota Vios 2022", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Thesis Defense & Capstone Final Presentation"),
-            ("Maria Clara", "De Los", "Santos", false, "2024-10002", "BSIT", "3B", 3, VehicleType.Motorcycle, "TEST-102", "Honda Click 125i", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Mobile Application Development Lab Session"),
-            ("Carlos Miguel", "Antonio", "Garcia", false, "2024-10003", "BSCpE", "4A", 4, VehicleType.Motorcycle, "TEST-103", "Yamaha NMAX 155", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Embedded Systems Project Assembly"),
-            ("Sofia Angela", "Marie", "Reyes", false, "2024-10004", "BSA", "2A", 2, VehicleType.Car, "TEST-104", "Mitsubishi Mirage G4", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Auditing & Assurance Services Review"),
-            ("Gabriel Antonio", "Vargas", "Ramos", false, "2024-10005", "BSECE", "4B", 4, VehicleType.Motorcycle, "TEST-105", "Honda ADV 160", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Robotics & Telecommunication Testing"),
-            ("Andrea Nicole", "Tan", "Lim", false, "2024-10006", "BSCS", "3A", 3, VehicleType.Car, "TEST-106", "Ford Ranger Raptor", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "AI & Machine Learning Data Collection"),
-            ("Mateo Lucas", "Cabrera", "Tan", false, "2024-10007", "BSIT", "2B", 2, VehicleType.Motorcycle, "TEST-107", "Vespa Primavera 150", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Web Systems Backend Development"),
-            ("Isabella Rose", "Chavez", "Bautista", false, "2024-10008", "BSBA", "3A", 3, VehicleType.Car, "TEST-108", "Nissan Navara Pro-4X", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Marketing Research & Focus Group"),
-            ("Rafael Jose", "Benitez", "Aquino", false, "2024-10009", "BSCE", "4A", 4, VehicleType.Motorcycle, "TEST-109", "Suzuki Raider R150", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Structural Design Analysis Session"),
-            ("Chloe Grace", "Salazar", "Mendoza", false, "2024-10010", "BSN", "3C", 3, VehicleType.Car, "TEST-110", "Honda City RS", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Special, "University Health Center Duty & Seminar"),
-            ("Elijah James", "Valdez", "Flores", false, "2024-10011", "BSCS", "2A", 2, VehicleType.Motorcycle, "TEST-111", "Yamaha Aerox 155", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Algorithms & Data Structures Competition"),
-            ("Alyssa Mae", "Gutierrez", "Castro", false, "2024-10012", "BSIT", "4A", 4, VehicleType.Car, "TEST-112", "Mazda 3 Sedan", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Cybersecurity Defense Drill"),
-            ("Dominic Kyle", "Navarro", "Villanueva", false, "2024-10013", "BSCpE", "3B", 3, VehicleType.Motorcycle, "TEST-113", "Kawasaki Ninja 400", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Microcontroller Interfacing Workshop"),
-            ("Hannah Patricia", "Soriano", "Navarro", false, "2024-10014", "BSA", "4A", 4, VehicleType.Car, "TEST-114", "Hyundai Tucson", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Taxation Mock Board Examination"),
-            ("Adrian Paul", "Estrada", "Corpuz", false, "2024-10015", "BSECE", "2A", 2, VehicleType.Motorcycle, "TEST-115", "Honda PCX 160", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Circuit Simulation & Breadboarding"),
-            ("Bea Bianca", "Mercado", "Domingo", false, "2024-10016", "BSCS", "1A", 1, VehicleType.Car, "TEST-116", "Kia Seltos", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Freshmen Orientation & Coding Bootcamp"),
-            ("Christian Luke", "Pascual", "Mercado", false, "2024-10017", "BSIT", "3A", 3, VehicleType.Motorcycle, "TEST-117", "Yamaha Sniper 155", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Database Administration Hands-on"),
-            ("Patricia Joy", "Mariano", "Salazar", false, "2024-10018", "BSBA", "4B", 4, VehicleType.Car, "TEST-118", "Toyota Fortuner", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Strategic Management Feasibility Defense"),
-            ("Nathaniel David", "Castillo", "Soriano", false, "2024-10019", "BSCE", "3A", 3, VehicleType.Motorcycle, "TEST-119", "Honda Beat 110", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Fluid Mechanics Laboratory Testing"),
-            ("Samantha Gale", "Aguilar", "Pascual", false, "2024-10020", "BSN", "2A", 2, VehicleType.Car, "TEST-120", "Suzuki Jimny", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Special, "Medical Mission Preparation"),
+            // 1-20 Students (Active schedule & reservation from 7:00 AM until 11:59 PM)
+            ("Juan", "Dela", "Cruz", false, "2024-10001", "BSCS", "4A", 4, VehicleType.Car, "TEST-101", "Toyota Vios 2022", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Thesis Defense & Capstone Final Presentation"),
+            ("Maria Clara", "De Los", "Santos", false, "2024-10002", "BSIT", "3B", 3, VehicleType.Motorcycle, "TEST-102", "Honda Click 125i", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Mobile Application Development Lab Session"),
+            ("Carlos Miguel", "Antonio", "Garcia", false, "2024-10003", "BSCpE", "4A", 4, VehicleType.Motorcycle, "TEST-103", "Yamaha NMAX 155", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Embedded Systems Project Assembly"),
+            ("Sofia Angela", "Marie", "Reyes", false, "2024-10004", "BSA", "2A", 2, VehicleType.Car, "TEST-104", "Mitsubishi Mirage G4", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Auditing & Assurance Services Review"),
+            ("Gabriel Antonio", "Vargas", "Ramos", false, "2024-10005", "BSECE", "4B", 4, VehicleType.Motorcycle, "TEST-105", "Honda ADV 160", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Robotics & Telecommunication Testing"),
+            ("Andrea Nicole", "Tan", "Lim", false, "2024-10006", "BSCS", "3A", 3, VehicleType.Car, "TEST-106", "Ford Ranger Raptor", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "AI & Machine Learning Data Collection"),
+            ("Mateo Lucas", "Cabrera", "Tan", false, "2024-10007", "BSIT", "2B", 2, VehicleType.Motorcycle, "TEST-107", "Vespa Primavera 150", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Web Systems Backend Development"),
+            ("Isabella Rose", "Chavez", "Bautista", false, "2024-10008", "BSBA", "3A", 3, VehicleType.Car, "TEST-108", "Nissan Navara Pro-4X", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Marketing Research & Focus Group"),
+            ("Rafael Jose", "Benitez", "Aquino", false, "2024-10009", "BSCE", "4A", 4, VehicleType.Motorcycle, "TEST-109", "Suzuki Raider R150", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Structural Design Analysis Session"),
+            ("Chloe Grace", "Salazar", "Mendoza", false, "2024-10010", "BSN", "3C", 3, VehicleType.Car, "TEST-110", "Honda City RS", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Special, "University Health Center Duty & Seminar"),
+            ("Elijah James", "Valdez", "Flores", false, "2024-10011", "BSCS", "2A", 2, VehicleType.Motorcycle, "TEST-111", "Yamaha Aerox 155", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Algorithms & Data Structures Competition"),
+            ("Alyssa Mae", "Gutierrez", "Castro", false, "2024-10012", "BSIT", "4A", 4, VehicleType.Car, "TEST-112", "Mazda 3 Sedan", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Cybersecurity Defense Drill"),
+            ("Dominic Kyle", "Navarro", "Villanueva", false, "2024-10013", "BSCpE", "3B", 3, VehicleType.Motorcycle, "TEST-113", "Kawasaki Ninja 400", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Microcontroller Interfacing Workshop"),
+            ("Hannah Patricia", "Soriano", "Navarro", false, "2024-10014", "BSA", "4A", 4, VehicleType.Car, "TEST-114", "Hyundai Tucson", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Taxation Mock Board Examination"),
+            ("Adrian Paul", "Estrada", "Corpuz", false, "2024-10015", "BSECE", "2A", 2, VehicleType.Motorcycle, "TEST-115", "Honda PCX 160", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Circuit Simulation & Breadboarding"),
+            ("Bea Bianca", "Mercado", "Domingo", false, "2024-10016", "BSCS", "1A", 1, VehicleType.Car, "TEST-116", "Kia Seltos", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Freshmen Orientation & Coding Bootcamp"),
+            ("Christian Luke", "Pascual", "Mercado", false, "2024-10017", "BSIT", "3A", 3, VehicleType.Motorcycle, "TEST-117", "Yamaha Sniper 155", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Database Administration Hands-on"),
+            ("Patricia Joy", "Mariano", "Salazar", false, "2024-10018", "BSBA", "4B", 4, VehicleType.Car, "TEST-118", "Toyota Fortuner", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Strategic Management Feasibility Defense"),
+            ("Nathaniel David", "Castillo", "Soriano", false, "2024-10019", "BSCE", "3A", 3, VehicleType.Motorcycle, "TEST-119", "Honda Beat 110", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Normal, "Fluid Mechanics Laboratory Testing"),
+            ("Samantha Gale", "Aguilar", "Pascual", false, "2024-10020", "BSN", "2A", 2, VehicleType.Car, "TEST-120", "Suzuki Jimny", new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0), ReservationType.Special, "Medical Mission Preparation"),
+            // 21-35 Students (2:00 PM to 3:00 PM)
             ("Joshua Miguel", "Tolentino", "Valdez", false, "2024-10021", "BSCS", "4B", 4, VehicleType.Motorcycle, "TEST-121", "Yamaha Mio Gravis", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Cloud Infrastructure Architecture Design"),
             ("Katrina Mae", "Rivera", "Ocampo", false, "2024-10022", "BSIT", "2A", 2, VehicleType.Car, "TEST-122", "Toyota Corolla Cross", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "Human-Computer Interaction Usability Testing"),
             ("Daniel Keith", "Guzman", "Aguilar", false, "2024-10023", "BSCpE", "4A", 4, VehicleType.Motorcycle, "TEST-123", "KTM Duke 390", new TimeSpan(14, 0, 0), new TimeSpan(15, 0, 0), ReservationType.Normal, "IoT Sensor Grid Deployment"),
@@ -185,21 +181,44 @@ public static class TestDataSeeder
                     CorVerificationStatus.Verified);
                 await dbContext.CorSubmissions.AddAsync(cor);
                 await dbContext.SaveChangesAsync();
-
-                var schedules = new List<ParkingSchedule>
-                {
-                    new ParkingSchedule(cor.Id, DayOfWeek.Monday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
-                    new ParkingSchedule(cor.Id, DayOfWeek.Tuesday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
-                    new ParkingSchedule(cor.Id, DayOfWeek.Wednesday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
-                    new ParkingSchedule(cor.Id, DayOfWeek.Thursday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
-                    new ParkingSchedule(cor.Id, DayOfWeek.Friday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0))
-                };
-                await dbContext.ParkingSchedules.AddRangeAsync(schedules);
-                await dbContext.SaveChangesAsync();
             }
             else
             {
                 cor = existingCor;
+                cor.UpdateSubmission(null, null, CorVerificationStatus.Verified);
+                await dbContext.SaveChangesAsync();
+            }
+
+            if (indexNumber <= 20)
+            {
+                // Seed all 7 days active schedule from 7:00 AM to 11:59 PM (covers right now until 11:59 PM)
+                var schedules = new List<ParkingSchedule>
+                {
+                    new ParkingSchedule(cor.Id, DayOfWeek.Sunday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
+                    new ParkingSchedule(cor.Id, DayOfWeek.Monday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
+                    new ParkingSchedule(cor.Id, DayOfWeek.Tuesday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
+                    new ParkingSchedule(cor.Id, DayOfWeek.Wednesday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
+                    new ParkingSchedule(cor.Id, DayOfWeek.Thursday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
+                    new ParkingSchedule(cor.Id, DayOfWeek.Friday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
+                    new ParkingSchedule(cor.Id, DayOfWeek.Saturday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0))
+                };
+                await parkingScheduleRepository.ReplaceSchedulesAsync(cor.Id, schedules);
+            }
+            else if (!item.IsPersonnel)
+            {
+                var existingSchedules = await dbContext.ParkingSchedules.Where(s => s.SubmissionId == cor.Id).ToListAsync();
+                if (!existingSchedules.Any())
+                {
+                    var schedules = new List<ParkingSchedule>
+                    {
+                        new ParkingSchedule(cor.Id, DayOfWeek.Monday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
+                        new ParkingSchedule(cor.Id, DayOfWeek.Tuesday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
+                        new ParkingSchedule(cor.Id, DayOfWeek.Wednesday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
+                        new ParkingSchedule(cor.Id, DayOfWeek.Thursday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
+                        new ParkingSchedule(cor.Id, DayOfWeek.Friday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0))
+                    };
+                    await parkingScheduleRepository.ReplaceSchedulesAsync(cor.Id, schedules);
+                }
             }
 
             // 3. Vehicle
@@ -217,8 +236,14 @@ public static class TestDataSeeder
                 await dbContext.Vehicles.AddAsync(vehicle);
                 await dbContext.SaveChangesAsync();
             }
+            else
+            {
+                vehicle.SetPrimary(true);
+                vehicle.UpdateVerificationStatus(CorVerificationStatus.Verified);
+                await dbContext.SaveChangesAsync();
+            }
 
-            // 4. Approved Active Reservation for Today (Updated to 2:30 PM / new times)
+            // 4. Approved Active Reservation for Today
             var refNumber = $"RES-{phToday:yyyyMMdd}-{indexNumber:D4}";
             var existingRes = await dbContext.ParkingReservations.FirstOrDefaultAsync(r => r.ReferenceNumber == refNumber);
             if (existingRes == null)
@@ -239,28 +264,62 @@ public static class TestDataSeeder
             }
             else
             {
-                // Update existing reservation StartTime and EndTime
+                // Update existing reservation StartTime, EndTime, Date, and ensure Approved status
                 var startProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.StartTime));
                 var endProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.EndTime));
+                var dateProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.ReservationDate));
                 startProp?.SetValue(existingRes, item.StartTime);
                 endProp?.SetValue(existingRes, item.EndTime);
+                dateProp?.SetValue(existingRes, resDateUtc);
+                var statusProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.Status));
+                statusProp?.SetValue(existingRes, ReservationStatus.Approved);
+                var adminProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.ApprovedByAdminId));
+                adminProp?.SetValue(existingRes, adminId);
+                var approvedAtProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.ApprovedAt));
+                approvedAtProp?.SetValue(existingRes, DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc));
                 await dbContext.SaveChangesAsync();
             }
 
-            // 5. Active Live Session for first 10 accounts
-            if (indexNumber <= 10)
+            // 5. Active Live Session
+            // For accounts 1-20: if there was an active log, mark it exited so they are ready to enter
+            if (indexNumber <= 20)
+            {
+                var activeLogs = await dbContext.ParkingLogs
+                    .Where(p => p.VehicleId == vehicle.Id && p.Status == ParkingStatus.Parked && p.ExitTime == null)
+                    .ToListAsync();
+                foreach (var activeLog in activeLogs)
+                {
+                    activeLog.Exit();
+                }
+                if (activeLogs.Count > 0)
+                {
+                    await dbContext.SaveChangesAsync();
+                }
+            }
+            // For accounts 21-30: seed active parked sessions for dashboard testing
+            else if (indexNumber <= 30)
             {
                 var activeLog = await dbContext.ParkingLogs.FirstOrDefaultAsync(p => p.VehicleId == vehicle.Id && p.Status == ParkingStatus.Parked && p.ExitTime == null);
                 if (activeLog == null)
                 {
                     var log = new ParkingLog(vehicle.Id, guard?.UserProfileId, ParkingStatus.Parked, EntryMethod.QrCode);
-                    // Adjust EntryTime to be in the past (e.g. 15 to 150 minutes ago)
                     var entryTimeField = typeof(ParkingLog).GetProperty(nameof(ParkingLog.EntryTime));
-                    entryTimeField?.SetValue(log, DateTime.UtcNow.AddMinutes(-15 * indexNumber));
+                    entryTimeField?.SetValue(log, DateTime.UtcNow.AddMinutes(-15 * (indexNumber - 20)));
                     await dbContext.ParkingLogs.AddAsync(log);
                     await dbContext.SaveChangesAsync();
                 }
             }
+        }
+
+        // Invalidate backend caches so latest schedules, dashboard, and sessions are immediately reflected
+        var cacheService = scope.ServiceProvider.GetService<ICacheService>();
+        if (cacheService != null)
+        {
+            await cacheService.RemoveByPrefixAsync("schedules:");
+            await cacheService.RemoveByPrefixAsync("dashboard:");
+            await cacheService.RemoveByPrefixAsync("sessions:");
+            await cacheService.RemoveByPrefixAsync("announcements:");
+            await cacheService.RemoveByPrefixAsync("profile:");
         }
     }
 }
