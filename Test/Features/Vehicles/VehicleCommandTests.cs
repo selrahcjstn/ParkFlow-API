@@ -19,8 +19,10 @@ public class FakeQrCodeService : IQrCodeService
 public class FakeParkingLogRepository : IParkingLogRepository
 {
     public ParkingLog? ActiveParkingLog { get; set; }
+    public bool HasActiveLog { get; set; }
     public Task AddParkingLogAsync(ParkingLog parkingLog) => Task.CompletedTask;
     public Task<ParkingLog?> GetActiveParkingLogByVehicleIdAsync(Guid vehicleId) => Task.FromResult<ParkingLog?>(ActiveParkingLog);
+    public Task<bool> HasActiveParkingLogByUserIdAsync(Guid userId) => Task.FromResult(HasActiveLog || ActiveParkingLog != null);
     public Task<IReadOnlyList<ParkingLog>> GetActiveParkingLogsAsync(int limit) => Task.FromResult<IReadOnlyList<ParkingLog>>(new List<ParkingLog>());
     public Task<IReadOnlyList<ParkingLog>> GetTodaysParkingLogsAsync(int limit) => Task.FromResult<IReadOnlyList<ParkingLog>>(new List<ParkingLog>());
     public Task<IReadOnlyList<ParkingLog>> GetRecentParkingLogsAsync(int limit) => Task.FromResult<IReadOnlyList<ParkingLog>>(new List<ParkingLog>());
@@ -444,6 +446,42 @@ public class VehicleCommandTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Contains("Vehicle is already the primary vehicle", result.Message);
+    }
+
+    [Fact]
+    public async Task Handlers_ShouldPreventVehicleOperations_WhenUserHasOngoingSession()
+    {
+        // Arrange
+        var ownerId = Guid.NewGuid();
+        var vehicle = new Vehicle(ownerId, "ABC-123", "Toyota", "hash", VehicleType.Car);
+        await _repository.AddAsync(vehicle);
+
+        var fakeParkingRepo = new FakeParkingLogRepository { ActiveParkingLog = null, HasActiveLog = true };
+
+        var createHandler = new CreateVehicleHandler(_repository, _validator, _qrCodeService, fakeParkingRepo);
+        var updateHandler = new UpdateVehicleHandler(_repository, fakeParkingRepo);
+        var deleteHandler = new DeleteVehicleHandler(_repository, fakeParkingRepo);
+        var setPrimaryHandler = new SetPrimaryVehicleHandler(_repository, fakeParkingRepo);
+
+        // Act & Assert Create
+        var createResult = await createHandler.Handle(new CreateVehicleCommand(ownerId, "XYZ-999", "Honda", VehicleType.Motorcycle), CancellationToken.None);
+        Assert.False(createResult.IsSuccess);
+        Assert.Contains("ongoing parking session", createResult.Message);
+
+        // Act & Assert Update
+        var updateResult = await updateHandler.Handle(new UpdateVehicleCommand(vehicle.Id, ownerId, "XYZ-999", "Honda", VehicleType.Motorcycle), CancellationToken.None);
+        Assert.False(updateResult.IsSuccess);
+        Assert.Contains("ongoing parking session", updateResult.Message);
+
+        // Act & Assert Delete
+        var deleteResult = await deleteHandler.Handle(new DeleteVehicleCommand(vehicle.Id, ownerId, false), CancellationToken.None);
+        Assert.False(deleteResult.IsSuccess);
+        Assert.Contains("ongoing parking session", deleteResult.Message);
+
+        // Act & Assert Set Primary
+        var setPrimaryResult = await setPrimaryHandler.Handle(new SetPrimaryVehicleCommand(vehicle.Id, ownerId), CancellationToken.None);
+        Assert.False(setPrimaryResult.IsSuccess);
+        Assert.Contains("ongoing parking session", setPrimaryResult.Message);
     }
 }
 

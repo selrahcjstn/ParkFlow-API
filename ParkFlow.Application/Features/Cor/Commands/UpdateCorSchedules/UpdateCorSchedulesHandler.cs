@@ -16,6 +16,7 @@ public class UpdateCorSchedulesHandler : IRequestHandler<UpdateCorSchedulesComma
 {
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
+    private readonly IParkingLogRepository? _parkingLogRepository;
     private readonly IUserAccountRepository? _userAccountRepository;
     private readonly IVehicleRepository? _vehicleRepository;
     private readonly ISignalRNotificationSender? _signalRNotificationSender;
@@ -23,12 +24,14 @@ public class UpdateCorSchedulesHandler : IRequestHandler<UpdateCorSchedulesComma
     public UpdateCorSchedulesHandler(
         ICorSubmissionRepository corSubmissionRepository,
         IParkingScheduleRepository parkingScheduleRepository,
+        IParkingLogRepository? parkingLogRepository = null,
         IUserAccountRepository? userAccountRepository = null,
         IVehicleRepository? vehicleRepository = null,
         ISignalRNotificationSender? signalRNotificationSender = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
+        _parkingLogRepository = parkingLogRepository;
         _userAccountRepository = userAccountRepository;
         _vehicleRepository = vehicleRepository;
         _signalRNotificationSender = signalRNotificationSender;
@@ -80,6 +83,11 @@ public class UpdateCorSchedulesHandler : IRequestHandler<UpdateCorSchedulesComma
         }
 
         targetUserAccountId = submission.UserAccountId;
+
+        if (_parkingLogRepository != null && await _parkingLogRepository.HasActiveParkingLogByUserIdAsync(targetUserAccountId))
+        {
+            return Result<bool>.Failure("Cannot update parking schedule while you have an ongoing parking session.", ErrorCode.BadRequest);
+        }
 
         var newSchedules = new List<ParkingSchedule>();
         if (request.Schedules != null && request.Schedules.Count > 0)

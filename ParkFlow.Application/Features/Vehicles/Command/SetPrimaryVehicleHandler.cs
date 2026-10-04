@@ -7,14 +7,23 @@ namespace ParkFlow.Application.Features.Vehicles.Command;
 public class SetPrimaryVehicleHandler : IRequestHandler<SetPrimaryVehicleCommand, Result<Guid>>
 {
     private readonly IVehicleRepository _vehicleRepository;
+    private readonly IParkingLogRepository? _parkingLogRepository;
 
-    public SetPrimaryVehicleHandler(IVehicleRepository vehicleRepository)
+    public SetPrimaryVehicleHandler(
+        IVehicleRepository vehicleRepository,
+        IParkingLogRepository? parkingLogRepository = null)
     {
         _vehicleRepository = vehicleRepository;
+        _parkingLogRepository = parkingLogRepository;
     }
 
     public async Task<Result<Guid>> Handle(SetPrimaryVehicleCommand request, CancellationToken cancellationToken)
     {
+        if (_parkingLogRepository != null && await _parkingLogRepository.HasActiveParkingLogByUserIdAsync(request.OwnerId))
+        {
+            return Result<Guid>.Failure("Cannot change primary vehicle while you have an ongoing parking session.", ErrorCode.BadRequest);
+        }
+
         var vehicle = await _vehicleRepository.GetByIdAsync(request.VehicleId);
         if (vehicle == null)
         {

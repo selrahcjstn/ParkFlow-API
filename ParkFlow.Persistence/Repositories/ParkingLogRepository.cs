@@ -25,6 +25,13 @@ public class ParkingLogRepository : IParkingLogRepository
             .FirstOrDefaultAsync(p => p.VehicleId == vehicleId && p.Status == ParkingStatus.Parked && p.ExitTime == null);
     }
 
+    public async Task<bool> HasActiveParkingLogByUserIdAsync(Guid userId)
+    {
+        return await _context.Set<ParkingLog>()
+            .AsNoTracking()
+            .AnyAsync(p => p.Vehicle.OwnerId == userId && p.Status == ParkingStatus.Parked && p.ExitTime == null);
+    }
+
     public async Task<IReadOnlyList<ParkingLog>> GetActiveParkingLogsAsync(int limit)
     {
         return await _context.Set<ParkingLog>()

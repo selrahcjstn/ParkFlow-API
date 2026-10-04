@@ -273,6 +273,7 @@ public class FakeParkingLogRepositoryWithActiveLogs : IParkingLogRepository
 
     public Task AddParkingLogAsync(ParkingLog parkingLog) => Task.CompletedTask;
     public Task<ParkingLog?> GetActiveParkingLogByVehicleIdAsync(Guid vehicleId) => Task.FromResult<ParkingLog?>(null);
+    public Task<bool> HasActiveParkingLogByUserIdAsync(Guid userId) => Task.FromResult(_activeLogs.Any(l => l.Vehicle?.OwnerId == userId && l.Status == ParkingStatus.Parked && l.ExitTime == null));
     public Task<IReadOnlyList<ParkingLog>> GetActiveParkingLogsAsync(int limit) => Task.FromResult(_activeLogs);
     public Task<IReadOnlyList<ParkingLog>> GetTodaysParkingLogsAsync(int limit) => Task.FromResult<IReadOnlyList<ParkingLog>>(new List<ParkingLog>());
     public Task<IReadOnlyList<ParkingLog>> GetRecentParkingLogsAsync(int limit) => Task.FromResult<IReadOnlyList<ParkingLog>>(new List<ParkingLog>());

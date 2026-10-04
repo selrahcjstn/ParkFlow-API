@@ -53,6 +53,12 @@ public class DeleteVehicleHandler : IRequestHandler<DeleteVehicleCommand, Result
             return Result<Guid>.Failure("Cannot delete a vehicle with an active parking session.", ErrorCode.BadRequest);
         }
 
+        var userHasActiveParking = !request.IsAdmin && await _parkingLogRepository.HasActiveParkingLogByUserIdAsync(vehicle.OwnerId);
+        if (userHasActiveParking)
+        {
+            return Result<Guid>.Failure("Cannot delete a vehicle while you have an ongoing parking session.", ErrorCode.BadRequest);
+        }
+
         var wasPrimary = vehicle.IsPrimary;
         var ownerId = vehicle.OwnerId;
 

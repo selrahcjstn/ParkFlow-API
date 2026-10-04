@@ -12,17 +12,20 @@ public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IValidator<CreateVehicleCommand> _validator;
     private readonly IQrCodeService _qrCodeService;
+    private readonly IParkingLogRepository? _parkingLogRepository;
     private readonly ISignalRNotificationSender? _signalRNotificationSender;
 
     public CreateVehicleHandler(
         IVehicleRepository vehicleRepository,
         IValidator<CreateVehicleCommand> validator,
         IQrCodeService qrCodeService,
+        IParkingLogRepository? parkingLogRepository = null,
         ISignalRNotificationSender? signalRNotificationSender = null)
     {
         _vehicleRepository = vehicleRepository;
         _validator = validator;
         _qrCodeService = qrCodeService;
+        _parkingLogRepository = parkingLogRepository;
         _signalRNotificationSender = signalRNotificationSender;
     }
 
@@ -35,6 +38,11 @@ public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result
             var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
             return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
         }   
+
+        if (_parkingLogRepository != null && await _parkingLogRepository.HasActiveParkingLogByUserIdAsync(request.OwnerId))
+        {
+            return Result<Guid>.Failure("Cannot register or add a vehicle while you have an ongoing parking session.", ErrorCode.BadRequest);
+        }
 
         var existingVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.OwnerId);
         var maxAllowed = SystemSettingsStore.Current.MaxVehiclesPerUser > 0 

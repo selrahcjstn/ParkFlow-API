@@ -8,6 +8,7 @@ namespace ParkFlow.Application.Features.Cor.Commands.CreateCorSubmission;
 public class CreateCorSubmissionHandler : IRequestHandler<CreateCorSubmissionCommand, Result<Guid>>
 {
     private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IParkingLogRepository? _parkingLogRepository;
     private readonly IVehicleRepository? _vehicleRepository;
     private readonly IUserAccountRepository? _userAccountRepository;
     private readonly IValidator<CreateCorSubmissionCommand> _validator;
@@ -16,12 +17,14 @@ public class CreateCorSubmissionHandler : IRequestHandler<CreateCorSubmissionCom
     public CreateCorSubmissionHandler(
         ICorSubmissionRepository corSubmissionRepository,
         IValidator<CreateCorSubmissionCommand> validator,
+        IParkingLogRepository? parkingLogRepository = null,
         IVehicleRepository? vehicleRepository = null,
         IUserAccountRepository? userAccountRepository = null,
         ISignalRNotificationSender? signalRNotificationSender = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _validator = validator;
+        _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
         _userAccountRepository = userAccountRepository;
         _signalRNotificationSender = signalRNotificationSender;
@@ -35,6 +38,11 @@ public class CreateCorSubmissionHandler : IRequestHandler<CreateCorSubmissionCom
         {
             var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
             return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
+        }
+
+        if (_parkingLogRepository != null && await _parkingLogRepository.HasActiveParkingLogByUserIdAsync(request.UserId))
+        {
+            return Result<Guid>.Failure("Cannot submit or update Certificate of Registration (COR) while you have an ongoing parking session.", ErrorCode.BadRequest);
         }
 
         var existingSubmission = await _corSubmissionRepository

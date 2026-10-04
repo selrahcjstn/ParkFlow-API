@@ -8,6 +8,7 @@ namespace ParkFlow.Application.Features.Cor.Commands.UpdateCorSubmission;
 public class UpdateCorSubmissionHandler : IRequestHandler<UpdateCorSubmissionCommand, Result<Guid>>
 {
     private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IParkingLogRepository? _parkingLogRepository;
     private readonly IVehicleRepository? _vehicleRepository;
     private readonly IUserAccountRepository? _userAccountRepository;
     private readonly IValidator<UpdateCorSubmissionCommand> _validator;
@@ -16,12 +17,14 @@ public class UpdateCorSubmissionHandler : IRequestHandler<UpdateCorSubmissionCom
     public UpdateCorSubmissionHandler(
         ICorSubmissionRepository corSubmissionRepository,
         IValidator<UpdateCorSubmissionCommand> validator,
+        IParkingLogRepository? parkingLogRepository = null,
         IVehicleRepository? vehicleRepository = null,
         IUserAccountRepository? userAccountRepository = null,
         ISignalRNotificationSender? signalRNotificationSender = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _validator = validator;
+        _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
         _userAccountRepository = userAccountRepository;
         _signalRNotificationSender = signalRNotificationSender;
@@ -41,6 +44,11 @@ public class UpdateCorSubmissionHandler : IRequestHandler<UpdateCorSubmissionCom
 
         if (submission == null)
             return Result<Guid>.Failure("COR submission not found.", ErrorCode.NotFound);
+
+        if (_parkingLogRepository != null && await _parkingLogRepository.HasActiveParkingLogByUserIdAsync(submission.UserAccountId))
+        {
+            return Result<Guid>.Failure("Cannot update Certificate of Registration (COR) while you have an ongoing parking session.", ErrorCode.BadRequest);
+        }
 
         var statusToSet = request.VerificationStatus ?? ParkFlow.Domain.Enums.CorVerificationStatus.Pending;
 

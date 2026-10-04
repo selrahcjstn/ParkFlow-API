@@ -13,15 +13,18 @@ namespace ParkFlow.Application.Features.Vehicles.Command;
 public class UpdateVehicleHandler : IRequestHandler<UpdateVehicleCommand, Result<Guid>>
 {
     private readonly IVehicleRepository _vehicleRepository;
+    private readonly IParkingLogRepository? _parkingLogRepository;
     private readonly IQrCodeService? _qrCodeService;
     private readonly ISignalRNotificationSender? _signalRNotificationSender;
 
     public UpdateVehicleHandler(
         IVehicleRepository vehicleRepository,
+        IParkingLogRepository? parkingLogRepository = null,
         IQrCodeService? qrCodeService = null,
         ISignalRNotificationSender? signalRNotificationSender = null)
     {
         _vehicleRepository = vehicleRepository;
+        _parkingLogRepository = parkingLogRepository;
         _qrCodeService = qrCodeService;
         _signalRNotificationSender = signalRNotificationSender;
     }
@@ -33,6 +36,11 @@ public class UpdateVehicleHandler : IRequestHandler<UpdateVehicleCommand, Result
 
         if (string.IsNullOrWhiteSpace(request.Brand))
             return Result<Guid>.Failure("Brand is required.", ErrorCode.BadRequest);
+
+        if (_parkingLogRepository != null && await _parkingLogRepository.HasActiveParkingLogByUserIdAsync(request.OwnerId))
+        {
+            return Result<Guid>.Failure("Cannot update vehicle details while you have an ongoing parking session.", ErrorCode.BadRequest);
+        }
 
         var vehicle = await _vehicleRepository.GetByIdAsync(request.VehicleId);
         if (vehicle == null)
