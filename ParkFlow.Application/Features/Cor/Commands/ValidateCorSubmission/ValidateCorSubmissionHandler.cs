@@ -87,12 +87,6 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
             else if (request.VerificationStatus == CorVerificationStatus.Rejected)
             {
                 user.UpdateStatus(AccountStatus.PendingVerification);
-
-                var userVehicles = (await _vehicleRepository.GetByOwnerIdAsync(user.Id)).ToList();
-                foreach (var veh in userVehicles)
-                {
-                    await _vehicleRepository.DeleteAsync(veh);
-                }
             }
             await _userAccountRepository.UpdateAsync(user);
 
