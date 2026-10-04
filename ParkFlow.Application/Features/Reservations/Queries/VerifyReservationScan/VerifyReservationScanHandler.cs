@@ -67,11 +67,6 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
                         (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
                         r.ReservationDate.Date == phToday);
                 }
-
-                if (reservation == null)
-                {
-                    reservation = userReservations.FirstOrDefault();
-                }
             }
         }
 

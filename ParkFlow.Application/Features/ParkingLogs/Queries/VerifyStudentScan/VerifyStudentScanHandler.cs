@@ -17,6 +17,7 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
     private readonly IParkingLogRepository _parkingLogRepository;
     private readonly IViolationRepository _violationRepository;
     private readonly IScheduleService _scheduleService;
+    private readonly IParkingReservationRepository? _reservationRepository;
 
     public VerifyStudentScanHandler(
         IStudentRepository studentRepository,
@@ -26,7 +27,8 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
         IVehicleRepository vehicleRepository,
         IParkingLogRepository parkingLogRepository,
         IViolationRepository violationRepository,
-        IScheduleService scheduleService)
+        IScheduleService scheduleService,
+        IParkingReservationRepository? reservationRepository = null)
     {
         _studentRepository = studentRepository;
         _userProfileRepository = userProfileRepository;
@@ -36,6 +38,7 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
         _parkingLogRepository = parkingLogRepository;
         _violationRepository = violationRepository;
         _scheduleService = scheduleService;
+        _reservationRepository = reservationRepository;
     }
 
     public async Task<Result<VerifyStudentScanResponse>> Handle(VerifyStudentScanQuery request, CancellationToken cancellationToken)
@@ -213,12 +216,82 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
                     .OrderBy(s => s.StartTime)
                     .ToList();
 
+                ParkingReservation? todayApprovedReservation = null;
+                ParkingReservation? todayCompletedReservation = null;
+
+                if (_reservationRepository != null)
+                {
+                    var userReservations = (await _reservationRepository.GetByUserIdAsync(userAccountId)).ToList();
+                    var phNowDate = philippinesNow.Date;
+                    bool IsReservationDateMatch(ParkingReservation res)
+                    {
+                        var resDate = res.ReservationDate.Date;
+                        var phResDate = ParkingTimeHelper.ConvertUtcToPhilippinesTime(res.ReservationDate).Date;
+                        return resDate == phNowDate || phResDate == phNowDate;
+                    }
+
+                    todayApprovedReservation = userReservations.FirstOrDefault(r =>
+                        (primaryVehicle == null || r.VehicleId == primaryVehicle.Id || r.VehicleId == null || r.VehicleId == Guid.Empty) &&
+                        IsReservationDateMatch(r) &&
+                        r.Status == ReservationStatus.Approved)
+                        ?? userReservations.FirstOrDefault(r =>
+                            IsReservationDateMatch(r) &&
+                            r.Status == ReservationStatus.Approved);
+
+                    todayCompletedReservation = userReservations.FirstOrDefault(r =>
+                        (primaryVehicle == null || r.VehicleId == primaryVehicle.Id || r.VehicleId == null || r.VehicleId == Guid.Empty) &&
+                        IsReservationDateMatch(r) &&
+                        r.Status == ReservationStatus.Completed)
+                        ?? userReservations.FirstOrDefault(r =>
+                            IsReservationDateMatch(r) &&
+                            r.Status == ReservationStatus.Completed);
+                }
+
                 if (todaySchedules.Count == 0)
                 {
-                    entryStatus = "NoScheduleToday";
-                    statusMessage = $"Entry denied: No classes scheduled for today ({todayDayOfWeek}).";
-                    todaySchedule = $"No classes scheduled on {todayDayOfWeek}";
-                    allowedEntryWindow = "N/A";
+                    if (todayApprovedReservation != null)
+                    {
+                        var settings = SystemSettingsStore.Current;
+                        var earlyBuffer = settings.IsEarlyParkingAllowed ? settings.EarlyParkingMinutes : 0;
+                        var earliestAllowed = todayApprovedReservation.StartTime.Subtract(TimeSpan.FromMinutes(earlyBuffer));
+
+                        if (todayApprovedReservation.Type != ReservationType.Special && philippinesNow.TimeOfDay > todayApprovedReservation.EndTime)
+                        {
+                            entryStatus = "OutOfSchedule";
+                            statusMessage = $"Entry denied: Reservation schedule for today ended at {DateTime.Today.Add(todayApprovedReservation.EndTime):hh:mm tt}.";
+                            todaySchedule = $"Reservation Pass: {DateTime.Today.Add(todayApprovedReservation.StartTime):hh:mm tt} – {DateTime.Today.Add(todayApprovedReservation.EndTime):hh:mm tt} (Ended)";
+                            allowedEntryWindow = "N/A";
+                        }
+                        else if (todayApprovedReservation.Type != ReservationType.Special && philippinesNow.TimeOfDay < earliestAllowed)
+                        {
+                            entryStatus = "OutOfSchedule";
+                            statusMessage = $"Entry denied: Too early for reservation. Earliest allowed entry is {DateTime.Today.Add(earliestAllowed):hh:mm tt}.";
+                            todaySchedule = $"Reservation Pass: {DateTime.Today.Add(todayApprovedReservation.StartTime):hh:mm tt} – {DateTime.Today.Add(todayApprovedReservation.EndTime):hh:mm tt}";
+                            allowedEntryWindow = $"{DateTime.Today.Add(earliestAllowed):hh:mm tt} – {DateTime.Today.Add(todayApprovedReservation.EndTime):hh:mm tt}";
+                        }
+                        else
+                        {
+                            isValid = true;
+                            entryStatus = "Approved";
+                            statusMessage = "Authorized for campus entry today (via reservation pass).";
+                            todaySchedule = $"Reservation Pass: {DateTime.Today.Add(todayApprovedReservation.StartTime):hh:mm tt} – {DateTime.Today.Add(todayApprovedReservation.EndTime):hh:mm tt}";
+                            allowedEntryWindow = $"{DateTime.Today.Add(earliestAllowed):hh:mm tt} – {DateTime.Today.Add(todayApprovedReservation.EndTime):hh:mm tt}";
+                        }
+                    }
+                    else if (todayCompletedReservation != null)
+                    {
+                        entryStatus = "NoScheduleToday";
+                        statusMessage = "Entry denied: This reservation pass has already been used and is now void. Re-entry is not permitted without an active class schedule for today.";
+                        todaySchedule = $"No classes scheduled on {todayDayOfWeek}";
+                        allowedEntryWindow = "N/A";
+                    }
+                    else
+                    {
+                        entryStatus = "NoScheduleToday";
+                        statusMessage = $"Entry denied: No classes scheduled for today ({todayDayOfWeek}).";
+                        todaySchedule = $"No classes scheduled on {todayDayOfWeek}";
+                        allowedEntryWindow = "N/A";
+                    }
                 }
                 else
                 {
@@ -235,13 +308,53 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
                         allowedEntryWindow = $"{DateTime.Today.Add(earliest):hh:mm tt} – {DateTime.Today.Add(matchingSchedule.EndTime):hh:mm tt} (with 30m grace)";
                         statusMessage = "Authorized for campus entry today.";
                     }
+                    else if (todayApprovedReservation != null)
+                    {
+                        var settings = SystemSettingsStore.Current;
+                        var earlyBuffer = settings.IsEarlyParkingAllowed ? settings.EarlyParkingMinutes : 0;
+                        var earliestAllowed = todayApprovedReservation.StartTime.Subtract(TimeSpan.FromMinutes(earlyBuffer));
+
+                        if (todayApprovedReservation.Type == ReservationType.Special || (philippinesNow.TimeOfDay >= earliestAllowed && philippinesNow.TimeOfDay <= todayApprovedReservation.EndTime))
+                        {
+                            isValid = true;
+                            entryStatus = "Approved";
+                            statusMessage = "Authorized for campus entry today (via reservation pass).";
+                            allowedEntryWindow = $"{DateTime.Today.Add(earliestAllowed):hh:mm tt} – {DateTime.Today.Add(todayApprovedReservation.EndTime):hh:mm tt}";
+                        }
+                        else
+                        {
+                            entryStatus = "OutOfSchedule";
+                            var earliestFirst = _scheduleService.GetEarliestAllowedEntryTime(todaySchedules.First());
+                            var latestEnd = todaySchedules.Last().EndTime;
+
+                            if (philippinesNow.TimeOfDay < earliestFirst)
+                            {
+                                statusMessage = $"Entry denied: Too early for class. Earliest allowed entry is {DateTime.Today.Add(earliestFirst):hh:mm tt}.";
+                            }
+                            else if (philippinesNow.TimeOfDay > latestEnd)
+                            {
+                                statusMessage = $"Entry denied: Scheduled classes ended at {DateTime.Today.Add(latestEnd):hh:mm tt}.";
+                            }
+                            else
+                            {
+                                statusMessage = "Entry denied: Current time falls outside authorized class schedule windows.";
+                            }
+
+                            allowedEntryWindow = string.Join(", ", todaySchedules.Select(s =>
+                                $"{DateTime.Today.Add(_scheduleService.GetEarliestAllowedEntryTime(s)):hh:mm tt} – {DateTime.Today.Add(s.EndTime):hh:mm tt}"));
+                        }
+                    }
                     else
                     {
                         entryStatus = "OutOfSchedule";
                         var earliestFirst = _scheduleService.GetEarliestAllowedEntryTime(todaySchedules.First());
                         var latestEnd = todaySchedules.Last().EndTime;
 
-                        if (philippinesNow.TimeOfDay < earliestFirst)
+                        if (todayCompletedReservation != null)
+                        {
+                            statusMessage = "Entry denied: Reservation pass has already concluded and current time falls outside authorized class schedule windows.";
+                        }
+                        else if (philippinesNow.TimeOfDay < earliestFirst)
                         {
                             statusMessage = $"Entry denied: Too early for class. Earliest allowed entry is {DateTime.Today.Add(earliestFirst):hh:mm tt}.";
                         }

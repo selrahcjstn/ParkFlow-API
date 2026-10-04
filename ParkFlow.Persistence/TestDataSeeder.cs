@@ -45,6 +45,7 @@ public static class TestDataSeeder
         try
         {
             await dbContext.Database.ExecuteSqlRawAsync("UPDATE \"ParkingReservations\" SET \"StartTime\" = '14:00:00', \"EndTime\" = '15:00:00' WHERE \"ReferenceNumber\" LIKE 'RES-%';");
+            await dbContext.Database.ExecuteSqlRawAsync("DELETE FROM \"ParkingSchedules\" WHERE \"DayOfWeek\" = 0;");
         }
         catch { }
 
@@ -191,9 +192,7 @@ public static class TestDataSeeder
                     new ParkingSchedule(cor.Id, DayOfWeek.Tuesday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
                     new ParkingSchedule(cor.Id, DayOfWeek.Wednesday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
                     new ParkingSchedule(cor.Id, DayOfWeek.Thursday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
-                    new ParkingSchedule(cor.Id, DayOfWeek.Friday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
-                    new ParkingSchedule(cor.Id, DayOfWeek.Saturday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
-                    new ParkingSchedule(cor.Id, DayOfWeek.Sunday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0))
+                    new ParkingSchedule(cor.Id, DayOfWeek.Friday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0))
                 };
                 await dbContext.ParkingSchedules.AddRangeAsync(schedules);
                 await dbContext.SaveChangesAsync();
