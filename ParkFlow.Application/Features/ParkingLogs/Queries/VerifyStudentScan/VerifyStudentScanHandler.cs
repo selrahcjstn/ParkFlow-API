@@ -275,11 +275,14 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
             entryStatus = "HasViolation";
             statusMessage = "Entry denied: User has reached 3 or more unpaid violations. Please settle pending charges before parking.";
         }
-        else if (isValid && (primaryVehicle == null || primaryVehicle.VerificationStatus != CorVerificationStatus.Verified))
+        else if (isValid && primaryVehicle != null && primaryVehicle.VerificationStatus != CorVerificationStatus.Verified)
         {
             isValid = false;
             entryStatus = "VehicleNotVerified";
-            statusMessage = "Entry denied: Vehicle is unverified or pending admin approval.";
+            var reasonSuffix = primaryVehicle.VerificationStatus == CorVerificationStatus.Rejected && !string.IsNullOrWhiteSpace(primaryVehicle.RejectionReason)
+                ? $" Reason: {primaryVehicle.RejectionReason}"
+                : "";
+            statusMessage = $"Entry denied: Vehicle is unverified or pending admin approval.{reasonSuffix}";
         }
 
         var response = new VerifyStudentScanResponse

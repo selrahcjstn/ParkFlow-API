@@ -206,6 +206,19 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         var systemSettings = SystemSettingsStore.Current;
         var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
 
+        if (admin == null)
+        {
+            if (vehicle.VerificationStatus != CorVerificationStatus.Verified)
+            {
+                var reasonSuffix = vehicle.VerificationStatus == CorVerificationStatus.Rejected && !string.IsNullOrWhiteSpace(vehicle.RejectionReason)
+                    ? $" Reason: {vehicle.RejectionReason}"
+                    : "";
+                return Result<CreateParkingLogResponse>.Failure(
+                    $"Entry denied: Vehicle is unverified or pending admin approval.{reasonSuffix}",
+                    ErrorCode.Forbidden);
+            }
+        }
+
         if (todayApprovedReservation != null)
         {
             if (todayApprovedReservation.Type == ReservationType.Special)
@@ -238,17 +251,10 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         {
             if (admin == null)
             {
-                if (vehicle.VerificationStatus != CorVerificationStatus.Verified)
-                {
-                    return Result<CreateParkingLogResponse>.Failure(
-                        "Entry denied: Vehicle is unverified or pending admin approval.",
-                        ErrorCode.Forbidden);
-                }
-
                 var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
+                var userCors = corSubmissions.Where(c => c.UserAccountId == vehicle.OwnerId).ToList();
 
-                var verifiedCor = corSubmissions.FirstOrDefault(c =>
-                    c.UserAccountId == vehicle.OwnerId &&
+                var verifiedCor = userCors.FirstOrDefault(c =>
                     c.VerificationStatus == CorVerificationStatus.Verified);
 
                 if (verifiedCor == null)
@@ -259,7 +265,17 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
                             "Entry denied: This reservation pass has already been used and is now void. Re-entry is not permitted.",
                             ErrorCode.Forbidden);
                     }
+                    var latestCor = userCors.OrderByDescending(c => c.CreatedAt).FirstOrDefault();
                     var docName = student != null ? "Student COR" : "Personnel ID / Registration";
+                    if (latestCor?.VerificationStatus == CorVerificationStatus.Rejected)
+                    {
+                        var reasonSuffix = !string.IsNullOrWhiteSpace(latestCor.RejectionReason)
+                            ? $" Reason: {latestCor.RejectionReason}"
+                            : "";
+                        return Result<CreateParkingLogResponse>.Failure(
+                            $"Entry denied: {docName} was rejected.{reasonSuffix}",
+                            ErrorCode.Forbidden);
+                    }
                     return Result<CreateParkingLogResponse>.Failure(
                         $"Entry denied: {docName} document is unverified or pending admin approval.",
                         ErrorCode.Forbidden);
