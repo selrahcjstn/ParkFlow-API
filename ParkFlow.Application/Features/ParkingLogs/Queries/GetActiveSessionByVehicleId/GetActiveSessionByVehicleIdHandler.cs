@@ -84,14 +84,33 @@ public class GetActiveSessionByVehicleIdHandler
         var sysSettings = SystemSettingsStore.Current;
         var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
 
-        var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId) : [];
+        var userReservations = _reservationRepository != null 
+            ? (await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId)).ToList() 
+            : new List<ParkFlow.Domain.Entities.ParkingReservation>();
+        var phEntryDate = philippinesEntry.Date;
+        var phNowDate = ParkingTimeHelper.ConvertUtcToPhilippinesTime(nowUtc).Date;
+
+        bool IsReservationDateMatch(ParkFlow.Domain.Entities.ParkingReservation res)
+        {
+            var resDate = res.ReservationDate.Date;
+            var phResDate = ParkingTimeHelper.ConvertUtcToPhilippinesTime(res.ReservationDate).Date;
+            return resDate == phEntryDate || phResDate == phEntryDate || resDate == phNowDate || phResDate == phNowDate;
+        }
+
         var entryReservation = userReservations.FirstOrDefault(r =>
-            (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
-            r.ReservationDate.Date == philippinesEntry.Date &&
-            r.Status == ReservationStatus.Approved)
+            (r.VehicleId == vehicle.Id || r.VehicleId == null || r.VehicleId == Guid.Empty) &&
+            IsReservationDateMatch(r) &&
+            (r.Status == ReservationStatus.Approved || r.Status == ReservationStatus.Completed))
             ?? userReservations.FirstOrDefault(r =>
-                r.ReservationDate.Date == philippinesEntry.Date &&
-                r.Status == ReservationStatus.Approved);
+                IsReservationDateMatch(r) &&
+                (r.Status == ReservationStatus.Approved || r.Status == ReservationStatus.Completed))
+            ?? userReservations.FirstOrDefault(r =>
+                (r.VehicleId == vehicle.Id || r.VehicleId == null || r.VehicleId == Guid.Empty) &&
+                IsReservationDateMatch(r) &&
+                r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.Rejected)
+            ?? userReservations.FirstOrDefault(r =>
+                IsReservationDateMatch(r) &&
+                r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.Rejected);
 
         if (entryReservation != null)
         {

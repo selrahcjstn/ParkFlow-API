@@ -187,20 +187,29 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId) : [];
         var utcNow = DateTime.UtcNow;
         var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
+        var phNowDate = philippinesNow.Date;
+
+        bool IsReservationDateMatch(ParkFlow.Domain.Entities.ParkingReservation res)
+        {
+            var resDate = res.ReservationDate.Date;
+            var phResDate = ParkingTimeHelper.ConvertUtcToPhilippinesTime(res.ReservationDate).Date;
+            return resDate == phNowDate || phResDate == phNowDate;
+        }
+
         var todayApprovedReservation = userReservations.FirstOrDefault(r => 
-            (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
-            r.ReservationDate.Date == philippinesNow.Date &&
+            (r.VehicleId == vehicle.Id || r.VehicleId == null || r.VehicleId == Guid.Empty) &&
+            IsReservationDateMatch(r) &&
             r.Status == ReservationStatus.Approved)
             ?? userReservations.FirstOrDefault(r =>
-                r.ReservationDate.Date == philippinesNow.Date &&
+                IsReservationDateMatch(r) &&
                 r.Status == ReservationStatus.Approved);
 
         var todayCompletedReservation = userReservations.FirstOrDefault(r => 
-            (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
-            r.ReservationDate.Date == philippinesNow.Date &&
+            (r.VehicleId == vehicle.Id || r.VehicleId == null || r.VehicleId == Guid.Empty) &&
+            IsReservationDateMatch(r) &&
             r.Status == ReservationStatus.Completed)
             ?? userReservations.FirstOrDefault(r =>
-                r.ReservationDate.Date == philippinesNow.Date &&
+                IsReservationDateMatch(r) &&
                 r.Status == ReservationStatus.Completed);
 
         var systemSettings = SystemSettingsStore.Current;
