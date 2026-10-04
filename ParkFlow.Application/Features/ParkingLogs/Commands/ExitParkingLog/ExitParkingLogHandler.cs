@@ -205,11 +205,11 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             var overdueDays = (philippinesExit.Date - philippinesEntry.Date).Days;
             if (overdueDays < 0) overdueDays = 0;
 
-            penaltyFee = 20m + (overdueDays * 100m);
-            overstayTime = overdueDays > 0 ? (exitTime - entryMidnightUtc).TotalHours : 0;
-
-            if (penaltyFee > 0m)
+            if (overdueDays > 0)
             {
+                penaltyFee = 20m + (overdueDays * 100m);
+                overstayTime = (exitTime - entryMidnightUtc).TotalHours;
+
                 var violation = new Violation(
                     active.Id,
                     penaltyFee);
@@ -219,6 +219,12 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                 violationType = violation.ViolationType.ToString();
                 settlementStatus = violation.SettlementStatus.ToString();
                 referenceNumber = violation.ReferenceNumber;
+            }
+            else
+            {
+                penaltyFee = 20m;
+                overstayTime = 0;
+                isViolation = false;
             }
         }
         else if (entryReservation != null)
