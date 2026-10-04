@@ -14,17 +14,20 @@ public class GetSessionCountHandler
 	private readonly ICorSubmissionRepository _corSubmissionRepository;
 	private readonly IParkingScheduleRepository _parkingScheduleRepository;
 	private readonly IParkingReservationRepository? _reservationRepository;
+	private readonly ICacheService? _cacheService;
 
 	public GetSessionCountHandler(
 		IParkingLogRepository parkingLogRepository,
 		ICorSubmissionRepository corSubmissionRepository,
 		IParkingScheduleRepository parkingScheduleRepository,
-		IParkingReservationRepository? reservationRepository = null)
+		IParkingReservationRepository? reservationRepository = null,
+		ICacheService? cacheService = null)
 	{
 		_parkingLogRepository = parkingLogRepository;
 		_corSubmissionRepository = corSubmissionRepository;
 		_parkingScheduleRepository = parkingScheduleRepository;
 		_reservationRepository = reservationRepository;
+		_cacheService = cacheService;
 	}
 
 	public async Task<Result<SessionCountResponse>> Handle(
@@ -35,6 +38,17 @@ public class GetSessionCountHandler
 		var effectiveCapacity = request.ParkingCapacity > 0 
 			? request.ParkingCapacity 
 			: (sysSettings.TotalCapacity > 0 ? sysSettings.TotalCapacity : 500);
+
+		var cacheKey = CacheKeys.ActiveSessionCount(effectiveCapacity);
+
+		if (_cacheService != null)
+		{
+			var cached = await _cacheService.GetAsync<SessionCountResponse>(cacheKey, cancellationToken);
+			if (cached != null)
+			{
+				return Result<SessionCountResponse>.Success(cached, "Session count retrieved.");
+			}
+		}
 
 		var logs = await _parkingLogRepository.GetActiveParkingLogsAsync(Math.Max(1000, effectiveCapacity));
 		var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
@@ -123,6 +137,11 @@ public class GetSessionCountHandler
 			OverstayCount: overstayCount,
 			MaximumCapacity: effectiveCapacity,
 			ManualSessionCount: manualSessionCount);
+
+		if (_cacheService != null)
+		{
+			await _cacheService.SetAsync(cacheKey, response, TimeSpan.FromSeconds(20), cancellationToken);
+		}
 
 		return Result<SessionCountResponse>.Success(response, "Session count retrieved.");
 	}

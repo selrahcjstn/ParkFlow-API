@@ -30,6 +30,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
     private readonly IUserAccountRepository? _userAccountRepository;
     private readonly IEmailService? _emailService;
     private readonly INotificationService? _notificationService;
+    private readonly ICacheService? _cacheService;
 
     public ExitParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -50,7 +51,8 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         IParkingReservationRepository reservationRepository,
         IUserAccountRepository? userAccountRepository = null,
         IEmailService? emailService = null,
-        INotificationService? notificationService = null)
+        INotificationService? notificationService = null,
+        ICacheService? cacheService = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
@@ -71,6 +73,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         _userAccountRepository = userAccountRepository;
         _emailService = emailService;
         _notificationService = notificationService;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<ExitParkingLogResponse>> Handle(ExitParkingLogCommand request, CancellationToken cancellationToken)
@@ -600,6 +603,12 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                     Console.WriteLine($"[ExitParkingLogHandler] Email notice failed: {ex.Message}");
                 }
             }
+        }
+
+        if (_cacheService != null)
+        {
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.DashboardPrefix, cancellationToken);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.SessionPrefix, cancellationToken);
         }
 
         return Result<ExitParkingLogResponse>.Success(response, "Exit Confirmed");

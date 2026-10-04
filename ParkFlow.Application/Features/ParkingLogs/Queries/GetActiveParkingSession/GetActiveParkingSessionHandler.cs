@@ -20,6 +20,7 @@ public class GetActiveParkingSessionHandler
     private readonly IAdminRepository _adminRepository;
     private readonly IParkingLogRoleService _parkingLogRoleService;
     private readonly IParkingReservationRepository? _reservationRepository;
+    private readonly ICacheService? _cacheService;
 
     public GetActiveParkingSessionHandler(
         IParkingLogRepository parkingLogRepository,
@@ -28,7 +29,8 @@ public class GetActiveParkingSessionHandler
         IViolationService violationService,
         IAdminRepository adminRepository,
         IParkingLogRoleService parkingLogRoleService,
-        IParkingReservationRepository? reservationRepository = null)
+        IParkingReservationRepository? reservationRepository = null,
+        ICacheService? cacheService = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
@@ -37,6 +39,7 @@ public class GetActiveParkingSessionHandler
         _adminRepository = adminRepository;
         _parkingLogRoleService = parkingLogRoleService;
         _reservationRepository = reservationRepository;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<IEnumerable<GetActiveParkingSessionResponse>>> Handle(
@@ -47,6 +50,18 @@ public class GetActiveParkingSessionHandler
         var effectiveCapacity = sysSettings.TotalCapacity > 0 
             ? sysSettings.TotalCapacity 
             : (request.ParkingCapacity > 0 ? request.ParkingCapacity : 500);
+
+        var cacheKey = CacheKeys.ActiveSessions(effectiveCapacity);
+
+        if (_cacheService != null)
+        {
+            var cached = await _cacheService.GetAsync<List<GetActiveParkingSessionResponse>>(cacheKey, cancellationToken);
+            if (cached != null)
+            {
+                return Result<IEnumerable<GetActiveParkingSessionResponse>>
+                    .Success(cached, "Active parking sessions retrieved.");
+            }
+        }
 
         var logs = await _parkingLogRepository
             .GetActiveParkingLogsAsync(Math.Max(1000, effectiveCapacity));
@@ -237,6 +252,11 @@ public class GetActiveParkingSessionHandler
                 TotalParkingHours: $"{totalHours:F2} hours",
                 EntryMethod: log.EntryMethod.ToString()
             ));
+        }
+
+        if (_cacheService != null)
+        {
+            await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromSeconds(20), cancellationToken);
         }
 
         return Result<IEnumerable<GetActiveParkingSessionResponse>>

@@ -25,6 +25,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     private readonly ISignalRNotificationSender _signalRNotificationSender;
     private readonly IParkingReservationRepository? _reservationRepository;
     private readonly INotificationService? _notificationService;
+    private readonly ICacheService? _cacheService;
 
     public CreateParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -42,7 +43,8 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         IParkingLogRoleService parkingLogRoleService,
         ISignalRNotificationSender signalRNotificationSender,
         IParkingReservationRepository? reservationRepository = null,
-        INotificationService? notificationService = null)
+        INotificationService? notificationService = null,
+        ICacheService? cacheService = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
@@ -60,6 +62,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         _signalRNotificationSender = signalRNotificationSender;
         _reservationRepository = reservationRepository;
         _notificationService = notificationService;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<CreateParkingLogResponse>> Handle(CreateParkingLogCommand request, CancellationToken cancellationToken)
@@ -421,6 +424,12 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         catch
         {
             // Ignore SignalR dispatch failure
+        }
+
+        if (_cacheService != null)
+        {
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.DashboardPrefix, cancellationToken);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.SessionPrefix, cancellationToken);
         }
 
         return Result<CreateParkingLogResponse>.Success(response, "Entry Confirmed");

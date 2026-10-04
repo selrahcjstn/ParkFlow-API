@@ -9,13 +9,16 @@ public class UpdateUserProfileHandler : IRequestHandler<UpdateUserProfileCommand
 {
     private readonly IUserProfileRepository _userProfileRepository;
     private readonly IValidator<UpdateUserProfileCommand> _validator;
+    private readonly ICacheService? _cacheService;
 
     public UpdateUserProfileHandler(
         IUserProfileRepository userProfileRepository,
-        IValidator<UpdateUserProfileCommand> validator)
+        IValidator<UpdateUserProfileCommand> validator,
+        ICacheService? cacheService = null)
     {
         _userProfileRepository = userProfileRepository;
         _validator = validator;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<Guid>> Handle(UpdateUserProfileCommand request, CancellationToken cancellationToken)
@@ -40,6 +43,11 @@ public class UpdateUserProfileHandler : IRequestHandler<UpdateUserProfileCommand
             request.ProfilePictureUrl);
 
         await _userProfileRepository.UpdateAsync(profile);
+
+        if (_cacheService != null)
+        {
+            await _cacheService.RemoveAsync(CacheKeys.UserProfile(request.UserId), cancellationToken);
+        }
 
         return Result<Guid>.Success(profile.Id, "User profile updated.");
     }

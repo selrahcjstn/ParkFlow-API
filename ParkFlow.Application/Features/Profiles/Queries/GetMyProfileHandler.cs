@@ -13,17 +13,20 @@ public class GetMyProfileHandler
     private readonly IUserContext _userContext;
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IVehicleRepository? _vehicleRepository;
+    private readonly ICacheService? _cacheService;
 
     public GetMyProfileHandler(
         IUserProfileRepository userProfileRepository,
         IUserContext userContext,
         ICorSubmissionRepository corSubmissionRepository,
-        IVehicleRepository? vehicleRepository = null)
+        IVehicleRepository? vehicleRepository = null,
+        ICacheService? cacheService = null)
     {
         _userProfileRepository = userProfileRepository;
         _userContext = userContext;
         _corSubmissionRepository = corSubmissionRepository;
         _vehicleRepository = vehicleRepository;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<UserProfileDto>> Handle(
@@ -31,6 +34,17 @@ public class GetMyProfileHandler
         CancellationToken cancellationToken)
     {
         var userId = _userContext.GetUserId();
+
+        var cacheKey = CacheKeys.UserProfile(userId);
+
+        if (_cacheService != null && userId != Guid.Empty)
+        {
+            var cached = await _cacheService.GetAsync<UserProfileDto>(cacheKey, cancellationToken);
+            if (cached != null)
+            {
+                return Result<UserProfileDto>.Success(cached, "User profile retrieved.");
+            }
+        }
 
         var profile = await _userProfileRepository.GetByUserIdAsync(userId);
 
@@ -98,6 +112,11 @@ public class GetMyProfileHandler
             Status: profile.UserAccount?.Status.ToString(),
             Role: roleStr,
             Email: profile.UserAccount?.PrimaryEmail);
+
+        if (_cacheService != null && userId != Guid.Empty)
+        {
+            await _cacheService.SetAsync(cacheKey, dto, TimeSpan.FromMinutes(5), cancellationToken);
+        }
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");
     }

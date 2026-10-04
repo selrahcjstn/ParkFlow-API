@@ -11,10 +11,14 @@ namespace ParkFlow.Application.Features.SystemAnnouncements.Commands.UpdateSyste
     public class UpdateSystemAnnouncementHandler : IRequestHandler<UpdateSystemAnnouncementCommand, Result<SystemAnnouncementDto>>
     {
         private readonly ISystemAnnouncementRepository _repository;
+        private readonly ICacheService? _cacheService;
 
-        public UpdateSystemAnnouncementHandler(ISystemAnnouncementRepository repository)
+        public UpdateSystemAnnouncementHandler(
+            ISystemAnnouncementRepository repository,
+            ICacheService? cacheService = null)
         {
             _repository = repository;
+            _cacheService = cacheService;
         }
 
         public async Task<Result<SystemAnnouncementDto>> Handle(UpdateSystemAnnouncementCommand request, CancellationToken cancellationToken)
@@ -63,6 +67,11 @@ namespace ParkFlow.Application.Features.SystemAnnouncements.Commands.UpdateSyste
                 CreatedAt = existing.CreatedAt,
                 UpdatedAt = existing.UpdatedAt
             };
+
+            if (_cacheService != null)
+            {
+                await _cacheService.RemoveAsync(CacheKeys.ActiveAnnouncement, cancellationToken);
+            }
 
             return Result<SystemAnnouncementDto>.Success(dto, "System announcement updated successfully.");
         }

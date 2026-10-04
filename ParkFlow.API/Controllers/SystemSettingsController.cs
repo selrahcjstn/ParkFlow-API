@@ -14,15 +14,18 @@ public class SystemSettingsController : ControllerBase
     private readonly ISignalRNotificationSender _notificationSender;
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IParkingLogRepository _parkingLogRepository;
+    private readonly ICacheService? _cacheService;
 
     public SystemSettingsController(
         ISignalRNotificationSender notificationSender,
         ICorSubmissionRepository corSubmissionRepository,
-        IParkingLogRepository parkingLogRepository)
+        IParkingLogRepository parkingLogRepository,
+        ICacheService? cacheService = null)
     {
         _notificationSender = notificationSender;
         _corSubmissionRepository = corSubmissionRepository;
         _parkingLogRepository = parkingLogRepository;
+        _cacheService = cacheService;
     }
 
     [HttpGet]
@@ -134,6 +137,11 @@ public class SystemSettingsController : ControllerBase
             await _notificationSender.SendToAllAsync("SystemSettingsUpdated", SystemSettingsStore.Current);
         }
         catch { }
+
+        if (_cacheService != null)
+        {
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.SchedulePrefix);
+        }
 
         return Ok(Result<bool>.Success(true, "All student schedules and COR verification statuses have been reset for the new semester."));
     }

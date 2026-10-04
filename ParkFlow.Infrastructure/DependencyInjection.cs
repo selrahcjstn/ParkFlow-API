@@ -23,6 +23,10 @@ public static class DependencyInjection
         services.AddScoped<IUserContext, UserContext>();
         services.AddSingleton<IOtpRateLimiter, ParkFlow.Infrastructure.Services.OtpRateLimiter>();
 
+        // Caching
+        services.AddMemoryCache();
+        services.AddSingleton<ICacheService, ParkFlow.Infrastructure.Caching.MemoryCacheService>();
+
         // SignalR
         services.AddScoped<ISignalRNotificationSender, SignalRNotificationSender>();
         services.AddScoped<INotificationService, ParkFlow.Infrastructure.Services.NotificationService>();
