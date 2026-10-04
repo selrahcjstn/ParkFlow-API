@@ -284,5 +284,8 @@ public static class SuperAdminSeeder
             vehicle.UpdateVerificationStatus(CorVerificationStatus.Verified);
             await vehicleRepository.AddAsync(vehicle);
         }
+
+        // 6. Seed 50 Test Accounts with Active Reservations
+        await TestDataSeeder.SeedTestAccountsAndReservationsAsync(serviceProvider);
     }
 }
