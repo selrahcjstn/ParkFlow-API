@@ -81,15 +81,8 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
         }
         else
         {
+            // A returning visit reuses the saved profile; it does not overwrite it.
             isReturning = true;
-            // Update profile with latest name/contact/brand if provided
-            visitor.UpdateProfile(
-                string.IsNullOrWhiteSpace(request.FullName) ? visitor.FullName : request.FullName,
-                request.ContactNumber != null ? request.ContactNumber : visitor.ContactNumber,
-                request.VehicleType,
-                string.IsNullOrWhiteSpace(request.Brand) ? visitor.Brand : request.Brand);
-
-            await _visitorRepository.UpdateAsync(visitor);
         }
 
         // 3. BACKEND DUPLICATE PROTECTION: Only ONE active visit session allowed
@@ -124,7 +117,8 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
                     var admin = await _adminRepository.GetByUserProfileIdAsync(userProfile.Id);
                     if (admin != null)
                     {
-                        guardProfileId = admin.UserProfileId;
+                        // VisitSession.GuardId references Guards, not Admins.
+                        guardProfileId = null;
                     }
                 }
             }

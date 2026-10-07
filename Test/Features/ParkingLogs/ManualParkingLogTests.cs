@@ -51,9 +51,18 @@ public class ManualParkingLogTests
         _parkingLogRoleService = new ParkingLogRoleService();
     }
 
-    [Fact]
-    public async Task Handle_ShouldCreateParkingLog_WhenVehicleExistsAndIsValid()
+    [Theory]
+    [InlineData(true, false, 0)]
+    [InlineData(true, true, 0)]
+    [InlineData(false, false, 0)]
+    [InlineData(false, true, 0)]
+    [InlineData(true, false, 1)]
+    [InlineData(true, false, 2)]
+    [InlineData(true, false, 3)]
+    [InlineData(false, true, 1)]
+    public async Task Handle_ShouldRequireSettlementBeforeEntry_AndFeeConsentWhenNoSchedule(bool hasSchedule, bool acceptFee, int unpaidCount)
     {
+        _violationRepository.ActiveViolationCount = unpaidCount;
         // Arrange
         var ownerId = Guid.NewGuid();
         var guardUserId = Guid.NewGuid();
@@ -92,8 +101,8 @@ public class ManualParkingLogTests
         // Schedule setup
         var utcNow = DateTime.UtcNow;
         var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
-        var schedule = new ParkingSchedule(cor.Id, philippinesNow.DayOfWeek, new TimeSpan(6, 0, 0), new TimeSpan(20, 0, 0));
-        var scheduleSubRepo = new FakeParkingScheduleRepositoryWithMock(new List<ParkingSchedule> { schedule });
+        var schedule = new ParkingSchedule(cor.Id, philippinesNow.DayOfWeek, TimeSpan.Zero, new TimeSpan(23, 59, 59));
+        var scheduleSubRepo = new FakeParkingScheduleRepositoryWithMock(hasSchedule ? new List<ParkingSchedule> { schedule } : new List<ParkingSchedule>());
 
         var handler = new CreateManualParkingLogHandler(
             _parkingLogRepository,
@@ -113,20 +122,40 @@ public class ManualParkingLogTests
             new FakeSignalRNotificationSender()
         );
 
-        var command = new CreateManualParkingLogCommand("ABC-1234", VehicleType.Car, "+639999999999", "Toyota", guardUserId);
+        var command = new CreateManualParkingLogCommand("ABC-1234", VehicleType.Car, "+639999999999", "Toyota", guardUserId, acceptFee);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assert
+        if (unpaidCount > 0)
+        {
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ParkFlow.Application.Common.ErrorCode.Forbidden, result.ErrorCode);
+            Assert.Contains("settle all unpaid violations", result.Message);
+            Assert.Null(result.Data);
+            Assert.Null(await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id));
+            // After payment removes the unpaid balance, normal entry rules apply again.
+            _violationRepository.ActiveViolationCount = 0;
+            result = await handler.Handle(command, CancellationToken.None);
+        }
+        if (!hasSchedule && !acceptFee)
+        {
+            Assert.False(result.IsSuccess);
+            Assert.True(result.Data!.FeeOptionAvailable);
+            Assert.Equal(20m, result.Data.EntryFee);
+            Assert.Null(await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id));
+            return;
+        }
         Assert.True(result.IsSuccess, result.Message);
         Assert.NotNull(result.Data);
         Assert.Equal("ABC-1234", result.Data.PlateNumber);
-        Assert.Equal("Manual", result.Data.EntryMethod);
+        Assert.Equal(hasSchedule ? "ManualScheduled" : "Manual", result.Data.EntryMethod);
+        Assert.Equal(hasSchedule ? 0m : 20m, result.Data.EntryFee);
     }
 
     [Fact]
-    public async Task Handle_ShouldAutoRegisterVehicleAndCreateParkingLog_WhenVehicleDoesNotExistButPhoneNumberMatchesUser()
+    public async Task Handle_ShouldRejectUnknownPlate_WithoutAutoRegisteringVehicle()
     {
         // Arrange
         var ownerId = Guid.NewGuid();
@@ -161,7 +190,7 @@ public class ManualParkingLogTests
         // Schedule setup
         var utcNow = DateTime.UtcNow;
         var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
-        var schedule = new ParkingSchedule(cor.Id, philippinesNow.DayOfWeek, new TimeSpan(6, 0, 0), new TimeSpan(20, 0, 0));
+        var schedule = new ParkingSchedule(cor.Id, philippinesNow.DayOfWeek, TimeSpan.Zero, new TimeSpan(23, 59, 59));
         var scheduleSubRepo = new FakeParkingScheduleRepositoryWithMock(new List<ParkingSchedule> { schedule });
 
         var handler = new CreateManualParkingLogHandler(
@@ -187,21 +216,12 @@ public class ManualParkingLogTests
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
 
-        // Assert
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Data);
-        Assert.Equal("NEW-PLATE", result.Data.PlateNumber);
-        Assert.Equal("Manual", result.Data.EntryMethod);
-
-        // Verify vehicle was registered
-        var registeredVehicle = await _vehicleRepository.GetByPlateNumberAsync("NEW-PLATE");
-        Assert.NotNull(registeredVehicle);
-        Assert.Equal(ownerId, registeredVehicle.OwnerId);
-        Assert.Equal("Honda", registeredVehicle.Brand);
+        Assert.False(result.IsSuccess);
+        Assert.Null(await _vehicleRepository.GetByPlateNumberAsync("NEW-PLATE"));
     }
 
     [Fact]
-    public async Task Handle_ShouldAutoRegisterGuest_WhenVehicleDoesNotExistAndNoPhoneNumberMatchesUser()
+    public async Task Handle_ShouldRejectUnknownPlate_WithoutCreatingGuestAccount()
     {
         // Arrange
         var guardUserId = Guid.NewGuid();
@@ -240,21 +260,9 @@ public class ManualParkingLogTests
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
 
-        // Assert
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Data);
-        Assert.Equal("UNKNOWN-PLATE", result.Data.PlateNumber);
-        Assert.Equal("Manual", result.Data.EntryMethod);
-
-        // Verify guest account and vehicle were created
-        var guestAccount = await _userAccountRepository.GetByPhoneNumberAsync("+00000000000");
-        Assert.NotNull(guestAccount);
-        Assert.Equal(AccountStatus.Active, guestAccount.Status);
-
-        var registeredVehicle = await _vehicleRepository.GetByPlateNumberAsync("UNKNOWN-PLATE");
-        Assert.NotNull(registeredVehicle);
-        Assert.Equal(guestAccount.Id, registeredVehicle.OwnerId);
-        Assert.Equal("Honda", registeredVehicle.Brand);
+        Assert.False(result.IsSuccess);
+        Assert.Null(await _userAccountRepository.GetByPhoneNumberAsync("+00000000000"));
+        Assert.Null(await _vehicleRepository.GetByPlateNumberAsync("UNKNOWN-PLATE"));
     }
 }
 

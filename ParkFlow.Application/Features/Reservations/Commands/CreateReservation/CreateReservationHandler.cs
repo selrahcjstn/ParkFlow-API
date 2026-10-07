@@ -52,11 +52,10 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
         if (user == null)
             return Result<ParkingReservationDto>.Failure("User not found.", ErrorCode.NotFound);
 
-        if (_violationRepository != null && (await _violationRepository.GetActiveViolationCountByUserIdAsync(user.Id)) >= 3)
+        if (_violationRepository != null && (await _violationRepository.GetActiveViolationCountByUserIdAsync(user.Id)) > 0)
         {
-            var vCount = await _violationRepository.GetActiveViolationCountByUserIdAsync(user.Id);
             return Result<ParkingReservationDto>.Failure(
-                $"You have {vCount} active/unpaid violations (maximum limit is 3). Please settle pending charges before creating a reservation.",
+                "Please settle all unpaid violations before creating a reservation.",
                 ErrorCode.Forbidden);
         }
 

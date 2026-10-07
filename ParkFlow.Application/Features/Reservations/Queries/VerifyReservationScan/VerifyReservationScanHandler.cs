@@ -121,11 +121,10 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
             isValid = false;
             statusMessage = $"Entry denied: Too early for reservation. Earliest allowed entry is {DateTime.Today.Add(earliestAllowed):hh:mm tt}.";
         }
-        else if (_violationRepository != null && (await _violationRepository.GetActiveViolationCountAsync(vehicle?.Id ?? Guid.Empty, reservation.UserId)) >= 3)
+        else if (_violationRepository != null && (await _violationRepository.GetActiveViolationCountAsync(vehicle?.Id ?? Guid.Empty, reservation.UserId)) > 0)
         {
             isValid = false;
-            var vCount = await _violationRepository.GetActiveViolationCountAsync(vehicle?.Id ?? Guid.Empty, reservation.UserId);
-            statusMessage = $"Entry denied: User has {vCount} unpaid violations (maximum limit is 3). Please settle pending charges before parking.";
+            statusMessage = "Entry denied. Please settle all unpaid violations before entering campus.";
         }
         else
         {

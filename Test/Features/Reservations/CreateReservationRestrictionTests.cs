@@ -104,6 +104,36 @@ public class FakeEmailService : IEmailService
 
 public class CreateReservationRestrictionTests
 {
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task UnpaidViolations_BlockReservationUntilSettled(int unpaidCount)
+    {
+        var user = new UserAccount("hash", "09123456789");
+        user.Verify();
+        _userRepo.Users.Add(user);
+        var vehicle = new Vehicle(user.Id, "ABC-1234", "Toyota", "qr", VehicleType.Car);
+        vehicle.UpdateVerificationStatus(CorVerificationStatus.Verified);
+        _vehicleRepo.Vehicles.Add(vehicle);
+        var violations = new Test.Features.Violations.FakeViolationRepository { ActiveViolationCount = unpaidCount };
+        var handler = new CreateReservationHandler(_reservationRepo, _userRepo, _vehicleRepo,
+            _validator, _notifSender, _emailService, violationRepository: violations);
+        var command = new CreateReservationCommand(user.Id, DateTime.UtcNow.Date.AddDays(2),
+            TimeSpan.FromHours(8), TimeSpan.FromHours(17), "Campus visit", null, ReservationType.Normal, vehicle.Id);
+
+        var denied = await handler.Handle(command, default);
+        Assert.False(denied.IsSuccess);
+        Assert.Equal(ErrorCode.Forbidden, denied.ErrorCode);
+        Assert.Contains("settle all unpaid violations", denied.Message);
+        Assert.Empty(_reservationRepo.Reservations);
+
+        violations.ActiveViolationCount = 0;
+        var allowed = await handler.Handle(command, default);
+        Assert.True(allowed.IsSuccess, allowed.Message);
+        Assert.Single(_reservationRepo.Reservations);
+    }
+
     private readonly FakeParkingReservationRepository _reservationRepo = new();
     private readonly FakeUserAccountRepository _userRepo = new();
     private readonly FakeVehicleRepository _vehicleRepo = new();

@@ -132,7 +132,7 @@ public class GetSessionCountHandler
                 }
             }
 
-            var manualSessionCount = activeLogs.Count(x => x.EntryMethod == EntryMethod.Manual);
+            var manualSessionCount = activeLogs.Count(x => x.EntryMethod == EntryMethod.Manual || x.EntryMethod == EntryMethod.ManualScheduled);
 
             var response = new SessionCountResponse(
                 ActiveSessionCount: activeLogs.Count,

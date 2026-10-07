@@ -130,9 +130,15 @@ public class VerifyStudentScanTests
         Assert.Equal("NoScheduleToday", result.Data.EntryStatus);
     }
 
-    [Fact]
-    public async Task Handle_WhenStudentHasValidScheduleNow_ReturnsApprovedWithVehicle()
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(3, false)]
+    [InlineData(1, true)]
+    public async Task Handle_WhenStudentHasValidScheduleNow_RequiresUnpaidViolationsToBeSettled(int unpaidCount, bool currentlyParked)
     {
+        _violationRepository.ActiveViolationCount = unpaidCount;
         // Arrange
         var userAccountId = Guid.NewGuid();
         var profile = new UserProfile(userAccountId, "Juan", "Dela Cruz", null, null);
@@ -162,11 +168,30 @@ public class VerifyStudentScanTests
 
         // Act: scan with 3 fields
         var query = new VerifyStudentScanQuery(QrContent: "2023-12345, Juan Dela Cruz, BS Information Technology");
+        if (currentlyParked)
+            await _parkingLogRepository.AddAsync(new ParkingLog(vehicle.Id, null, ParkingStatus.Active));
         var result = await _handler.Handle(query, CancellationToken.None);
 
         // Assert
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Data);
+        if (currentlyParked)
+        {
+            Assert.True(result.Data.IsValid);
+            Assert.Equal("CurrentlyParked", result.Data.EntryStatus);
+            Assert.True(result.Data.HasActiveViolation);
+            return;
+        }
+        if (unpaidCount > 0)
+        {
+            Assert.False(result.Data.IsValid);
+            Assert.True(result.Data.HasActiveViolation);
+            Assert.Contains("settle all unpaid violations", result.Data.StatusMessage);
+            _violationRepository.ActiveViolationCount = 0;
+            result = await _handler.Handle(query, CancellationToken.None);
+            Assert.True(result.IsSuccess);
+            Assert.False(result.Data!.HasActiveViolation);
+        }
         Assert.True(result.Data.IsValid);
         Assert.Equal("Approved", result.Data.EntryStatus);
         Assert.Equal("Juan Dela Cruz", result.Data.FullName);

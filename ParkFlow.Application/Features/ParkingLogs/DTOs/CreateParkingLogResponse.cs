@@ -17,5 +17,7 @@ public class CreateParkingLogResponse
     public DateTime? MaximumExitTime { get; set; }
     public string EntryMethod { get; set; } = null!;
     public string? GuardName { get; set; }
+    public bool FeeOptionAvailable { get; set; }
+    public decimal EntryFee { get; set; }
     public string? IssuedBy { get; set; }
 }

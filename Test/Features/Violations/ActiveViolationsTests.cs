@@ -22,6 +22,7 @@ public class FakeViolationRepository : IViolationRepository
 {
     public List<Violation> Violations { get; } = new();
     public bool HasActiveViolationValue { get; set; }
+    public int? ActiveViolationCount { get; set; }
 
     public Task AddAsync(Violation violation)
     {
@@ -66,13 +67,15 @@ public class FakeViolationRepository : IViolationRepository
 
     public Task<int> GetActiveViolationCountAsync(Guid vehicleId, Guid? userId = null)
     {
-        if (HasActiveViolationValue) return Task.FromResult(3);
+        if (ActiveViolationCount.HasValue) return Task.FromResult(ActiveViolationCount.Value);
+        if (HasActiveViolationValue) return Task.FromResult(1);
         return Task.FromResult(0);
     }
 
     public Task<int> GetActiveViolationCountByUserIdAsync(Guid userId)
     {
-        if (HasActiveViolationValue) return Task.FromResult(3);
+        if (ActiveViolationCount.HasValue) return Task.FromResult(ActiveViolationCount.Value);
+        if (HasActiveViolationValue) return Task.FromResult(1);
         return Task.FromResult(0);
     }
 
@@ -243,8 +246,11 @@ public class ActiveViolationsTests
         _parkingLogRoleService = new ParkingLogRoleService();
     }
 
-    [Fact]
-    public async Task CreateParkingLog_ShouldReturnForbidden_WhenVehicleHasActiveViolation()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task CreateParkingLog_ShouldReturnForbidden_WhenVehicleHasActiveViolation(int unpaidCount)
     {
         // Arrange
         var ownerId = Guid.NewGuid();
@@ -258,7 +264,7 @@ public class ActiveViolationsTests
         ownerProfile.UserAccount = ownerAccount;
         _userProfileRepository.Profiles.Add(ownerProfile);
 
-        _violationRepository.HasActiveViolationValue = true;
+        _violationRepository.ActiveViolationCount = unpaidCount;
 
         var command = new CreateParkingLogCommand("hashed_qr", Guid.NewGuid());
         var handler = new CreateParkingLogHandler(
@@ -284,7 +290,7 @@ public class ActiveViolationsTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Forbidden, result.ErrorCode);
-        Assert.Equal("Vehicle has active/unpaid violations. Entry denied.", result.Message);
+        Assert.Equal("Entry denied. Please settle all unpaid violations before entering campus.", result.Message);
     }
 
     [Fact]

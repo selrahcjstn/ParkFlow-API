@@ -72,49 +72,13 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
     public async Task<Result<CreateParkingLogResponse>> Handle(CreateManualParkingLogCommand request, CancellationToken cancellationToken)
     {
         // 1. Find vehicle by plate number
-        var vehicle = await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber);
+        var vehicle = await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber.Trim().ToUpperInvariant());
 
         if (vehicle == null)
-        {
-            UserAccount? ownerAccount = null;
+            return Result<CreateParkingLogResponse>.Failure(
+                "This plate is not registered. Use visitor entry to record it.", ErrorCode.NotFound);
 
-            // If phone number is provided, try to find the real user
-            if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
-            {
-                ownerAccount = await _userAccountRepository.GetByPhoneNumberAsync(request.PhoneNumber);
-            }
-
-            // If still no owner, look up or create the Guest user
-            if (ownerAccount == null)
-            {
-                ownerAccount = await _userAccountRepository.GetByPhoneNumberAsync("+00000000000");
-                if (ownerAccount == null)
-                {
-                    // Create guest account
-                    ownerAccount = new UserAccount(string.Empty, "+00000000000");
-                    ownerAccount.Verify(); // Verify guest status
-                    await _userAccountRepository.AddAsync(ownerAccount);
-
-                    var guestProfile = new UserProfile(ownerAccount.Id, "Guest", "User", null, null);
-                    await _userProfileRepository.AddAsync(guestProfile);
-                }
-            }
-
-            // Create and register new vehicle on the fly
-            var qrPayload = $"{ownerAccount.Id}:{request.PlateNumber}:{request.Brand ?? "Unknown"}";
-            var qrCodeHash = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(qrPayload));
-
-            vehicle = new Vehicle(
-                ownerAccount.Id,
-                request.PlateNumber,
-                request.Brand ?? "Unknown",
-                qrCodeHash,
-                request.VehicleType,
-                verificationStatus: CorVerificationStatus.Verified
-            );
-
-            await _vehicleRepository.AddAsync(vehicle);
-        }
+        var chargeUnscheduledFee = false;
 
         // 2. Fetch owner profile
         var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
@@ -145,10 +109,10 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
 
         // 3b. Check active violations
         var activeViolationCount = await _violationRepository.GetActiveViolationCountAsync(vehicle.Id, vehicle.OwnerId);
-        if (activeViolationCount >= 3)
+        if (activeViolationCount > 0)
         {
             return Result<CreateParkingLogResponse>.Failure(
-                $"Vehicle/User has {activeViolationCount} active/unpaid violations (maximum limit is 3). Entry denied. Please settle pending charges before parking.",
+                "Entry denied. Please settle all unpaid violations before entering campus.",
                 ErrorCode.Forbidden);
         }
 
@@ -165,9 +129,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
 
         if (guard == null && callerAdmin == null)
         {
-            var account = await _userAccountRepository.GetByIdAsync(request.UserId);
-            if (account == null)
-                return Result<CreateParkingLogResponse>.Failure("Authorized guard or admin not found.", ErrorCode.NotFound);
+            return Result<CreateParkingLogResponse>.Failure("Only a guard or admin can record entry.", ErrorCode.Forbidden);
         }
 
         var student = await _studentRepository.GetByUserProfileIdAsync(ownerProfile.Id);
@@ -255,7 +217,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         }
         else if (admin == null && !isGuest)
         {
-            var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
+            var corSubmissions = await _corSubmissionRepository.GetByUserIdsAsync([vehicle.OwnerId]);
             var userCors = corSubmissions.Where(c => c.UserAccountId == vehicle.OwnerId).ToList();
 
             var verifiedCor = userCors.FirstOrDefault(c =>
@@ -306,44 +268,51 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
                         "Entry denied: This reservation pass has already been used and is now void. Re-entry is not permitted.",
                         ErrorCode.Forbidden);
                 }
-                return Result<CreateParkingLogResponse>.Failure(
-                    $"Entry denied: No class or work schedule submitted for today ({todayDayOfWeek}).",
-                    ErrorCode.Forbidden);
+                if (!request.AcceptUnscheduledFee)
+                    return Result<CreateParkingLogResponse>.Failure(
+                        new CreateParkingLogResponse { FeeOptionAvailable = true, EntryFee = 20m },
+                        "No class or work schedule for today. You may continue with a ₱20 parking fee, payable on exit.",
+                        ErrorCode.Forbidden);
+
+                chargeUnscheduledFee = true;
             }
 
-            var validSchedule = todaySchedules.FirstOrDefault(s => _scheduleService.CanEnter(philippinesNow, s));
-            if (validSchedule == null)
+            if (!chargeUnscheduledFee)
             {
-                if (todayCompletedReservation != null)
+                var validSchedule = todaySchedules.FirstOrDefault(s => _scheduleService.CanEnter(philippinesNow, s));
+                if (validSchedule == null)
                 {
-                    return Result<CreateParkingLogResponse>.Failure(
-                        "Entry denied: This reservation pass has already been used and is now void. Re-entry is not permitted.",
-                        ErrorCode.Forbidden);
-                }
+                    if (todayCompletedReservation != null)
+                    {
+                        return Result<CreateParkingLogResponse>.Failure(
+                            "Entry denied: This reservation pass has already been used and is now void. Re-entry is not permitted.",
+                            ErrorCode.Forbidden);
+                    }
 
-                var latestEnd = todaySchedules.Max(s => s.EndTime);
-                if (philippinesNow.TimeOfDay > latestEnd)
-                {
-                    return Result<CreateParkingLogResponse>.Failure(
-                        $"Entry denied: Scheduled classes for today ended at {DateTime.Today.Add(latestEnd):hh:mm tt}.",
-                        ErrorCode.Forbidden);
-                }
+                    var latestEnd = todaySchedules.Max(s => s.EndTime);
+                    if (philippinesNow.TimeOfDay > latestEnd)
+                    {
+                        return Result<CreateParkingLogResponse>.Failure(
+                            $"Entry denied: Scheduled classes for today ended at {DateTime.Today.Add(latestEnd):hh:mm tt}.",
+                            ErrorCode.Forbidden);
+                    }
 
-                var earliestStart = todaySchedules.Min(s => _scheduleService.GetEarliestAllowedEntryTime(s));
-                if (philippinesNow.TimeOfDay < earliestStart)
-                {
+                    var earliestStart = todaySchedules.Min(s => _scheduleService.GetEarliestAllowedEntryTime(s));
+                    if (philippinesNow.TimeOfDay < earliestStart)
+                    {
+                        return Result<CreateParkingLogResponse>.Failure(
+                            $"Entry denied: Too early for class schedule. Earliest allowed entry is {DateTime.Today.Add(earliestStart):hh:mm tt}.",
+                            ErrorCode.BadRequest);
+                    }
+
                     return Result<CreateParkingLogResponse>.Failure(
-                        $"Entry denied: Too early for class schedule. Earliest allowed entry is {DateTime.Today.Add(earliestStart):hh:mm tt}.",
+                        "Entry denied: Entry time does not align with authorized schedule.",
                         ErrorCode.BadRequest);
                 }
 
-                return Result<CreateParkingLogResponse>.Failure(
-                    "Entry denied: Entry time does not align with authorized schedule.",
-                    ErrorCode.BadRequest);
+                var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, validSchedule.EndTime);
+                maximumExitTimeUtc = scheduleEndTimeUtc.AddMinutes(gracePeriodMinutes);
             }
-
-            var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow, validSchedule.EndTime);
-            maximumExitTimeUtc = scheduleEndTimeUtc.AddMinutes(gracePeriodMinutes);
         }
 
         if (maximumExitTimeUtc == null)
@@ -352,7 +321,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         }
 
         // 5. Create Entry with manual method
-        var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard?.UserProfileId, EntryMethod.Manual);
+        var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard?.UserProfileId, chargeUnscheduledFee || isGuest ? EntryMethod.Manual : EntryMethod.ManualScheduled);
         await _parkingLogRepository.AddParkingLogAsync(parkingLog);
 
         var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);
@@ -379,6 +348,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             MaximumExitTime = maximumExitTimeUtc,
             EntryMethod = parkingLog.EntryMethod.ToString(),
             GuardName = guardName,
+            EntryFee = chargeUnscheduledFee || isGuest ? 20m : 0m,
             IssuedBy = guardName
         };
 

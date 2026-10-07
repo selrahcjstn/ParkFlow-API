@@ -77,7 +77,8 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
                     var admin = await _adminRepository.GetByUserProfileIdAsync(userProfile.Id);
                     if (admin != null)
                     {
-                        guardProfileId = admin.UserProfileId;
+                        // VisitSession.GuardId references Guards, not Admins.
+                        guardProfileId = null;
                     }
                 }
             }

@@ -49,8 +49,10 @@ public class ExitManualParkingLogTests
         _parkingLogRoleService = new ParkingLogRoleService();
     }
 
-    [Fact]
-    public async Task Handle_ShouldExitParkingLog_WhenVehicleAndActiveLogExist()
+    [Theory]
+    [InlineData(EntryMethod.Manual, 20)]
+    [InlineData(EntryMethod.ManualScheduled, 0)]
+    public async Task Handle_ShouldChargeOnlyPaidManualEntry(EntryMethod method, int expectedFee)
     {
         // Arrange
         var ownerId = Guid.NewGuid();
@@ -82,7 +84,7 @@ public class ExitManualParkingLogTests
         var guard = new Guard(guardProfile, 1);
         _guardRepository.Guard = guard;
 
-        var activeLog = new ParkingLog(vehicleId, guardProfileId, ParkingStatus.Parked, EntryMethod.Manual);
+        var activeLog = new ParkingLog(vehicleId, guardProfileId, ParkingStatus.Parked, method);
         // Set vehicle property on log
         var vehicleProperty = typeof(ParkingLog).GetProperty("Vehicle");
         vehicleProperty?.SetValue(activeLog, vehicle);
@@ -90,13 +92,16 @@ public class ExitManualParkingLogTests
         var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog);
         var fakeNotificationSender = new FakeSignalRNotificationSender();
 
+        var cor = new CorSubmission(ownerId, "term", "document");
+        cor.UpdateSubmission(null, null, CorVerificationStatus.Verified);
+        var schedule = new ParkingSchedule(cor.Id, ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow).DayOfWeek, TimeSpan.Zero, new TimeSpan(23, 59, 59));
         var handler = new ExitManualParkingLogHandler(
             parkingLogRepository,
             _vehicleRepository,
             _userProfileRepository,
             _guardRepository,
-            _corSubmissionRepository,
-            _parkingScheduleRepository,
+            new FakeCorSubmissionRepositoryWithMock([cor]),
+            new FakeParkingScheduleRepositoryWithMock([schedule]),
             _studentRepository,
             _personnelRepository,
             _adminRepository,
@@ -118,7 +123,7 @@ public class ExitManualParkingLogTests
         Assert.NotNull(result.Data);
         Assert.Equal("ABC-1234", result.Data.PlateNumber);
         Assert.Equal(ParkingStatus.Exited.ToString(), result.Data.Status);
-        Assert.Equal(20, result.Data.PenaltyFee);
+        Assert.Equal(expectedFee, result.Data.PenaltyFee);
         Assert.True(fakeNotificationSender.WasNotificationSent);
     }
 
