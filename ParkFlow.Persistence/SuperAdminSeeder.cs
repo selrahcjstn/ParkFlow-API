@@ -177,6 +177,20 @@ public static class SuperAdminSeeder
                 identity.MarkVerified();
                 await authIdentityRepository.UpdateAsync(identity);
             }
+
+            var profile = await userProfileRepository.GetByUserIdAsync(existingGuard.Id);
+            if (profile == null)
+            {
+                profile = new UserProfile(existingGuard.Id, "Campus", "Guard", "Security", null);
+                await userProfileRepository.AddAsync(profile);
+            }
+
+            var guard = await guardRepository.GetByUserProfileIdAsync(profile.Id);
+            if (guard == null)
+            {
+                guard = new Guard(profile, assignedGate: 1);
+                await guardRepository.AddAsync(guard);
+            }
         }
 
         // 4. Student User Account

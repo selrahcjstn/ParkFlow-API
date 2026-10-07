@@ -15,6 +15,14 @@ public class GuardRepository : IGuardRepository
 
     public async Task AddAsync(Guard guard)
     {
+        if (guard.UserProfile != null)
+        {
+            var profileEntry = _context.Entry(guard.UserProfile);
+            if (profileEntry.State == EntityState.Added || profileEntry.State == EntityState.Detached)
+            {
+                profileEntry.State = EntityState.Unchanged;
+            }
+        }
         await _context.Guards.AddAsync(guard);
         await _context.SaveChangesAsync();
     }
