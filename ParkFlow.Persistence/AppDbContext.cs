@@ -28,6 +28,8 @@ namespace ParkFlow.Persistence
         public DbSet<Feedback> Feedbacks { get; set; }
         public DbSet<SystemAnnouncement> SystemAnnouncements { get; set; }
         public DbSet<UserNotification> UserNotifications { get; set; }
+        public DbSet<Visitor> Visitors { get; set; }
+        public DbSet<VisitSession> VisitSessions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

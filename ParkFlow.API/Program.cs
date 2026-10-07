@@ -129,4 +129,9 @@ app.MapHub<NotificationHub>("/hubs/notifications");
 // Seed default SuperAdmin account
 await ParkFlow.Persistence.SuperAdminSeeder.SeedSuperAdminAsync(app.Services);
 
+app.Logger.LogInformation("==================================================");
+app.Logger.LogInformation("🚀 ParkFlow API server started and listening!");
+app.Logger.LogInformation("📖 Swagger Documentation: http://localhost:5000/swagger");
+app.Logger.LogInformation("==================================================");
+
 app.Run();

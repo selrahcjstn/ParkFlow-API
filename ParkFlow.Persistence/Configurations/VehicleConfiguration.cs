@@ -35,7 +35,8 @@ public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
 			.HasMaxLength(1000);
 
 		entity.Property(e => e.VerificationStatus)
-			.HasDefaultValue(Domain.Enums.CorVerificationStatus.Pending);
+			.HasDefaultValue(Domain.Enums.CorVerificationStatus.Pending)
+			.HasSentinel(Domain.Enums.CorVerificationStatus.Pending);
 
 		entity.Property(e => e.RejectionReason)
 			.HasMaxLength(1000);

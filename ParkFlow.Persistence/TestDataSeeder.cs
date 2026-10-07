@@ -34,13 +34,19 @@ public static class TestDataSeeder
         var defaultPasswordHash = passwordHasher.HashPassword("TestUser123!");
 
         // Find Admin for approving reservations
-        var admin = await dbContext.Admins.FirstOrDefaultAsync();
-        var guard = await dbContext.Guards.FirstOrDefaultAsync();
+        var admin = await dbContext.Admins.OrderBy(a => a.UserProfileId).FirstOrDefaultAsync();
+        var guard = await dbContext.Guards.OrderBy(g => g.UserProfileId).FirstOrDefaultAsync();
         var adminId = admin?.UserProfileId ?? Guid.NewGuid();
 
         var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
         var phToday = philippinesNow.Date;
         var resDateUtc = DateTime.SpecifyKind(phToday, DateTimeKind.Utc);
+
+        var todaySeeded = await dbContext.ParkingReservations.AnyAsync(r => r.ReferenceNumber.StartsWith($"RES-{phToday:yyyyMMdd}"));
+        if (todaySeeded)
+        {
+            return;
+        }
 
 
 

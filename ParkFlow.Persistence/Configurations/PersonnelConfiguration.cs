@@ -21,7 +21,8 @@ public class PersonnelConfiguration : IEntityTypeConfiguration<Personnel>
 		entity.Property(e => e.Role)
 			.IsRequired()
 			.HasConversion<int>()
-			.HasDefaultValue(ParkFlow.Domain.Enums.Roles.UniversityStaff);
+			.HasDefaultValue(ParkFlow.Domain.Enums.Roles.UniversityStaff)
+			.HasSentinel(ParkFlow.Domain.Enums.Roles.UniversityStaff);
 
 		entity.HasOne(e => e.UserProfile)
 			.WithOne(e => e.Personnel)

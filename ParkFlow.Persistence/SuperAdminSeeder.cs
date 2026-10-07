@@ -14,6 +14,7 @@ public static class SuperAdminSeeder
 {
     public static async Task SeedSuperAdminAsync(IServiceProvider serviceProvider)
     {
+        Console.WriteLine("🌱 Checking database migrations and test accounts...");
         using var scope = serviceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await dbContext.Database.MigrateAsync();
@@ -287,5 +288,6 @@ public static class SuperAdminSeeder
 
         // 6. Seed 50 Test Accounts with Active Reservations
         await TestDataSeeder.SeedTestAccountsAndReservationsAsync(serviceProvider);
+        Console.WriteLine("✅ Database and test accounts verified.");
     }
 }

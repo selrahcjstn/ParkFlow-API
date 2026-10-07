@@ -32,7 +32,8 @@ public class ParkingReservationConfiguration : IEntityTypeConfiguration<ParkingR
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.Property(r => r.Type)
-            .HasDefaultValue(Domain.Enums.ReservationType.Normal);
+            .HasDefaultValue(Domain.Enums.ReservationType.Normal)
+            .HasSentinel(Domain.Enums.ReservationType.Normal);
 
         builder.HasOne(r => r.Vehicle)
             .WithMany()

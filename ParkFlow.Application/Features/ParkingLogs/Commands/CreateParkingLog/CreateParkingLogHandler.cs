@@ -4,6 +4,7 @@ using ParkFlow.Application.Interfaces;
 using ParkFlow.Application.Features.ParkingLogs.DTOs;
 using ParkFlow.Application.Features.ParkingLogs.Services;
 using ParkFlow.Domain.Enums;
+using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
 
@@ -170,14 +171,20 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         }
 
         var userProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
+        Guard? guard = null;
 
-        if (userProfile == null)
-            return Result<CreateParkingLogResponse>.Failure("User profile not found.", ErrorCode.NotFound);
-
-        var guard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
-
-        if (guard == null)
-            return Result<CreateParkingLogResponse>.Failure("Guard not found.", ErrorCode.NotFound);
+        if (userProfile != null)
+        {
+            guard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
+        }
+        else if (request.UserId != Guid.Empty)
+        {
+            userProfile = await _userProfileRepository.GetByIdAsync(request.UserId);
+            if (userProfile != null)
+            {
+                guard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
+            }
+        }
 
         var student = await _studentRepository.GetByUserProfileIdAsync(ownerProfile.Id);
         var personnel = await _personnelRepository.GetByUserProfileIdAsync(ownerProfile.Id);
@@ -354,13 +361,16 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             }
         }
 
-        var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard.UserProfileId);
+        var guardProfileId = guard?.UserProfileId ?? userProfile?.Id;
+        var parkingLog = _parkingService.CreateEntry(vehicle.Id, guardProfileId);
         await _parkingLogRepository.AddParkingLogAsync(parkingLog);
 
         var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);
 
-        var guardMiddle = string.IsNullOrWhiteSpace(userProfile.MiddleName) ? "" : $" {userProfile.MiddleName}";
-        var guardName = $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}";
+        var guardMiddle = userProfile != null && !string.IsNullOrWhiteSpace(userProfile.MiddleName) ? $" {userProfile.MiddleName}" : "";
+        var guardName = userProfile != null
+            ? $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}"
+            : "Campus Security";
 
         var response = new CreateParkingLogResponse
         {

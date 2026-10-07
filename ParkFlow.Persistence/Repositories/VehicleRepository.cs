@@ -39,9 +39,22 @@ public class VehicleRepository : IVehicleRepository
 
     public async Task<Vehicle?> GetByPlateNumberAsync(string plateNumber)
     {
+        if (string.IsNullOrWhiteSpace(plateNumber)) return null;
+
+        var normalized = plateNumber.Trim().ToLower();
+        var clean = normalized.Replace(" ", "").Replace("-", "");
+
+        // First try direct match
+        var vehicle = await _appDbContext.Set<Vehicle>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(v => v.PlateNumber.ToLower() == normalized);
+
+        if (vehicle != null) return vehicle;
+
+        // Fallback to match ignoring spaces and hyphens
         return await _appDbContext.Set<Vehicle>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(v => v.PlateNumber.ToLower() == plateNumber.ToLower());
+            .FirstOrDefaultAsync(v => v.PlateNumber.Replace(" ", "").Replace("-", "").ToLower() == clean);
     }
 
     public async Task<IEnumerable<Vehicle>> GetByOwnerIdAsync(Guid ownerId)

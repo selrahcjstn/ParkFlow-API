@@ -303,4 +303,13 @@ public record ValidateVehicleRequest(
     {
         return await ValidateVehicle(id, request, vehicleRepository, userAccountRepository, corSubmissionRepository, notificationService, emailService, signalRNotificationSender);
     }
+
+    [Authorize]
+    [HttpGet("lookup/{plateNumber}")]
+    public async Task<ActionResult<Result<ParkFlow.Application.Features.Visitors.DTOs.UnifiedPlateLookupDto>>> LookupByPlate(string plateNumber)
+    {
+        var result = await _mediator.Send(new ParkFlow.Application.Features.Visitors.Queries.GetPlateLookup.GetPlateLookupQuery(plateNumber));
+        return this.ToActionResult(result);
+    }
 }
+
