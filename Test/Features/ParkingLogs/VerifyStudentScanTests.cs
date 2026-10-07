@@ -169,7 +169,7 @@ public class VerifyStudentScanTests
         // Act: scan with 3 fields
         var query = new VerifyStudentScanQuery(QrContent: "2023-12345, Juan Dela Cruz, BS Information Technology");
         if (currentlyParked)
-            await _parkingLogRepository.AddAsync(new ParkingLog(vehicle.Id, null, ParkingStatus.Active));
+            _parkingLogRepository.ActiveParkingLog = new ParkingLog(vehicle.Id, null, ParkingStatus.Parked);
         var result = await _handler.Handle(query, CancellationToken.None);
 
         // Assert
