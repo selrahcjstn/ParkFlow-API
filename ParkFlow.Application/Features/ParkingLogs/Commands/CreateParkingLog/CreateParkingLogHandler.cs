@@ -238,7 +238,20 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             }
         }
 
-        if (todayApprovedReservation != null)
+        if (PersonnelParkingPolicy.AppliesTo(personnel))
+        {
+            var employeeSubmissions = await _corSubmissionRepository.GetByUserIdsAsync([vehicle.OwnerId]);
+            var verifiedEmployeeId = employeeSubmissions.Any(c =>
+                c.VerificationStatus == CorVerificationStatus.Verified &&
+                !string.IsNullOrWhiteSpace(c.CorDocumentUrl) &&
+                !string.Equals(c.CorDocumentUrl, "pending", StringComparison.OrdinalIgnoreCase));
+            if (!verifiedEmployeeId)
+                return Result<CreateParkingLogResponse>.Failure(
+                    "Entry denied: Employee ID is missing or waiting for approval.", ErrorCode.Forbidden);
+
+            maximumExitTimeUtc = PersonnelParkingPolicy.GetDeadlineUtc(utcNow, systemSettings);
+        }
+        else if (todayApprovedReservation != null)
         {
             if (todayApprovedReservation.Type == ReservationType.Special)
             {

@@ -183,10 +183,29 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
                 IsReservationDateMatch(r) &&
                 r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.Rejected);
 
+        var employeeProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
+        var employeePersonnel = employeeProfile == null ? null : await _personnelRepository.GetByUserProfileIdAsync(employeeProfile.Id);
+        var isPersonnelParking = PersonnelParkingPolicy.AppliesTo(employeePersonnel);
         var systemSettings = SystemSettingsStore.Current;
         var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
 
-        if (active.EntryMethod == EntryMethod.Manual)
+        if (isPersonnelParking)
+        {
+            maximumExitTime = PersonnelParkingPolicy.GetDeadlineUtc(active.EntryTime, systemSettings);
+            overstayTime = PersonnelParkingPolicy.GetChargeDuration(active.EntryTime, exitTime, systemSettings).TotalHours;
+            penaltyFee = PersonnelParkingPolicy.CalculateCharge(active.EntryTime, exitTime, systemSettings);
+            if (penaltyFee > 0m)
+            {
+                var violation = new Violation(active.Id, penaltyFee, ViolationType.Overstay);
+                await _violationRepository.AddAsync(violation);
+                isViolation = true;
+                violationId = violation.Id;
+                violationType = violation.ViolationType.ToString();
+                settlementStatus = violation.SettlementStatus.ToString();
+                referenceNumber = violation.ReferenceNumber;
+            }
+        }
+        else if (active.EntryMethod == EntryMethod.Manual)
         {
             var entryMidnightUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
             maximumExitTime = entryMidnightUtc;

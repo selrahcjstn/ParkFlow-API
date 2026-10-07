@@ -80,9 +80,9 @@ public class VisitorController : ControllerBase
 
     [Authorize]
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<Result<VisitorDetailDto>>> GetVisitorDetail(Guid id)
+    public async Task<ActionResult<Result<VisitorDetailDto>>> GetVisitorDetail(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        var result = await _mediator.Send(new GetVisitorDetailQuery(id));
+        var result = await _mediator.Send(new GetVisitorDetailQuery(id, page, pageSize));
         return this.ToActionResult(result);
     }
 }

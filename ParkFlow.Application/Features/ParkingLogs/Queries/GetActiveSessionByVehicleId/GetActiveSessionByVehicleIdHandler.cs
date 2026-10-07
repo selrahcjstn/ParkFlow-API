@@ -16,6 +16,8 @@ public class GetActiveSessionByVehicleIdHandler
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IViolationService _violationService;
     private readonly IParkingReservationRepository? _reservationRepository;
+    private readonly IUserProfileRepository? _userProfileRepository;
+    private readonly IPersonnelRepository? _personnelRepository;
 
     public GetActiveSessionByVehicleIdHandler(
         IParkingLogRepository parkingLogRepository,
@@ -23,7 +25,9 @@ public class GetActiveSessionByVehicleIdHandler
         IParkingScheduleRepository parkingScheduleRepository,
         ICorSubmissionRepository corSubmissionRepository,
         IViolationService violationService,
-        IParkingReservationRepository? reservationRepository = null)
+        IParkingReservationRepository? reservationRepository = null,
+        IUserProfileRepository? userProfileRepository = null,
+        IPersonnelRepository? personnelRepository = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
@@ -31,6 +35,8 @@ public class GetActiveSessionByVehicleIdHandler
         _corSubmissionRepository = corSubmissionRepository;
         _violationService = violationService;
         _reservationRepository = reservationRepository;
+        _userProfileRepository = userProfileRepository;
+        _personnelRepository = personnelRepository;
     }
 
     public async Task<Result<ActiveParkingSessionResponse>> Handle(
@@ -72,6 +78,9 @@ public class GetActiveSessionByVehicleIdHandler
             c.UserAccountId == vehicle.OwnerId &&
             c.VerificationStatus == CorVerificationStatus.Verified);
 
+        var ownerProfile = _userProfileRepository == null ? null : await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
+        var personnel = ownerProfile == null || _personnelRepository == null ? null : await _personnelRepository.GetByUserProfileIdAsync(ownerProfile.Id);
+        var isPersonnelParking = PersonnelParkingPolicy.AppliesTo(personnel ?? vehicle.Owner?.UserProfile?.Personnel);
         var nowUtc = DateTime.UtcNow;
         decimal accruedCharge = 0m;
         var overstayHours = 0d;
@@ -112,7 +121,12 @@ public class GetActiveSessionByVehicleIdHandler
                 IsReservationDateMatch(r) &&
                 r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.Rejected);
 
-        if (entryReservation != null)
+        if (isPersonnelParking)
+        {
+            scheduleDeadlineUtc = PersonnelParkingPolicy.GetDeadlineUtc(activeLog.EntryTime, sysSettings);
+            maximumExitTimeUtc = scheduleDeadlineUtc;
+        }
+        else if (entryReservation != null)
         {
             if (entryReservation.Type == ReservationType.Special)
             {
@@ -153,7 +167,12 @@ public class GetActiveSessionByVehicleIdHandler
             }
         }
 
-        if (activeLog.EntryMethod == EntryMethod.Manual)
+        if (isPersonnelParking)
+        {
+            accruedCharge = PersonnelParkingPolicy.CalculateCharge(activeLog.EntryTime, nowUtc, sysSettings);
+            overstayHours = PersonnelParkingPolicy.GetChargeDuration(activeLog.EntryTime, nowUtc, sysSettings).TotalHours;
+        }
+        else if (activeLog.EntryMethod == EntryMethod.Manual)
         {
             var entryMidnightUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
             maximumExitTimeUtc = entryMidnightUtc;

@@ -1,4 +1,5 @@
 using ParkFlow.Domain.Entities;
+using ParkFlow.Application.Features.Visitors.DTOs;
 
 namespace ParkFlow.Application.Interfaces;
 
@@ -8,7 +9,8 @@ public interface IVisitorRepository
     Task<Visitor?> GetByPlateNumberAsync(string plateNumber);
     Task<Visitor?> GetWithSessionsByIdAsync(Guid id);
     Task<Visitor?> GetWithSessionsByPlateNumberAsync(string plateNumber);
-    Task<(IEnumerable<Visitor> Items, int TotalCount)> GetPagedVisitorsAsync(int pageNumber, int pageSize, string? search, bool? onlyInside = null);
+    Task<VisitorDetailDto?> GetDetailPageAsync(Guid id, int page, int pageSize);
+    Task<(IEnumerable<VisitorDto> Items, int TotalCount)> GetPagedVisitorsAsync(int pageNumber, int pageSize, string? search, bool? onlyInside = null);
     Task AddAsync(Visitor visitor);
     Task UpdateAsync(Visitor visitor);
     Task DeleteAsync(Visitor visitor);

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
+using ParkFlow.Application.Features.Visitors.DTOs;
 
 namespace ParkFlow.Persistence.Repositories;
 
@@ -62,15 +63,13 @@ public class VisitorRepository : IVisitorRepository
             .FirstOrDefaultAsync(v => v.PlateNumber.Replace(" ", "").Replace("-", "").ToUpper() == clean);
     }
 
-    public async Task<(IEnumerable<Visitor> Items, int TotalCount)> GetPagedVisitorsAsync(
+    public async Task<(IEnumerable<VisitorDto> Items, int TotalCount)> GetPagedVisitorsAsync(
         int pageNumber,
         int pageSize,
         string? search,
         bool? onlyInside = null)
     {
-        var query = _context.Visitors
-            .Include(v => v.VisitSessions)
-            .AsQueryable();
+        var query = _context.Visitors.AsNoTracking().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -98,11 +97,37 @@ public class VisitorRepository : IVisitorRepository
 
         var items = await query
             .OrderByDescending(v => v.VisitSessions.Max(s => (DateTime?)s.EntryTime) ?? v.CreatedAt)
+            .ThenBy(v => v.Id)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
+            .Select(v => new VisitorDto(v.Id, v.FullName, v.PlateNumber, v.Brand, (int)v.VehicleType,
+                v.ContactNumber, v.VisitSessions.Max(s => (DateTime?)s.EntryTime), v.VisitSessions.Count,
+                v.VisitSessions.Any(s => s.Status == VisitSessionStatus.Inside)))
             .ToListAsync();
 
         return (items, totalCount);
+    }
+
+    public async Task<VisitorDetailDto?> GetDetailPageAsync(Guid id, int page, int pageSize)
+    {
+        var visitor = await _context.Visitors.AsNoTracking()
+            .Where(v => v.Id == id)
+            .Select(v => new VisitorDto(v.Id, v.FullName, v.PlateNumber, v.Brand, (int)v.VehicleType,
+                v.ContactNumber, v.VisitSessions.Max(s => (DateTime?)s.EntryTime), v.VisitSessions.Count,
+                v.VisitSessions.Any(s => s.Status == VisitSessionStatus.Inside)))
+            .FirstOrDefaultAsync();
+        if (visitor == null) return null;
+
+        var visits = await _context.VisitSessions.AsNoTracking()
+            .Where(s => s.VisitorId == id)
+            .OrderByDescending(s => s.EntryTime).ThenByDescending(s => s.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(s => new VisitSessionDto(s.Id, s.EntryTime, s.ExitTime, s.Purpose, s.Destination,
+                s.EntryGuard != null ? s.EntryGuard.UserProfile.FirstName + " " + s.EntryGuard.UserProfile.LastName : null,
+                s.ExitGuard != null ? s.ExitGuard.UserProfile.FirstName + " " + s.ExitGuard.UserProfile.LastName : null,
+                s.EntryGate, s.ExitGate, s.Status == VisitSessionStatus.Inside ? "Inside" : s.Status == VisitSessionStatus.Cancelled ? "Cancelled" : "Completed"))
+            .ToListAsync();
+        return new VisitorDetailDto(visitor, visits, page, pageSize, visitor.TotalVisits);
     }
 
     public async Task AddAsync(Visitor visitor)

@@ -29,7 +29,10 @@ public record VisitSessionDto(
 
 public record VisitorDetailDto(
     VisitorDto Visitor,
-    IEnumerable<VisitSessionDto> Visits
+    IEnumerable<VisitSessionDto> Visits,
+    int Page = 1,
+    int PageSize = 20,
+    int TotalCount = 0
 );
 
 public record PagedVisitorsResponse(

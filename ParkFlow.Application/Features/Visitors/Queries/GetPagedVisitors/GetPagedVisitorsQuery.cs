@@ -29,29 +29,10 @@ public class GetPagedVisitorsHandler : IRequestHandler<GetPagedVisitorsQuery, Re
 
         var (items, totalCount) = await _visitorRepository.GetPagedVisitorsAsync(page, size, request.Search, request.OnlyInside);
 
-        var dtos = items.Select(v =>
-        {
-            var sessions = v.VisitSessions.OrderByDescending(s => s.EntryTime).ToList();
-            var lastSession = sessions.FirstOrDefault();
-            var isInside = sessions.Any(s => s.Status == VisitSessionStatus.Inside);
-
-            return new VisitorDto(
-                Id: v.Id,
-                FullName: v.FullName,
-                PlateNumber: v.PlateNumber,
-                Brand: v.Brand,
-                VehicleType: (int)v.VehicleType,
-                ContactNumber: v.ContactNumber,
-                LastVisit: lastSession?.EntryTime,
-                TotalVisits: sessions.Count,
-                IsInside: isInside
-            );
-        }).ToList();
-
         var hasMore = (page * size) < totalCount;
 
         var response = new PagedVisitorsResponse(
-            Items: dtos,
+            Items: items,
             Page: page,
             PageSize: size,
             TotalCount: totalCount,

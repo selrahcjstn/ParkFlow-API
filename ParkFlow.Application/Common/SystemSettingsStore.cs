@@ -7,6 +7,8 @@ namespace ParkFlow.Application.Common
         public decimal ViolationRatePerHour { get; set; } = 100.00m;
         public string FeeCalculationMode { get; set; } = "per_hour"; // "per_hour", "per_day", "one_time", "one_time_hourly", "no_fee"
         public decimal BaseFee { get; set; } = 50.00m;
+        public string PersonnelFreeParkingStart { get; set; } = "05:00";
+        public string PersonnelFreeParkingEnd { get; set; } = "21:00";
 
         public bool IsGracePeriodEnabled { get; set; } = true;
         public int GracePeriodMinutes { get; set; } = 15;
@@ -42,6 +44,8 @@ namespace ParkFlow.Application.Common
                         ViolationRatePerHour = _settings.ViolationRatePerHour,
                         FeeCalculationMode = _settings.FeeCalculationMode ?? "per_hour",
                         BaseFee = _settings.BaseFee,
+                        PersonnelFreeParkingStart = _settings.PersonnelFreeParkingStart,
+                        PersonnelFreeParkingEnd = _settings.PersonnelFreeParkingEnd,
                         IsGracePeriodEnabled = _settings.IsGracePeriodEnabled,
                         GracePeriodMinutes = _settings.GracePeriodMinutes,
                         IsEarlyParkingAllowed = _settings.IsEarlyParkingAllowed,
@@ -75,7 +79,9 @@ namespace ParkFlow.Application.Common
             decimal? baseFee = null,
             bool? isGracePeriodEnabled = null,
             bool? isEarlyParkingAllowed = null,
-            int? earlyParkingMinutes = null)
+            int? earlyParkingMinutes = null,
+            string? personnelFreeParkingStart = null,
+            string? personnelFreeParkingEnd = null)
         {
             lock (_lock)
             {
@@ -95,6 +101,8 @@ namespace ParkFlow.Application.Common
                 if (isGracePeriodEnabled.HasValue) _settings.IsGracePeriodEnabled = isGracePeriodEnabled.Value;
                 if (isEarlyParkingAllowed.HasValue) _settings.IsEarlyParkingAllowed = isEarlyParkingAllowed.Value;
                 if (earlyParkingMinutes.HasValue) _settings.EarlyParkingMinutes = earlyParkingMinutes.Value;
+                if (personnelFreeParkingStart != null) _settings.PersonnelFreeParkingStart = personnelFreeParkingStart;
+                if (personnelFreeParkingEnd != null) _settings.PersonnelFreeParkingEnd = personnelFreeParkingEnd;
             }
         }
 

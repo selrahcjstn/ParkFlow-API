@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using ParkFlow.Application.Features.ParkingLogs.Services;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Enums;
@@ -36,8 +39,18 @@ public class SystemSettingsController : ControllerBase
     }
 
     [HttpPut]
+    [Authorize]
     public async Task<ActionResult<Result<SystemSettingsDto>>> UpdateSettings([FromBody] SystemSettingsDto request)
     {
+        var isSuperAdmin = User.IsInRole("SuperAdmin") || User.HasClaim("role", "SuperAdmin")
+            || User.HasClaim("profile_type", "superadmin")
+            || string.Equals(User.FindFirst(ClaimTypes.Email)?.Value ?? User.FindFirst("email")?.Value,
+                "superadmin@parkflow.com", StringComparison.OrdinalIgnoreCase);
+        if (!isSuperAdmin) return Forbid();
+        if (!PersonnelParkingPolicy.TryGetHours(request, out _, out _) || request.ViolationRatePerHour < 0)
+            return BadRequest(Result<SystemSettingsDto>.Failure(
+                "Enter valid faculty/staff hours with the start earlier than the end, and a non-negative hourly rate.",
+                ErrorCode.BadRequest));
         if (request.TotalCapacity > 0)
         {
             var activeLogs = await _parkingLogRepository.GetActiveParkingLogsAsync(10000);
@@ -65,7 +78,9 @@ public class SystemSettingsController : ControllerBase
             request.BaseFee,
             request.IsGracePeriodEnabled,
             request.IsEarlyParkingAllowed,
-            request.EarlyParkingMinutes);
+            request.EarlyParkingMinutes,
+            request.PersonnelFreeParkingStart,
+            request.PersonnelFreeParkingEnd);
 
         if (_cacheService != null)
         {
@@ -102,6 +117,8 @@ public class SystemSettingsController : ControllerBase
             var submissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
             foreach (var sub in submissions)
             {
+                // An employee ID is not a semester schedule and must remain approved.
+                if (PersonnelParkingPolicy.AppliesTo(sub.UserAccount?.UserProfile?.Personnel)) continue;
                 sub.UpdateSubmission(
                     academicTerm: null,
                     corDocumentUrl: null,

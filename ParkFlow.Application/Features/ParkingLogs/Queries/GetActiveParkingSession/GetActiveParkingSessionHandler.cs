@@ -81,6 +81,7 @@ public class GetActiveParkingSessionHandler
                 if (log.Vehicle == null)
                     continue;
 
+                var isPersonnelParking = PersonnelParkingPolicy.AppliesTo(log.Vehicle.Owner?.UserProfile?.Personnel);
                 var nowUtc = DateTime.UtcNow;
                 var overstayHours = 0d;
                 var amount = 0m;
@@ -113,7 +114,11 @@ public class GetActiveParkingSessionHandler
                         IsReservationDateMatch(r) &&
                         r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.Rejected);
 
-                if (entryReservation != null)
+                if (isPersonnelParking)
+                {
+                    maximumExitTimeUtc = PersonnelParkingPolicy.GetDeadlineUtc(log.EntryTime, sysSettings);
+                }
+                else if (entryReservation != null)
                 {
                     if (entryReservation.Type == ReservationType.Special)
                     {
@@ -168,7 +173,13 @@ public class GetActiveParkingSessionHandler
                     }
                 }
 
-                if (log.EntryMethod == EntryMethod.Manual)
+                if (isPersonnelParking)
+                {
+                    maximumExitTimeUtc = PersonnelParkingPolicy.GetDeadlineUtc(log.EntryTime, sysSettings);
+                    overstayHours = PersonnelParkingPolicy.GetChargeDuration(log.EntryTime, nowUtc, sysSettings).TotalHours;
+                    amount = PersonnelParkingPolicy.CalculateCharge(log.EntryTime, nowUtc, sysSettings);
+                }
+                else if (log.EntryMethod == EntryMethod.Manual)
                 {
                     var entryMidnightUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
                     maximumExitTimeUtc = entryMidnightUtc;

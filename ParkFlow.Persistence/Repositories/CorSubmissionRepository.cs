@@ -60,6 +60,7 @@ public class CorSubmissionRepository : ICorSubmissionRepository
         return await _appDbContext.CorSubmissions
             .Include(x => x.UserAccount)
                 .ThenInclude(u => u.UserProfile)
+                    .ThenInclude(p => p!.Personnel)
             .Include(x => x.UserAccount)
                 .ThenInclude(u => u.AuthIdentities)
             .OrderByDescending(x => x.CreatedAt)
