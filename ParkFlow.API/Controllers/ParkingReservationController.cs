@@ -92,6 +92,17 @@ public class ParkingReservationController : ControllerBase
         return this.ToActionResult(await _mediator.Send(new GetCalendarReservationsQuery(date, month, page)));
     }
 
+    [HttpGet("guard/today")]
+    [Authorize(Roles = "Guard,Admin,SuperAdmin")]
+    public async Task<ActionResult<Result<CalendarReservationPage>>> GetTodayForGuard(
+        [FromQuery] int page = 1, [FromQuery] string? search = null)
+    {
+        if (page < 1 || page > 100000 || search?.Length > 100)
+            return BadRequest(Result<CalendarReservationPage>.Failure("Choose a valid page or shorter search.", ErrorCode.BadRequest));
+        var today = DateTime.UtcNow.AddHours(8).Date;
+        return this.ToActionResult(await _mediator.Send(new GetCalendarReservationsQuery(today, today, page, search, true)));
+    }
+
     [HttpGet("my")]
     [Authorize]
     public async Task<ActionResult<Result<IEnumerable<ParkingReservationDto>>>> GetMyReservations()

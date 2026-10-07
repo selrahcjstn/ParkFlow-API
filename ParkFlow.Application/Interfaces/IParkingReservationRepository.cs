@@ -7,7 +7,7 @@ namespace ParkFlow.Application.Interfaces;
 public interface IParkingReservationRepository
 {
     Task<CalendarReservationPage> GetCalendarPageAsync(DateTime date, DateTime month, int page,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default, string? search = null, bool gateOnly = false);
     async Task<IEnumerable<ParkingReservation>> GetByUserIdsAsync(IEnumerable<Guid> userIds)
     {
         var reservations = new List<ParkingReservation>();

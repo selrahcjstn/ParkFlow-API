@@ -16,7 +16,7 @@ public class ParkingReservationRepository : IParkingReservationRepository
     }
 
     public async Task<CalendarReservationPage> GetCalendarPageAsync(DateTime date, DateTime month, int page,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, string? search = null, bool gateOnly = false)
     {
         var start = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
         var end = start.AddDays(1);
@@ -24,6 +24,16 @@ public class ParkingReservationRepository : IParkingReservationRepository
         var monthEnd = monthStart.AddMonths(1);
         var query = _context.ParkingReservations.AsNoTracking();
         var daily = query.Where(r => r.ReservationDate >= start && r.ReservationDate < end);
+        if (gateOnly)
+            daily = daily.Where(r => r.Status == ReservationStatus.Approved || r.Status == ReservationStatus.Completed);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            daily = daily.Where(r => r.ReferenceNumber.ToLower().Contains(term)
+                || (r.Vehicle != null && r.Vehicle.PlateNumber.ToLower().Contains(term))
+                || (r.UserAccount.UserProfile != null &&
+                    (r.UserAccount.UserProfile.FirstName + " " + r.UserAccount.UserProfile.LastName).ToLower().Contains(term)));
+        }
         var total = await daily.CountAsync(cancellationToken);
         var items = await daily.OrderBy(r => r.StartTime).ThenBy(r => r.Id)
             .Skip((Math.Max(1, page) - 1) * 5).Take(5)
@@ -33,6 +43,9 @@ public class ParkingReservationRepository : IParkingReservationRepository
                 r.Vehicle == null ? null : r.Vehicle.PlateNumber,
                 r.ReservationDate, r.StartTime, r.EndTime, r.Status, r.Type))
             .ToListAsync(cancellationToken);
+        // Guards only need today's list, not an entire month of calendar counts.
+        if (gateOnly)
+            return new CalendarReservationPage(items, total, new Dictionary<string, int>());
         var counts = await query.Where(r => r.ReservationDate >= monthStart && r.ReservationDate < monthEnd)
             .GroupBy(r => r.ReservationDate.Date)
             .Select(group => new { Date = group.Key, Count = group.Count() })

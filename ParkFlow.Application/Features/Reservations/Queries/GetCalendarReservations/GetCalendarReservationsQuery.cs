@@ -9,7 +9,8 @@ public record CalendarReservationItem(Guid Id, string UserFullName, string? Plat
     DateTime ReservationDate, TimeSpan StartTime, TimeSpan EndTime, ReservationStatus Status, ReservationType Type);
 public record CalendarReservationPage(IReadOnlyList<CalendarReservationItem> Items, int TotalCount,
     IReadOnlyDictionary<string, int> DateCounts);
-public record GetCalendarReservationsQuery(DateTime Date, DateTime Month, int Page = 1)
+public record GetCalendarReservationsQuery(DateTime Date, DateTime Month, int Page = 1,
+    string? Search = null, bool GateOnly = false)
     : IRequest<Result<CalendarReservationPage>>;
 
 public class GetCalendarReservationsHandler(IParkingReservationRepository repository)
@@ -17,7 +18,8 @@ public class GetCalendarReservationsHandler(IParkingReservationRepository reposi
 {
     public async Task<Result<CalendarReservationPage>> Handle(GetCalendarReservationsQuery request, CancellationToken cancellationToken)
     {
-        var result = await repository.GetCalendarPageAsync(request.Date, request.Month, Math.Max(1, request.Page), cancellationToken);
+        var result = await repository.GetCalendarPageAsync(request.Date, request.Month, Math.Max(1, request.Page), cancellationToken,
+            request.Search, request.GateOnly);
         return Result<CalendarReservationPage>.Success(result, "Calendar reservations retrieved.");
     }
 }
