@@ -1,4 +1,5 @@
 using MediatR;
+using ParkFlow.Application.Features.Reservations.Queries.GetCalendarReservations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
@@ -79,6 +80,16 @@ public class ParkingReservationController : ControllerBase
 
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
+    }
+
+    [HttpGet("admin/calendar")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public async Task<ActionResult<Result<CalendarReservationPage>>> GetCalendar(
+        [FromQuery] DateTime date, [FromQuery] DateTime month, [FromQuery] int page = 1)
+    {
+        if (date == default || month == default || page < 1 || page > 100000)
+            return BadRequest(Result<CalendarReservationPage>.Failure("Choose a valid date and page.", ErrorCode.BadRequest));
+        return this.ToActionResult(await _mediator.Send(new GetCalendarReservationsQuery(date, month, page)));
     }
 
     [HttpGet("my")]

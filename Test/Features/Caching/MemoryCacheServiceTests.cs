@@ -97,6 +97,68 @@ public class MemoryCacheServiceTests
     }
 
     [Fact]
+    public async Task ConcurrentMisses_ShareOneFactory()
+    {
+        var service = CreateService();
+        var release = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var calls = 0;
+        Task<string> Load() { System.Threading.Interlocked.Increment(ref calls); return release.Task; }
+        var first = service.GetOrCreateAsync("dashboard:shared", Load);
+        var second = service.GetOrCreateAsync("dashboard:shared", Load);
+        release.SetResult("fresh");
+        Assert.Equal(new[] { "fresh", "fresh" }, await Task.WhenAll(first, second));
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task InvalidatedRead_CannotRepopulateCache()
+    {
+        var service = CreateService();
+        var release = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stale = service.GetOrCreateAsync("dashboard:summary", () => release.Task);
+        await service.RemoveByPrefixAsync("dashboard:");
+        await service.SetAsync("dashboard:summary", "new");
+        release.SetResult("old");
+        await stale;
+        Assert.Equal("new", await service.GetAsync<string>("dashboard:summary"));
+    }
+
+    [Fact]
+    public async Task FailedFactory_CanBeRetried()
+    {
+        var service = CreateService();
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.GetOrCreateAsync<string>("retry", () => throw new InvalidOperationException()));
+        Assert.Equal("ok", await service.GetOrCreateAsync("retry", () => Task.FromResult("ok")));
+    }
+
+    [Fact]
+    public async Task ReplacedKey_RemainsTrackedForPrefixInvalidation()
+    {
+        var service = CreateService();
+        await service.SetAsync("dashboard:replace", "old");
+        await service.SetAsync("dashboard:replace", "new");
+        // MemoryCache dispatches replacement eviction callbacks asynchronously.
+        await Task.Delay(50);
+        await service.RemoveByPrefixAsync("dashboard:");
+        Assert.Null(await service.GetAsync<string>("dashboard:replace"));
+    }
+
+    [Fact]
+    public async Task CancellingOneWaiter_DoesNotCancelSharedWork()
+    {
+        var service = CreateService();
+        var release = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cancellation = new System.Threading.CancellationTokenSource();
+        var first = service.GetOrCreateAsync("shared:cancel", () => release.Task, cancellationToken: cancellation.Token);
+        var second = service.GetOrCreateAsync("shared:cancel", () => release.Task);
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
+        release.SetResult("ok");
+        Assert.Equal("ok", await second);
+    }
+
+    [Fact]
     public void CacheKeys_GeneratesExpectedFormats()
     {
         Assert.Equal("dashboard:summary:cap_150", CacheKeys.DashboardSummary(150));

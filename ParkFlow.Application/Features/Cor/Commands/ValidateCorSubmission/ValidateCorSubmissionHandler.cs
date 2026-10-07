@@ -17,6 +17,8 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
     private readonly IEmailService? _emailService;
     private readonly ISignalRNotificationSender? _signalRNotificationSender;
 
+    private readonly ICacheService? _cacheService;
+
     public ValidateCorSubmissionHandler(
         ICorSubmissionRepository corSubmissionRepository,
         IUserAccountRepository userAccountRepository,
@@ -24,7 +26,8 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
         IValidator<ValidateCorSubmissionCommand> validator,
         INotificationService? notificationService = null,
         IEmailService? emailService = null,
-        ISignalRNotificationSender? signalRNotificationSender = null)
+        ISignalRNotificationSender? signalRNotificationSender = null,
+        ICacheService? cacheService = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _userAccountRepository = userAccountRepository;
@@ -33,6 +36,7 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
         _notificationService = notificationService;
         _emailService = emailService;
         _signalRNotificationSender = signalRNotificationSender;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<Guid>> Handle(ValidateCorSubmissionCommand request, CancellationToken cancellationToken)
@@ -194,6 +198,15 @@ public class ValidateCorSubmissionHandler : IRequestHandler<ValidateCorSubmissio
             {
                 // Silently ignore realtime dispatch failure
             }
+        }
+
+        if (_cacheService != null)
+        {
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.UserPrefix, cancellationToken);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.SchedulePrefix, cancellationToken);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.VehiclePrefix, cancellationToken);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.DashboardPrefix, cancellationToken);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.SessionPrefix, cancellationToken);
         }
 
         return Result<Guid>.Success(submission?.Id ?? user!.Id, $"COR submission validation updated to {request.VerificationStatus}.");

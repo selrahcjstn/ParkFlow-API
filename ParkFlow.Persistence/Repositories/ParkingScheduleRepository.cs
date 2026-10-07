@@ -13,6 +13,14 @@ public class ParkingScheduleRepository : IParkingScheduleRepository
         _appDbContext = appDbContext;
     }
 
+    public async Task<IEnumerable<ParkingSchedule>> GetBySubmissionIdsAsync(IEnumerable<Guid> submissionIds)
+    {
+        var ids = submissionIds.Distinct().ToArray();
+        if (ids.Length == 0) return [];
+        return await _appDbContext.ParkingSchedules.AsNoTracking()
+            .Where(schedule => ids.Contains(schedule.SubmissionId)).ToListAsync();
+    }
+
     public async Task AddAsync(ParkingSchedule parkingSchedule)
     {
         await _appDbContext.ParkingSchedules.AddAsync(parkingSchedule);

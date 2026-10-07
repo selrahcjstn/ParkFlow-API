@@ -21,13 +21,16 @@ public class UpdateCorSchedulesHandler : IRequestHandler<UpdateCorSchedulesComma
     private readonly IVehicleRepository? _vehicleRepository;
     private readonly ISignalRNotificationSender? _signalRNotificationSender;
 
+    private readonly ICacheService? _cacheService;
+
     public UpdateCorSchedulesHandler(
         ICorSubmissionRepository corSubmissionRepository,
         IParkingScheduleRepository parkingScheduleRepository,
         IParkingLogRepository? parkingLogRepository = null,
         IUserAccountRepository? userAccountRepository = null,
         IVehicleRepository? vehicleRepository = null,
-        ISignalRNotificationSender? signalRNotificationSender = null)
+        ISignalRNotificationSender? signalRNotificationSender = null,
+        ICacheService? cacheService = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
@@ -35,6 +38,7 @@ public class UpdateCorSchedulesHandler : IRequestHandler<UpdateCorSchedulesComma
         _userAccountRepository = userAccountRepository;
         _vehicleRepository = vehicleRepository;
         _signalRNotificationSender = signalRNotificationSender;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<bool>> Handle(UpdateCorSchedulesCommand request, CancellationToken cancellationToken)
@@ -162,6 +166,14 @@ public class UpdateCorSchedulesHandler : IRequestHandler<UpdateCorSchedulesComma
             {
                 Console.WriteLine($"[UpdateCorSchedulesHandler] SignalR dispatch notice: {ex.Message}");
             }
+        }
+
+        if (_cacheService != null)
+        {
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.SchedulePrefix, cancellationToken);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.UserPrefix, cancellationToken);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.SessionPrefix, cancellationToken);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.DashboardPrefix, cancellationToken);
         }
 
         return Result<bool>.Success(true, "Parking schedules updated successfully.");

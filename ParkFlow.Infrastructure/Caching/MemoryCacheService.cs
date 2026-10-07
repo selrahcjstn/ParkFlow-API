@@ -13,7 +13,11 @@ public class MemoryCacheService : ICacheService
 {
     private readonly IMemoryCache _memoryCache;
     private readonly ILogger<MemoryCacheService>? _logger;
-    private readonly ConcurrentDictionary<string, byte> _activeKeys = new();
+    private readonly ConcurrentDictionary<string, Guid> _activeKeys = new();
+
+    private readonly object _gate = new();
+    private long _generation;
+    private readonly ConcurrentDictionary<string, Lazy<Task<object?>>> _pending = new();
 
     public MemoryCacheService(
         IMemoryCache memoryCache,
@@ -57,16 +61,24 @@ public class MemoryCacheService : ICacheService
                 AbsoluteExpirationRelativeToNow = effectiveExpiration
             };
 
+            var version = Guid.NewGuid();
             options.RegisterPostEvictionCallback((evictedKey, _, _, _) =>
             {
                 if (evictedKey is string stringKey)
                 {
-                    _activeKeys.TryRemove(stringKey, out _);
+                    lock (_gate)
+                    {
+                        if (_activeKeys.TryGetValue(stringKey, out var current) && current == version)
+                            _activeKeys.TryRemove(stringKey, out _);
+                    }
                 }
             });
 
-            _memoryCache.Set(key, value, options);
-            _activeKeys.TryAdd(key, 0);
+            lock (_gate)
+            {
+                _memoryCache.Set(key, value, options);
+                _activeKeys[key] = version;
+            }
         }
         catch (Exception ex)
         {
@@ -83,8 +95,13 @@ public class MemoryCacheService : ICacheService
 
         try
         {
-            _memoryCache.Remove(key);
-            _activeKeys.TryRemove(key, out _);
+            lock (_gate)
+            {
+                _generation++;
+                _pending.Clear();
+                _memoryCache.Remove(key);
+                _activeKeys.TryRemove(key, out _);
+            }
         }
         catch (Exception ex)
         {
@@ -101,19 +118,17 @@ public class MemoryCacheService : ICacheService
 
         try
         {
-            var matchingKeys = _activeKeys.Keys
-                .Where(k => k.StartsWith(prefixKey, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            foreach (var key in matchingKeys)
+            lock (_gate)
             {
-                _memoryCache.Remove(key);
-                _activeKeys.TryRemove(key, out _);
-            }
-
-            if (matchingKeys.Count > 0)
-            {
-                _logger?.LogDebug("Evicted {Count} cache entries with prefix '{Prefix}'", matchingKeys.Count, prefixKey);
+                _generation++;
+                _pending.Clear();
+                var matchingKeys = _activeKeys.Keys
+                    .Where(k => k.StartsWith(prefixKey, StringComparison.OrdinalIgnoreCase)).ToList();
+                foreach (var key in matchingKeys)
+                {
+                    _memoryCache.Remove(key);
+                    _activeKeys.TryRemove(key, out _);
+                }
             }
         }
         catch (Exception ex)
@@ -125,33 +140,39 @@ public class MemoryCacheService : ICacheService
     }
 
     public async Task<T> GetOrCreateAsync<T>(
-        string key,
-        Func<Task<T>> factory,
-        TimeSpan? expiration = null,
+        string key, Func<Task<T>> factory, TimeSpan? expiration = null,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(key))
-            return await factory();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(key)) return await factory();
 
-        try
+        Lazy<Task<object?>> work;
+        lock (_gate)
         {
-            if (_memoryCache.TryGetValue(key, out var cachedValue) && cachedValue is T typedValue)
+            if (_memoryCache.TryGetValue(key, out var cached) && cached is T typed) return typed;
+            var started = _generation;
+            work = _pending.GetOrAdd(key, _ => new Lazy<Task<object?>>(async () =>
             {
-                return typedValue;
+                var result = await factory();
+                lock (_gate)
+                {
+                    // A write invalidated this read while its database query was running.
+                    if (started == _generation && result is not null)
+                        SetAsync(key, result, expiration).GetAwaiter().GetResult();
+                }
+                return result;
+            }));
+        }
+        // Each waiter may cancel independently; cleanup belongs to the shared work.
+        var task = work.Value;
+        _ = task.ContinueWith(completed =>
+        {
+            lock (_gate)
+            {
+                if (_pending.TryGetValue(key, out var current) && ReferenceEquals(current, work))
+                    _pending.TryRemove(key, out _);
             }
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogWarning(ex, "Error reading cache key '{Key}' in GetOrCreateAsync", key);
-        }
-
-        var result = await factory();
-
-        if (result != null)
-        {
-            await SetAsync(key, result, expiration, cancellationToken);
-        }
-
-        return result;
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        return (T)(await task.WaitAsync(cancellationToken))!;
     }
 }

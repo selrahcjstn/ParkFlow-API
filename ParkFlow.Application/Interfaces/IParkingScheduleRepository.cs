@@ -4,6 +4,13 @@ namespace ParkFlow.Application.Interfaces;
 
 public interface IParkingScheduleRepository
 {
+    async Task<IEnumerable<ParkingSchedule>> GetBySubmissionIdsAsync(IEnumerable<Guid> submissionIds)
+    {
+        var schedules = new List<ParkingSchedule>();
+        foreach (var id in submissionIds.Distinct())
+            schedules.AddRange(await GetBySubmissionIdAsync(id));
+        return schedules;
+    }
     Task AddAsync(ParkingSchedule parkingSchedule);
     Task<ParkingSchedule?> GetByIdAsync(Guid id);
     Task<IEnumerable<ParkingSchedule>> GetBySubmissionIdAsync(Guid submissionId);

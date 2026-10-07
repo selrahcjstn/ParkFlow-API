@@ -67,6 +67,11 @@ public class SystemSettingsController : ControllerBase
             request.IsEarlyParkingAllowed,
             request.EarlyParkingMinutes);
 
+        if (_cacheService != null)
+        {
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.SessionPrefix);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.DashboardPrefix);
+        }
         var updated = SystemSettingsStore.Current;
 
         // Broadcast rate and capacity update via SignalR
@@ -141,6 +146,9 @@ public class SystemSettingsController : ControllerBase
         if (_cacheService != null)
         {
             await _cacheService.RemoveByPrefixAsync(CacheKeys.SchedulePrefix);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.UserPrefix);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.SessionPrefix);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.DashboardPrefix);
         }
 
         return Ok(Result<bool>.Success(true, "All student schedules and COR verification statuses have been reset for the new semester."));

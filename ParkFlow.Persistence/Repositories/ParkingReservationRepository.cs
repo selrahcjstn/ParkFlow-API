@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ParkFlow.Application.Features.Reservations.Queries.GetCalendarReservations;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
@@ -12,6 +13,41 @@ public class ParkingReservationRepository : IParkingReservationRepository
     public ParkingReservationRepository(AppDbContext context)
     {
         _context = context;
+    }
+
+    public async Task<CalendarReservationPage> GetCalendarPageAsync(DateTime date, DateTime month, int page,
+        CancellationToken cancellationToken = default)
+    {
+        var start = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+        var end = start.AddDays(1);
+        var monthStart = new DateTime(month.Year, month.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var monthEnd = monthStart.AddMonths(1);
+        var query = _context.ParkingReservations.AsNoTracking();
+        var daily = query.Where(r => r.ReservationDate >= start && r.ReservationDate < end);
+        var total = await daily.CountAsync(cancellationToken);
+        var items = await daily.OrderBy(r => r.StartTime).ThenBy(r => r.Id)
+            .Skip((Math.Max(1, page) - 1) * 5).Take(5)
+            .Select(r => new CalendarReservationItem(r.Id,
+                r.UserAccount.UserProfile == null ? "" :
+                    r.UserAccount.UserProfile.FirstName + " " + r.UserAccount.UserProfile.LastName,
+                r.Vehicle == null ? null : r.Vehicle.PlateNumber,
+                r.ReservationDate, r.StartTime, r.EndTime, r.Status, r.Type))
+            .ToListAsync(cancellationToken);
+        var counts = await query.Where(r => r.ReservationDate >= monthStart && r.ReservationDate < monthEnd)
+            .GroupBy(r => r.ReservationDate.Date)
+            .Select(group => new { Date = group.Key, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+        return new CalendarReservationPage(items, total,
+            counts.ToDictionary(row => row.Date.ToString("yyyy-MM-dd"), row => row.Count));
+    }
+
+    public async Task<IEnumerable<ParkingReservation>> GetByUserIdsAsync(IEnumerable<Guid> userIds)
+    {
+        var ids = userIds.Distinct().ToArray();
+        if (ids.Length == 0) return [];
+        return await _context.ParkingReservations.AsNoTracking()
+            .Where(reservation => ids.Contains(reservation.UserId))
+            .OrderByDescending(reservation => reservation.CreatedAt).ToListAsync();
     }
 
     public async Task AddAsync(ParkingReservation reservation)

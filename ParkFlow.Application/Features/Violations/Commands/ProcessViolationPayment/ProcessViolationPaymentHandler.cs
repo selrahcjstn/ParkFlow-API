@@ -20,6 +20,8 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
 
     private readonly IAdminRepository? _adminRepository;
 
+    private readonly ICacheService? _cacheService;
+
     public ProcessViolationPaymentHandler(
         IViolationRepository violationRepository,
         IUserProfileRepository userProfileRepository,
@@ -28,7 +30,8 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
         IValidator<ProcessViolationPaymentCommand> validator,
         ISignalRNotificationSender notificationSender,
         INotificationService? notificationService = null,
-        IAdminRepository? adminRepository = null)
+        IAdminRepository? adminRepository = null,
+        ICacheService? cacheService = null)
     {
         _violationRepository = violationRepository;
         _userProfileRepository = userProfileRepository;
@@ -38,6 +41,7 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
         _notificationSender = notificationSender;
         _notificationService = notificationService;
         _adminRepository = adminRepository;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<ViolationPaymentReceiptDto>> Handle(ProcessViolationPaymentCommand request, CancellationToken cancellationToken)
@@ -201,6 +205,12 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
             await _notificationSender.SendToAllAsync("ViolationSettled", notificationData);
         }
         catch { }
+
+        if (_cacheService != null)
+        {
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.DashboardPrefix, cancellationToken);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.SessionPrefix, cancellationToken);
+        }
 
         return Result<ViolationPaymentReceiptDto>.Success(
             receipt,

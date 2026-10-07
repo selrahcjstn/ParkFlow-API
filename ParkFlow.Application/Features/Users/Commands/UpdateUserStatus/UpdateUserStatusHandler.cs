@@ -13,12 +13,16 @@ public class UpdateUserStatusHandler : IRequestHandler<UpdateUserStatusCommand, 
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly ISignalRNotificationSender? _signalRNotificationSender;
 
+    private readonly ICacheService? _cacheService;
+
     public UpdateUserStatusHandler(
         IUserAccountRepository userAccountRepository,
-        ISignalRNotificationSender? signalRNotificationSender = null)
+        ISignalRNotificationSender? signalRNotificationSender = null,
+        ICacheService? cacheService = null)
     {
         _userAccountRepository = userAccountRepository;
         _signalRNotificationSender = signalRNotificationSender;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<Guid>> Handle(UpdateUserStatusCommand request, CancellationToken cancellationToken)
@@ -55,6 +59,12 @@ public class UpdateUserStatusHandler : IRequestHandler<UpdateUserStatusCommand, 
                     status = newStatus.ToString()
                 });
             }
+        }
+
+        if (_cacheService != null)
+        {
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.UserPrefix, cancellationToken);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.DashboardPrefix, cancellationToken);
         }
 
         return Result<Guid>.Success(user.Id, "User status updated successfully.");

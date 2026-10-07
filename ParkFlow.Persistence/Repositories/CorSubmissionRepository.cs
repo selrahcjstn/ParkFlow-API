@@ -46,6 +46,15 @@ public class CorSubmissionRepository : ICorSubmissionRepository
             .FirstOrDefaultAsync(x => x.UserAccountId == userAccountId);
     }
 
+    public async Task<IEnumerable<CorSubmission>> GetByUserIdsAsync(IEnumerable<Guid> userIds)
+    {
+        var ids = userIds.Distinct().ToArray();
+        if (ids.Length == 0) return [];
+        return await _appDbContext.CorSubmissions.AsNoTracking()
+            .Where(cor => ids.Contains(cor.UserAccountId))
+            .OrderByDescending(cor => cor.CreatedAt).ToListAsync();
+    }
+
     public async Task<IEnumerable<CorSubmission>> ListCorSubmissionsAsync()
     {
         return await _appDbContext.CorSubmissions

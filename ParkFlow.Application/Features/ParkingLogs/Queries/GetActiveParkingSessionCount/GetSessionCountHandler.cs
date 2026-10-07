@@ -8,141 +8,144 @@ using ParkFlow.Domain.Enums;
 namespace ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveParkingSessionCount;
 
 public class GetSessionCountHandler
-	: IRequestHandler<GetSessionCountQuery, Result<SessionCountResponse>>
+    : IRequestHandler<GetSessionCountQuery, Result<SessionCountResponse>>
 {
-	private readonly IParkingLogRepository _parkingLogRepository;
-	private readonly ICorSubmissionRepository _corSubmissionRepository;
-	private readonly IParkingScheduleRepository _parkingScheduleRepository;
-	private readonly IParkingReservationRepository? _reservationRepository;
-	private readonly ICacheService? _cacheService;
+    private readonly IParkingLogRepository _parkingLogRepository;
+    private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IParkingScheduleRepository _parkingScheduleRepository;
+    private readonly IParkingReservationRepository? _reservationRepository;
+    private readonly ICacheService? _cacheService;
 
-	public GetSessionCountHandler(
-		IParkingLogRepository parkingLogRepository,
-		ICorSubmissionRepository corSubmissionRepository,
-		IParkingScheduleRepository parkingScheduleRepository,
-		IParkingReservationRepository? reservationRepository = null,
-		ICacheService? cacheService = null)
-	{
-		_parkingLogRepository = parkingLogRepository;
-		_corSubmissionRepository = corSubmissionRepository;
-		_parkingScheduleRepository = parkingScheduleRepository;
-		_reservationRepository = reservationRepository;
-		_cacheService = cacheService;
-	}
+    public GetSessionCountHandler(
+        IParkingLogRepository parkingLogRepository,
+        ICorSubmissionRepository corSubmissionRepository,
+        IParkingScheduleRepository parkingScheduleRepository,
+        IParkingReservationRepository? reservationRepository = null,
+        ICacheService? cacheService = null)
+    {
+        _parkingLogRepository = parkingLogRepository;
+        _corSubmissionRepository = corSubmissionRepository;
+        _parkingScheduleRepository = parkingScheduleRepository;
+        _reservationRepository = reservationRepository;
+        _cacheService = cacheService;
+    }
 
-	public async Task<Result<SessionCountResponse>> Handle(
-		GetSessionCountQuery request,
-		CancellationToken cancellationToken)
-	{
-		var sysSettings = SystemSettingsStore.Current;
-		var effectiveCapacity = request.ParkingCapacity > 0 
-			? request.ParkingCapacity 
-			: (sysSettings.TotalCapacity > 0 ? sysSettings.TotalCapacity : 500);
+    public async Task<Result<SessionCountResponse>> Handle(
+        GetSessionCountQuery request,
+        CancellationToken cancellationToken)
+    {
+        var sysSettings = SystemSettingsStore.Current;
+        var effectiveCapacity = request.ParkingCapacity > 0
+            ? request.ParkingCapacity
+            : (sysSettings.TotalCapacity > 0 ? sysSettings.TotalCapacity : 500);
 
-		var cacheKey = CacheKeys.ActiveSessionCount(effectiveCapacity);
+        var cacheKey = CacheKeys.ActiveSessionCount(effectiveCapacity);
 
-		if (_cacheService != null)
-		{
-			var cached = await _cacheService.GetAsync<SessionCountResponse>(cacheKey, cancellationToken);
-			if (cached != null)
-			{
-				return Result<SessionCountResponse>.Success(cached, "Session count retrieved.");
-			}
-		}
+        async Task<SessionCountResponse> LoadAsync()
+        {
+            var logs = await _parkingLogRepository.GetActiveParkingLogsAsync(Math.Max(1000, effectiveCapacity));
 
-		var logs = await _parkingLogRepository.GetActiveParkingLogsAsync(Math.Max(1000, effectiveCapacity));
-		var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
-		var nowUtc = DateTime.UtcNow;
-		var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
+            var nowUtc = DateTime.UtcNow;
+            var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
 
-		var activeLogs = logs
-			.Where(x => x.EntryTime != default)
-			.ToList();
+            var activeLogs = logs
+                .Where(x => x.EntryTime != default)
+                .ToList();
 
-		var overstayCount = 0;
+            var overstayCount = 0;
 
-		foreach (var log in activeLogs)
-		{
-			var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
-			DateTime? maximumExitTimeUtc = null;
+            var ownerIds = activeLogs.Where(log => log.Vehicle != null).Select(log => log.Vehicle.OwnerId).Distinct().ToArray();
+            var corSubmissions = (await _corSubmissionRepository.GetByUserIdsAsync(ownerIds)).ToList();
+            var relevantCor = corSubmissions;
+            var schedulesBySubmission = (await _parkingScheduleRepository.GetBySubmissionIdsAsync(relevantCor.Select(cor => cor.Id)))
+                .ToLookup(schedule => schedule.SubmissionId);
+            var reservationsByOwner = (_reservationRepository == null
+                ? new List<ParkFlow.Domain.Entities.ParkingReservation>()
+                : (await _reservationRepository.GetByUserIdsAsync(ownerIds)).ToList()).ToLookup(reservation => reservation.UserId);
 
-			var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(log.Vehicle.OwnerId) : [];
-			var entryReservation = userReservations.FirstOrDefault(r =>
-				(r.VehicleId == log.VehicleId || r.VehicleId == null) &&
-				r.ReservationDate.Date == philippinesEntry.Date &&
-				r.Status == ReservationStatus.Approved)
-				?? userReservations.FirstOrDefault(r =>
-					r.ReservationDate.Date == philippinesEntry.Date &&
-					r.Status == ReservationStatus.Approved);
+            foreach (var log in activeLogs)
+            {
+                if (log.Vehicle == null) continue;
+                var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
+                DateTime? maximumExitTimeUtc = null;
 
-			if (entryReservation != null)
-			{
-				if (entryReservation.Type == ReservationType.Special)
-				{
-					maximumExitTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
-				}
-				else
-				{
-					var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, entryReservation.EndTime);
-					maximumExitTimeUtc = resEndTimeUtc.AddMinutes(graceMin);
-				}
-			}
-			else
-			{
-				var verifiedCor = corSubmissions.FirstOrDefault(c =>
-					c.UserAccountId == log.Vehicle.OwnerId &&
-					c.VerificationStatus == CorVerificationStatus.Verified);
+                var userReservations = reservationsByOwner[log.Vehicle.OwnerId].ToList();
+                var entryReservation = userReservations.FirstOrDefault(r =>
+                    (r.VehicleId == log.VehicleId || r.VehicleId == null) &&
+                    r.ReservationDate.Date == philippinesEntry.Date &&
+                    r.Status == ReservationStatus.Approved)
+                    ?? userReservations.FirstOrDefault(r =>
+                        r.ReservationDate.Date == philippinesEntry.Date &&
+                        r.Status == ReservationStatus.Approved);
 
-				if (log.EntryMethod != EntryMethod.Manual && verifiedCor != null)
-				{
-					var schedules = await _parkingScheduleRepository
-						.GetBySubmissionIdAsync(verifiedCor.Id);
+                if (entryReservation != null)
+                {
+                    if (entryReservation.Type == ReservationType.Special)
+                    {
+                        maximumExitTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
+                    }
+                    else
+                    {
+                        var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, entryReservation.EndTime);
+                        maximumExitTimeUtc = resEndTimeUtc.AddMinutes(graceMin);
+                    }
+                }
+                else
+                {
+                    var verifiedCor = corSubmissions.FirstOrDefault(c =>
+                        c.UserAccountId == log.Vehicle.OwnerId &&
+                        c.VerificationStatus == CorVerificationStatus.Verified);
 
-					var todaySchedule = schedules?
-						.FirstOrDefault(s =>
-							s.DayOfWeek == philippinesEntry.DayOfWeek);
+                    if (log.EntryMethod != EntryMethod.Manual && verifiedCor != null)
+                    {
+                        var schedules = schedulesBySubmission[verifiedCor.Id];
 
-					if (todaySchedule != null)
-					{
-						var scheduleEndUtc =
-							ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
-								philippinesEntry,
-								todaySchedule.EndTime);
-						maximumExitTimeUtc = scheduleEndUtc.AddMinutes(graceMin);
-					}
-				}
-			}
+                        var todaySchedule = schedules?
+                            .FirstOrDefault(s =>
+                                s.DayOfWeek == philippinesEntry.DayOfWeek);
 
-			if (log.EntryMethod == EntryMethod.Manual)
-			{
-				var entryMidnightUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
-				maximumExitTimeUtc = entryMidnightUtc;
-			}
-			else if (maximumExitTimeUtc == null)
-			{
-				var defaultClosingUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(22, 0, 0));
-				maximumExitTimeUtc = defaultClosingUtc > log.EntryTime ? defaultClosingUtc : log.EntryTime.AddHours(4);
-			}
+                        if (todaySchedule != null)
+                        {
+                            var scheduleEndUtc =
+                                ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
+                                    philippinesEntry,
+                                    todaySchedule.EndTime);
+                            maximumExitTimeUtc = scheduleEndUtc.AddMinutes(graceMin);
+                        }
+                    }
+                }
 
-			if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
-			{
-				overstayCount++;
-			}
-		}
+                if (log.EntryMethod == EntryMethod.Manual)
+                {
+                    var entryMidnightUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
+                    maximumExitTimeUtc = entryMidnightUtc;
+                }
+                else if (maximumExitTimeUtc == null)
+                {
+                    var defaultClosingUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(22, 0, 0));
+                    maximumExitTimeUtc = defaultClosingUtc > log.EntryTime ? defaultClosingUtc : log.EntryTime.AddHours(4);
+                }
 
-		var manualSessionCount = activeLogs.Count(x => x.EntryMethod == EntryMethod.Manual);
+                if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
+                {
+                    overstayCount++;
+                }
+            }
 
-		var response = new SessionCountResponse(
-			ActiveSessionCount: activeLogs.Count,
-			OverstayCount: overstayCount,
-			MaximumCapacity: effectiveCapacity,
-			ManualSessionCount: manualSessionCount);
+            var manualSessionCount = activeLogs.Count(x => x.EntryMethod == EntryMethod.Manual);
 
-		if (_cacheService != null)
-		{
-			await _cacheService.SetAsync(cacheKey, response, TimeSpan.FromSeconds(20), cancellationToken);
-		}
+            var response = new SessionCountResponse(
+                ActiveSessionCount: activeLogs.Count,
+                OverstayCount: overstayCount,
+                MaximumCapacity: effectiveCapacity,
+                ManualSessionCount: manualSessionCount);
 
-		return Result<SessionCountResponse>.Success(response, "Session count retrieved.");
-	}
+            return response;
+        }
+        var response = _cacheService != null
+            ? await _cacheService.GetOrCreateAsync(cacheKey, LoadAsync, TimeSpan.FromSeconds(20), cancellationToken)
+            : await LoadAsync();
+
+        return Result<SessionCountResponse>.Success(response, "Session count retrieved.");
+    }
 }
