@@ -126,8 +126,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         if (vehicle == null)
             return Result<ExitParkingLogResponse>.Failure("Invalid QR code. Vehicle not found.", ErrorCode.NotFound);
 
-        var userProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId)
-            ?? await _userProfileRepository.GetByIdAsync(request.UserId);
+        var userProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
 
         Guard? guard = null;
         Admin? staffAdmin = null;

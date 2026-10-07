@@ -40,11 +40,7 @@ public class ParkingLogController : ControllerBase
     [HttpPost("entry")]
     public async Task<ActionResult<Result<CreateParkingLogResponse>>> LogEntry([FromBody] CreateParkingLogCommand command)
     {
-        var callerUserId = _userContext?.GetUserId() ?? Guid.Empty;
-        var effectiveUserId = callerUserId != Guid.Empty
-            ? callerUserId
-            : (command.UserId != Guid.Empty ? command.UserId : Guid.Empty);
-        var result = await _mediator.Send(command with { UserId = effectiveUserId });
+        var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }
 
@@ -52,11 +48,7 @@ public class ParkingLogController : ControllerBase
     [HttpPost("manual-entry")]
     public async Task<ActionResult<Result<CreateParkingLogResponse>>> LogManualEntry([FromBody] CreateManualParkingLogCommand command)
     {
-        var callerUserId = _userContext?.GetUserId() ?? Guid.Empty;
-        var effectiveUserId = callerUserId != Guid.Empty
-            ? callerUserId
-            : (command.UserId != Guid.Empty ? command.UserId : Guid.Empty);
-        var result = await _mediator.Send(command with { UserId = effectiveUserId });
+        var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }
 
@@ -64,11 +56,7 @@ public class ParkingLogController : ControllerBase
     [HttpPatch("exit")]
     public async Task<ActionResult<Result<ExitParkingLogResponse>>> LogExit([FromBody] ExitParkingLogCommand command)
     {
-        var callerUserId = _userContext?.GetUserId() ?? Guid.Empty;
-        var effectiveUserId = callerUserId != Guid.Empty
-            ? callerUserId
-            : (command.UserId != Guid.Empty ? command.UserId : Guid.Empty);
-        var result = await _mediator.Send(command with { UserId = effectiveUserId });
+        var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }
 

@@ -4,7 +4,6 @@ using ParkFlow.Application.Interfaces;
 using ParkFlow.Application.Features.ParkingLogs.DTOs;
 using ParkFlow.Application.Features.ParkingLogs.Services;
 using ParkFlow.Domain.Enums;
-using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
 
@@ -170,37 +169,15 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
                 ErrorCode.Conflict);
         }
 
-        var userProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId)
-            ?? await _userProfileRepository.GetByIdAsync(request.UserId);
-
-        Guard? guard = null;
-        if (userProfile != null)
-        {
-            guard = userProfile.Guard ?? await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
-        }
-
-        if (guard == null || userProfile == null)
-        {
-            var allAdmins = await _adminRepository.ListAllAsync();
-            var fallbackAdmin = allAdmins.FirstOrDefault();
-            if (fallbackAdmin != null)
-            {
-                userProfile ??= fallbackAdmin.UserProfile ?? await _userProfileRepository.GetByIdAsync(fallbackAdmin.UserProfileId);
-                if (userProfile != null)
-                {
-                    guard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
-                }
-            }
-        }
+        var userProfile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
 
         if (userProfile == null)
-            return Result<CreateParkingLogResponse>.Failure("Authorized guard or admin profile not found.", ErrorCode.NotFound);
+            return Result<CreateParkingLogResponse>.Failure("User profile not found.", ErrorCode.NotFound);
+
+        var guard = await _guardRepository.GetByUserProfileIdAsync(userProfile.Id);
 
         if (guard == null)
-        {
-            guard = new Guard(userProfile, assignedGate: 1);
-            await _guardRepository.AddAsync(guard);
-        }
+            return Result<CreateParkingLogResponse>.Failure("Guard not found.", ErrorCode.NotFound);
 
         var student = await _studentRepository.GetByUserProfileIdAsync(ownerProfile.Id);
         var personnel = await _personnelRepository.GetByUserProfileIdAsync(ownerProfile.Id);
