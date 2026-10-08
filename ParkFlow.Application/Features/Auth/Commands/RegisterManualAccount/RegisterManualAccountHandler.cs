@@ -189,7 +189,7 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
                                       resolvedRole.Equals("guard", StringComparison.OrdinalIgnoreCase) ? "Security Guard" :
                                       (reqRole.Equals("NonAcademicPersonnel", StringComparison.OrdinalIgnoreCase) || reqRole.Equals("Staff", StringComparison.OrdinalIgnoreCase)
                                           ? "University Staff"
-                                          : "Faculty Member");
+                                          : "Faculty");
 
                 var emailSubject = "Welcome to ParkFlow - Your Account Credentials";
                 var emailBody = $@"

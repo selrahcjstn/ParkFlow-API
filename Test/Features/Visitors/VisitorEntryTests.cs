@@ -12,6 +12,26 @@ namespace Test.Features.Visitors;
 
 public class VisitorEntryTests
 {
+    [Theory]
+    [InlineData(Roles.UniversityStaff, "Faculty")]
+    [InlineData(Roles.NonAcademicPersonnel, "University Staff")]
+    public async Task RegisteredPlateLookupUsesTheActualEmployeeRole(Roles role, string label)
+    {
+        var profile = new UserProfile(Guid.NewGuid(), "Employee", "One", null, null);
+        var profiles = new FakeUserProfileRepository();
+        profiles.Profiles.Add(profile);
+        var personnel = new Test.Features.Users.FakePersonnelRepository();
+        await personnel.AddAsync(new Personnel(profile.Id, "EMP-1", "Office", role));
+        var vehicles = new FakeVehicleRepository();
+        await vehicles.AddAsync(new Vehicle(profile.UserAccountId, "EMP123", "Toyota", "qr", VehicleType.Car));
+        var handler = new ParkFlow.Application.Features.Visitors.Queries.GetPlateLookup.GetPlateLookupHandler(
+            vehicles, new VisitorRepositoryFake(), profiles, new FakeStudentRepository(), personnel,
+            new Test.Features.ParkingLogs.FakeAdminRepository(), new FakeParkingLogRepository());
+        var result = await handler.Handle(new("EMP123"), default);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(label, result.Data!.OwnerRole);
+    }
+
     [Fact]
     public async Task FirstVisit_CreatesVisitorAndVisit_NotRegisteredVehicle()
     {

@@ -61,4 +61,14 @@ public class PersonnelParkingPolicyTests
 
     [Fact]
     public void VisitorDoesNotQualify() => Assert.False(PersonnelParkingPolicy.AppliesTo(null));
+
+    [Theory]
+    [InlineData(9, 0)] // 9:44 AM is within the configured free window.
+    [InlineData(21, 100)] // 9:44 PM entry is allowed, but parking time is chargeable.
+    public void NineFortyFourEntryUsesTheConfiguredFreeWindow(int hour, decimal expectedCharge)
+    {
+        var settings = new SystemSettingsDto { ViolationRatePerHour = 100 };
+        var entry = Local(8, hour, 44);
+        Assert.Equal(expectedCharge, PersonnelParkingPolicy.CalculateCharge(entry, entry.AddMinutes(30), settings));
+    }
 }

@@ -46,7 +46,6 @@ public class GetSessionCountHandler
             var logs = await _parkingLogRepository.GetActiveParkingLogsAsync(Math.Max(1000, effectiveCapacity));
 
             var nowUtc = DateTime.UtcNow;
-            var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
 
             var activeLogs = logs
                 .Where(x => x.EntryTime != default)
@@ -66,67 +65,9 @@ public class GetSessionCountHandler
             foreach (var log in activeLogs)
             {
                 if (log.Vehicle == null) continue;
-                var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
-                DateTime? maximumExitTimeUtc = null;
-
-                var userReservations = reservationsByOwner[log.Vehicle.OwnerId].ToList();
-                var entryReservation = userReservations.FirstOrDefault(r =>
-                    (r.VehicleId == log.VehicleId || r.VehicleId == null) &&
-                    r.ReservationDate.Date == philippinesEntry.Date &&
-                    r.Status == ReservationStatus.Approved)
-                    ?? userReservations.FirstOrDefault(r =>
-                        r.ReservationDate.Date == philippinesEntry.Date &&
-                        r.Status == ReservationStatus.Approved);
-
-                if (entryReservation != null)
-                {
-                    if (entryReservation.Type == ReservationType.Special)
-                    {
-                        maximumExitTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
-                    }
-                    else
-                    {
-                        var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, entryReservation.EndTime);
-                        maximumExitTimeUtc = resEndTimeUtc.AddMinutes(graceMin);
-                    }
-                }
-                else
-                {
-                    var verifiedCor = corSubmissions.FirstOrDefault(c =>
-                        c.UserAccountId == log.Vehicle.OwnerId &&
-                        c.VerificationStatus == CorVerificationStatus.Verified);
-
-                    if (log.EntryMethod != EntryMethod.Manual && verifiedCor != null)
-                    {
-                        var schedules = schedulesBySubmission[verifiedCor.Id];
-
-                        var todaySchedule = schedules?
-                            .FirstOrDefault(s =>
-                                s.DayOfWeek == philippinesEntry.DayOfWeek);
-
-                        if (todaySchedule != null)
-                        {
-                            var scheduleEndUtc =
-                                ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(
-                                    philippinesEntry,
-                                    todaySchedule.EndTime);
-                            maximumExitTimeUtc = scheduleEndUtc.AddMinutes(graceMin);
-                        }
-                    }
-                }
-
-                if (log.EntryMethod == EntryMethod.Manual)
-                {
-                    var entryMidnightUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
-                    maximumExitTimeUtc = entryMidnightUtc;
-                }
-                else if (maximumExitTimeUtc == null)
-                {
-                    var defaultClosingUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(22, 0, 0));
-                    maximumExitTimeUtc = defaultClosingUtc > log.EntryTime ? defaultClosingUtc : log.EntryTime.AddHours(4);
-                }
-
-                if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
+                var timing = ActiveSessionTiming.Resolve(log, nowUtc, sysSettings, corSubmissions,
+                    schedulesBySubmission, reservationsByOwner[log.Vehicle.OwnerId]);
+                if (ActiveSessionTiming.GetOverstayHours(log, nowUtc, sysSettings, timing.DeadlineUtc) > 0)
                 {
                     overstayCount++;
                 }
