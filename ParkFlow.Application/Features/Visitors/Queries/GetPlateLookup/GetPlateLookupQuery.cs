@@ -3,6 +3,7 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Visitors.DTOs;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Visitors.Queries.GetPlateLookup;
 
@@ -62,7 +63,7 @@ public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result
                 var admin = await _adminRepository.GetByUserProfileIdAsync(profile.Id);
 
                 if (admin != null) ownerRole = "Admin";
-                else if (personnel != null) ownerRole = "Personnel";
+                else if (personnel != null) ownerRole = personnel.Role == Roles.NonAcademicPersonnel ? "University Staff" : "Faculty";
                 else if (student != null) ownerRole = "Student";
             }
 

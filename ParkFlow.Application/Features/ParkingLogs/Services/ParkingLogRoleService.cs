@@ -1,4 +1,5 @@
 using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.ParkingLogs.Services;
 
@@ -9,7 +10,7 @@ public class ParkingLogRoleService : IParkingLogRoleService
         if (student != null)
         {
             return new ParkingLogRoleDetails(
-                "student",
+                "Student",
                 student.StudentNumber,
                 student.Course,
                 student.YearLevel,
@@ -20,7 +21,7 @@ public class ParkingLogRoleService : IParkingLogRoleService
         if (personnel != null)
         {
             return new ParkingLogRoleDetails(
-                "personnel",
+                personnel.Role == Roles.NonAcademicPersonnel ? "University Staff" : "Faculty",
                 personnel.IdCardNumber,
                 null,
                 null,
