@@ -73,6 +73,15 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
         if (existingUser != null)
             return Result<string>.Failure("User account with this email already exists.", ErrorCode.Conflict);
 
+        // Check IDs before creating any account/profile records, including admin registration.
+        if (!string.IsNullOrWhiteSpace(request.Student?.StudentNumber) &&
+            await _studentRepository.GetByStudentNumberAsync(Student.NormalizeNumber(request.Student.StudentNumber)) != null)
+            return Result<string>.Failure("This student ID number is already registered.", ErrorCode.Conflict);
+
+        if (!string.IsNullOrWhiteSpace(request.Personnel?.IdCardNumber) &&
+            await _personnelRepository.GetByIdCardNumberAsync(Personnel.NormalizeId(request.Personnel.IdCardNumber)) != null)
+            return Result<string>.Failure("This employee ID number is already registered.", ErrorCode.Conflict);
+
         var plainPassword = (request.IsAdminCreated || string.IsNullOrWhiteSpace(request.Password))
             ? PasswordGenerator.GenerateTemporaryPassword()
             : request.Password;

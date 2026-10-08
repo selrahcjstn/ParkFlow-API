@@ -14,7 +14,7 @@ public class Student
     {
         UserProfileId = profileId;
 
-        StudentNumber = studentNumber;
+        StudentNumber = NormalizeNumber(studentNumber);
         Course = course;
         Section = section;
         YearLevel = yearLevel;
@@ -22,9 +22,11 @@ public class Student
 
     public void UpdateDetails(string studentNumber, string? course, string section, int yearLevel)
     {
-        StudentNumber = studentNumber;
+        StudentNumber = NormalizeNumber(studentNumber);
         Course = course;
         Section = section;
         YearLevel = yearLevel;
     }
+    public static string NormalizeNumber(string studentNumber) =>
+        studentNumber.Trim().Replace("-", "").Replace(" ", "").ToUpperInvariant();
 }

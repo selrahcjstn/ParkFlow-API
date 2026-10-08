@@ -70,6 +70,9 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
 
         if (visitor == null)
         {
+            if (request.VehicleType is not (VehicleType.Motorcycle or VehicleType.Car))
+                return Result<VisitorEntryResponse>.Failure("Please select Motorcycle or Car.", ErrorCode.BadRequest);
+
             visitor = new Visitor(
                 effectiveFullName,
                 request.ContactNumber,

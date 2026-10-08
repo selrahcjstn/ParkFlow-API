@@ -195,7 +195,7 @@ public class VerifyStudentScanTests
         Assert.True(result.Data.IsValid);
         Assert.Equal("Approved", result.Data.EntryStatus);
         Assert.Equal("Juan Dela Cruz", result.Data.FullName);
-        Assert.Equal("2023-12345", result.Data.StudentNumber);
+        Assert.Equal("202312345", result.Data.StudentNumber);
         Assert.True(result.Data.HasRegisteredVehicle);
         Assert.Equal("ABC-1234", result.Data.PlateNumber);
         Assert.Equal("Toyota", result.Data.VehicleBrand);
@@ -213,7 +213,7 @@ public class FakeTestStudentRepository : IStudentRepository
     public Task<Student?> GetByUserProfileIdAsync(Guid userProfileId) =>
         Task.FromResult(_students.FirstOrDefault(s => s.UserProfileId == userProfileId));
     public Task<Student?> GetByStudentNumberAsync(string studentNumber) =>
-        Task.FromResult(_students.FirstOrDefault(s => s.StudentNumber.Equals(studentNumber.Trim(), StringComparison.OrdinalIgnoreCase)));
+        Task.FromResult(_students.FirstOrDefault(s => Student.NormalizeNumber(s.StudentNumber) == Student.NormalizeNumber(studentNumber)));
 }
 
 public class FakeTestUserProfileRepository : IUserProfileRepository

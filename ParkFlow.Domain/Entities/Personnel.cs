@@ -19,17 +19,18 @@ public class Personnel
         Roles role = Roles.UniversityStaff)
     {                                                   
         UserProfileId = profileId;
-        IdCardNumber = idCardNumber;
+        IdCardNumber = NormalizeId(idCardNumber);
         Department = department;
         Role = role;
     }
 
     public void UpdateDetails(string idCardNumber, string department, Roles? role = null)
     {
-        IdCardNumber = idCardNumber;
+        IdCardNumber = NormalizeId(idCardNumber);
         Department = department;
         if (role.HasValue)
             Role = role.Value;
     }
+    public static string NormalizeId(string idCardNumber) => idCardNumber.Trim().ToUpperInvariant();
 }
 
