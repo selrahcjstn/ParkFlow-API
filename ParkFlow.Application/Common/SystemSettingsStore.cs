@@ -22,6 +22,7 @@ namespace ParkFlow.Application.Common
 
         public int MaxParkingHours { get; set; } = 8;
         public int TotalCapacity { get; set; } = 500;
+        public int ReservationAllocationPercent { get; set; } = 30;
         public int MaxVehiclesPerUser { get; set; } = 5;
         public bool MaintenanceMode { get; set; } = false;
         public bool RfidInstantScanEnabled { get; set; } = true;
@@ -55,6 +56,7 @@ namespace ParkFlow.Application.Common
                         LastResetDate = _settings.LastResetDate,
                         MaxParkingHours = _settings.MaxParkingHours,
                         TotalCapacity = _settings.TotalCapacity,
+                        ReservationAllocationPercent = _settings.ReservationAllocationPercent,
                         MaxVehiclesPerUser = _settings.MaxVehiclesPerUser,
                         MaintenanceMode = _settings.MaintenanceMode,
                         RfidInstantScanEnabled = _settings.RfidInstantScanEnabled,
@@ -81,7 +83,8 @@ namespace ParkFlow.Application.Common
             bool? isEarlyParkingAllowed = null,
             int? earlyParkingMinutes = null,
             string? personnelFreeParkingStart = null,
-            string? personnelFreeParkingEnd = null)
+            string? personnelFreeParkingEnd = null,
+            int? reservationAllocationPercent = null)
         {
             lock (_lock)
             {
@@ -91,6 +94,7 @@ namespace ParkFlow.Application.Common
                 if (!string.IsNullOrWhiteSpace(semester)) _settings.CurrentSemester = semester;
                 _settings.MaxParkingHours = maxParkingHours;
                 _settings.TotalCapacity = totalCapacity;
+                if (reservationAllocationPercent.HasValue) _settings.ReservationAllocationPercent = reservationAllocationPercent.Value;
                 _settings.MaxVehiclesPerUser = maxVehiclesPerUser;
                 _settings.MaintenanceMode = maintenanceMode;
                 _settings.RfidInstantScanEnabled = rfidInstantScanEnabled;

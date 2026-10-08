@@ -3,6 +3,7 @@ using ParkFlow.Application.Features.Reservations.Queries.GetCalendarReservations
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
+using ParkFlow.Application.Features.Reservations;
 
 namespace ParkFlow.Persistence.Repositories;
 
@@ -13,6 +14,59 @@ public class ParkingReservationRepository : IParkingReservationRepository
     public ParkingReservationRepository(AppDbContext context)
     {
         _context = context;
+    }
+
+    public async Task<int> GetReservedPeakAsync(DateTime date, TimeSpan start, TimeSpan end, CancellationToken cancellationToken = default)
+    {
+        var day = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+        var nextDay = day.AddDays(1);
+        var windows = await _context.ParkingReservations.AsNoTracking()
+            .Where(r => r.ReservationDate >= day && r.ReservationDate < nextDay
+                && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Approved)
+                && (r.Type == ReservationType.Special || (r.StartTime < end && r.EndTime > start)))
+            .Select(r => new ReservationTimeWindow(
+                r.Type == ReservationType.Special ? TimeSpan.Zero : r.StartTime,
+                r.Type == ReservationType.Special ? TimeSpan.FromDays(1) : r.EndTime))
+            .ToListAsync(cancellationToken);
+        return ReservationCapacityPolicy.GetPeak(windows, start, end);
+    }
+
+    public async Task<ReservationBookingResult> TryAddWithinCapacityAsync(ParkingReservation reservation, int capacity,
+        CancellationToken cancellationToken = default)
+    {
+        // Run the transaction inside the configured Npgsql retry strategy.
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            var day = DateTime.SpecifyKind(reservation.ReservationDate.Date, DateTimeKind.Utc);
+            // PostgreSQL transaction lock serializes bookings for this date, including across API instances.
+            var lockKey = 8_104_000_000L + DateOnly.FromDateTime(day).DayNumber;
+            await _context.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({lockKey})", cancellationToken);
+            // A lost commit acknowledgement must not charge a second slot or report a false duplicate.
+            if (await _context.ParkingReservations.AnyAsync(r => r.Id == reservation.Id, cancellationToken))
+            {
+                _context.ChangeTracker.AcceptAllChanges();
+                return ReservationBookingResult.Created;
+            }
+            var nextDay = day.AddDays(1);
+            var existing = _context.ParkingReservations.Where(r => r.ReservationDate >= day && r.ReservationDate < nextDay
+                && r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.Rejected);
+            if (await existing.AnyAsync(r => r.UserId == reservation.UserId, cancellationToken))
+                return ReservationBookingResult.DuplicateUser;
+            if (reservation.VehicleId.HasValue && await existing.AnyAsync(r => r.VehicleId == reservation.VehicleId, cancellationToken))
+                return ReservationBookingResult.DuplicateVehicle;
+            var start = reservation.Type == ReservationType.Special ? TimeSpan.Zero : reservation.StartTime;
+            var end = reservation.Type == ReservationType.Special ? TimeSpan.FromDays(1) : reservation.EndTime;
+            if (capacity <= 0 || await GetReservedPeakAsync(day, start, end, cancellationToken) >= capacity)
+                return ReservationBookingResult.CapacityFull;
+            await _context.ParkingReservations.AddAsync(reservation, cancellationToken);
+            // Keep the entity Added until commit succeeds, so a rolled-back retry can insert it again.
+            await _context.SaveChangesAsync(acceptAllChangesOnSuccess: false, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            _context.ChangeTracker.AcceptAllChanges();
+            return ReservationBookingResult.Created;
+        });
     }
 
     public async Task<CalendarReservationPage> GetCalendarPageAsync(DateTime date, DateTime month, int page,

@@ -3,6 +3,7 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Cor.DTOs;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
+using ParkFlow.Application.Features.ParkingLogs.Services;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -73,6 +74,13 @@ public class UpdateCorSchedulesHandler : IRequestHandler<UpdateCorSchedulesComma
                 }
             }
         }
+
+        var scheduleOwner = _userAccountRepository != null && targetUserAccountId != Guid.Empty
+            ? await _userAccountRepository.GetByIdAsync(targetUserAccountId) : submission?.UserAccount;
+        if (PersonnelParkingPolicy.AppliesTo(scheduleOwner?.UserProfile?.Personnel))
+            return Result<bool>.Failure(
+                "Faculty and university staff parking hours are managed by the Super Admin. No personal schedule is required.",
+                ErrorCode.Forbidden);
 
         if (submission == null && targetUserAccountId != Guid.Empty)
         {

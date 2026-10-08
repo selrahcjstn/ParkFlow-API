@@ -2,6 +2,7 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Visitors.DTOs;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.Application.Features.Visitors.Queries.GetPlateLookup;
 
@@ -111,7 +112,8 @@ public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result
                 ActiveSessionId: activeSession?.Id,
                 EntryTime: activeSession?.EntryTime,
                 Purpose: activeSession?.Purpose,
-                Destination: activeSession?.Destination
+                Destination: activeSession?.Destination,
+                EntryFee: VisitSession.ParkingFee
             );
 
             return Result<UnifiedPlateLookupDto>.Success(dto, "Visitor record found.");
@@ -123,7 +125,8 @@ public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result
             IsRegistered: false,
             IsVisitor: false,
             IsInside: false,
-            PlateNumber: normalizedPlate
+            PlateNumber: normalizedPlate,
+            EntryFee: VisitSession.ParkingFee
         ), "Plate not found in system.");
     }
 }

@@ -4,6 +4,7 @@ namespace ParkFlow.Application.Features.Reservations.DTOs;
 
 public class ParkingReservationDto
 {
+    public ReservationAvailability? Availability { get; set; }
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
     public string UserFullName { get; set; } = string.Empty;

@@ -47,6 +47,9 @@ public class SystemSettingsController : ControllerBase
             || string.Equals(User.FindFirst(ClaimTypes.Email)?.Value ?? User.FindFirst("email")?.Value,
                 "superadmin@parkflow.com", StringComparison.OrdinalIgnoreCase);
         if (!isSuperAdmin) return Forbid();
+        if (request.TotalCapacity < 1 || request.ReservationAllocationPercent < 0 || request.ReservationAllocationPercent > 100)
+            return BadRequest(Result<SystemSettingsDto>.Failure(
+                "Total parking capacity must be at least 1. Reservation allocation must be between 0% and 100%.", ErrorCode.BadRequest));
         if (!PersonnelParkingPolicy.TryGetHours(request, out _, out _) || request.ViolationRatePerHour < 0)
             return BadRequest(Result<SystemSettingsDto>.Failure(
                 "Enter valid faculty/staff hours with the start earlier than the end, and a non-negative hourly rate.",
@@ -80,7 +83,8 @@ public class SystemSettingsController : ControllerBase
             request.IsEarlyParkingAllowed,
             request.EarlyParkingMinutes,
             request.PersonnelFreeParkingStart,
-            request.PersonnelFreeParkingEnd);
+            request.PersonnelFreeParkingEnd,
+            request.ReservationAllocationPercent);
 
         if (_cacheService != null)
         {

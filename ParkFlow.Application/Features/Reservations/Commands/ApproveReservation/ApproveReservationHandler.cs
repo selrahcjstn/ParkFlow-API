@@ -29,6 +29,12 @@ public class ApproveReservationHandler : IRequestHandler<ApproveReservationComma
         if (reservation == null)
             return Result<bool>.Failure("Reservation not found.", ErrorCode.NotFound);
 
+        var start = reservation.Type == ParkFlow.Domain.Enums.ReservationType.Special ? TimeSpan.Zero : reservation.StartTime;
+        var end = reservation.Type == ParkFlow.Domain.Enums.ReservationType.Special ? TimeSpan.FromDays(1) : reservation.EndTime;
+        var booked = await _reservationRepository.GetReservedPeakAsync(reservation.ReservationDate, start, end, cancellationToken);
+        if (booked > ReservationCapacityPolicy.GetCapacity(SystemSettingsStore.Current))
+            return Result<bool>.Failure("The reservation allocation is full for this time range. Adjust capacity or review overlapping requests before approving.", ErrorCode.Conflict);
+
         try
         {
             string? customNotifyEmail = null;

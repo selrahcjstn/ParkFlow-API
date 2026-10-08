@@ -21,6 +21,7 @@ public class VisitorEntryTests
         var result = await handler.Handle(Entry(), CancellationToken.None);
         Assert.True(result.IsSuccess);
         Assert.False(result.Data!.IsReturning);
+        Assert.Equal(20m, result.Data.EntryFee);
         Assert.Equal("Juan", visitors.Visitor!.FullName);
         Assert.Single(visitors.Sessions);
         Assert.Null(await vehicles.GetByPlateNumberAsync("ABC123"));
@@ -37,6 +38,7 @@ public class VisitorEntryTests
         var result = await handler.Handle(Entry() with { FullName = "Visitor", ContactNumber = "", Brand = "Changed" }, CancellationToken.None);
         Assert.True(result.IsSuccess);
         Assert.True(result.Data!.IsReturning);
+        Assert.Equal(20m, result.Data.EntryFee);
         Assert.Equal(id, result.Data.VisitorId);
         Assert.Equal("Juan", result.Data.FullName);
         Assert.Equal("Toyota", result.Data.Brand);
@@ -70,6 +72,25 @@ public class VisitorEntryTests
 
     private static CreateVisitorEntryCommand Entry() =>
         new("ABC123", "Juan", "09171234567", VehicleType.Car, "Toyota");
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task VisitorLookup_QuotesFeeBeforeEntry(bool returning)
+    {
+        var visitors = new VisitorRepositoryFake();
+        if (returning)
+            await visitors.AddAsync(new Visitor("Juan", null, "ABC123", VehicleType.Car, "Toyota"));
+        var handler = new ParkFlow.Application.Features.Visitors.Queries.GetPlateLookup.GetPlateLookupHandler(
+            new FakeVehicleRepository(), visitors, new FakeUserProfileRepository(),
+            new FakeStudentRepository(), new FakePersonnelRepository(),
+            new Test.Features.ParkingLogs.FakeAdminRepository(), new FakeParkingLogRepository());
+        var result = await handler.Handle(new("ABC123"), default);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(returning ? "Visitor" : "Unknown", result.Data!.LookupType);
+        Assert.Equal(20m, result.Data.EntryFee);
+        Assert.Empty(visitors.Sessions);
+    }
 
     private static CreateVisitorEntryHandler CreateHandler(VisitorRepositoryFake visitors, FakeVehicleRepository vehicles) =>
         new(visitors, vehicles, new FakeUserProfileRepository(), new FakeGuardRepository(), new Test.Features.ParkingLogs.FakeAdminRepository());

@@ -3,6 +3,7 @@ using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
+using ParkFlow.Application.Features.ParkingLogs.Services;
 
 namespace ParkFlow.Application.Features.Schedules.Command;
 
@@ -12,15 +13,21 @@ public class CreateParkingScheduleHandler : IRequestHandler<CreateParkingSchedul
     private readonly IValidator<CreateParkingScheduleCommand> _validator;
 
     private readonly ICacheService? _cacheService;
+    private readonly ICorSubmissionRepository _corSubmissionRepository;
+    private readonly IUserAccountRepository _userAccountRepository;
 
     public CreateParkingScheduleHandler(
         IParkingScheduleRepository parkingScheduleRepository,
         IValidator<CreateParkingScheduleCommand> validator,
+        ICorSubmissionRepository corSubmissionRepository,
+        IUserAccountRepository userAccountRepository,
         ICacheService? cacheService = null)
     {
         _parkingScheduleRepository = parkingScheduleRepository;
         _validator = validator;
         _cacheService = cacheService;
+        _corSubmissionRepository = corSubmissionRepository;
+        _userAccountRepository = userAccountRepository;
     }
 
     public async Task<Result<Guid>> Handle(CreateParkingScheduleCommand request, CancellationToken cancellationToken)
@@ -32,6 +39,15 @@ public class CreateParkingScheduleHandler : IRequestHandler<CreateParkingSchedul
             var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
             return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
         }
+
+        var submission = await _corSubmissionRepository.GetCorSubmissionAsync(request.SubmissionId);
+        if (submission == null)
+            return Result<Guid>.Failure("Submission not found.", ErrorCode.NotFound);
+        var user = await _userAccountRepository.GetByIdAsync(submission.UserAccountId);
+        if (PersonnelParkingPolicy.AppliesTo(user?.UserProfile?.Personnel))
+            return Result<Guid>.Failure(
+                "Faculty and university staff parking hours are managed by the Super Admin. No personal schedule is required.",
+                ErrorCode.Forbidden);
 
         var schedules = new List<ParkingSchedule>();
 
