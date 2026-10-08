@@ -1,4 +1,5 @@
 using System;
+using System.Text.RegularExpressions;
 using FluentValidation;
 
 namespace ParkFlow.Application.Features.Onboarding.Commands.UpdateOnboardingCor;
@@ -29,6 +30,10 @@ public class UpdateOnboardingCorValidator : AbstractValidator<UpdateOnboardingCo
     private static bool IsValidUrl(string? url)
     {
         if (string.IsNullOrWhiteSpace(url)) return false;
+        // Cloudinary's existing server-storage fallback returns this relative form.
+        // Accept generated ParkFlow upload paths, not arbitrary relative paths.
+        if (Regex.IsMatch(url, @"^/?uploads/parkflow/(cor|orcr|motor-pictures)/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.(pdf|jpe?g|png|webp)$", RegexOptions.IgnoreCase))
+            return true;
         return url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
                url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
                url.StartsWith("file://", StringComparison.OrdinalIgnoreCase) ||
