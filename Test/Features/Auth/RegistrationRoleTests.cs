@@ -289,7 +289,7 @@ public class RegistrationRoleTests
 
         var createdStudent = await studentRepo.GetByUserProfileIdAsync(createdProfile.Id);
         Assert.NotNull(createdStudent);
-        Assert.Equal("2026-00123", createdStudent.StudentNumber);
+        Assert.Equal("202600123", createdStudent.StudentNumber);
     }
 }
 

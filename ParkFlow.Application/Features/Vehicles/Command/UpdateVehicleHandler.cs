@@ -53,6 +53,11 @@ public class UpdateVehicleHandler : IRequestHandler<UpdateVehicleCommand, Result
             return Result<Guid>.Failure("Access Denied: You do not own this vehicle.", ErrorCode.Forbidden);
         }
 
+        // Existing legacy records may be retained, but new E-Bike selections are not allowed.
+        if (request.VehicleType is not (VehicleType.Motorcycle or VehicleType.Car) &&
+            !(request.VehicleType == VehicleType.ElectricBike && vehicle.VehicleType == VehicleType.ElectricBike))
+            return Result<Guid>.Failure("Please select Motorcycle or Car.", ErrorCode.BadRequest);
+
         var existingVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.OwnerId);
         var plateExists = existingVehicles.Any(v => v.Id != request.VehicleId && v.PlateNumber.Equals(request.PlateNumber, StringComparison.OrdinalIgnoreCase));
         if (plateExists)

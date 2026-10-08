@@ -47,7 +47,7 @@ public class StudentRepository : IStudentRepository
     {
         if (string.IsNullOrWhiteSpace(studentNumber)) return null;
         var trimmed = studentNumber.Trim();
-        var normalized = trimmed.Replace("-", "").Replace(" ", "");
+        var normalized = Student.NormalizeNumber(trimmed);
 
         var student = await _context.Students
             .Include(s => s.UserProfile)
@@ -57,7 +57,7 @@ public class StudentRepository : IStudentRepository
         {
             student = await _context.Students
                 .Include(s => s.UserProfile)
-                .FirstOrDefaultAsync(x => x.StudentNumber.Replace("-", "").Replace(" ", "") == normalized);
+                .FirstOrDefaultAsync(x => x.StudentNumber.Replace("-", "").Replace(" ", "").ToUpper() == normalized);
         }
 
         return student;

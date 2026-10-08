@@ -45,8 +45,10 @@ public class PersonnelRepository : IPersonnelRepository
 
     public async Task<Personnel?> GetByIdCardNumberAsync(string idCardNumber)
     {
+        if (string.IsNullOrWhiteSpace(idCardNumber)) return null;
+        var normalized = Personnel.NormalizeId(idCardNumber);
         return await _context.Personnel
             .Include(p => p.UserProfile)
-            .FirstOrDefaultAsync(x => x.IdCardNumber == idCardNumber);
+            .FirstOrDefaultAsync(x => x.IdCardNumber.Trim().ToUpper() == normalized);
     }
 }

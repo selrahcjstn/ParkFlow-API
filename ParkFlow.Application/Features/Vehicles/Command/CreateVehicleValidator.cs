@@ -1,4 +1,5 @@
 using FluentValidation;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Vehicles.Command;
 
@@ -6,6 +7,9 @@ public class CreateVehicleValidator : AbstractValidator<CreateVehicleCommand>
 {
     public CreateVehicleValidator()
     {
+        RuleFor(x => x.VehicleType)
+            .Must(type => type is VehicleType.Motorcycle or VehicleType.Car)
+            .WithMessage("Please select Motorcycle or Car.");
         RuleFor(x => x.OwnerId)
             .NotEmpty()
             .WithMessage("OwnerId is required.");
