@@ -66,7 +66,8 @@ public record VisitorEntryResponse(
     string? Purpose,
     string? Destination,
     string Status,
-    bool IsReturning
+    bool IsReturning,
+    decimal EntryFee = 0m
 );
 
 public record ExitVisitorSessionCommand(
@@ -113,5 +114,6 @@ public record UnifiedPlateLookupDto(
     DateTime? EntryTime = null,
     string? Purpose = null,
     string? Destination = null,
-    string? EntryMethod = null
+    string? EntryMethod = null,
+    decimal? EntryFee = null
 );

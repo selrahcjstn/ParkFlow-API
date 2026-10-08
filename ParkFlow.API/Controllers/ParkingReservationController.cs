@@ -15,6 +15,8 @@ using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Enums;
 
 using ParkFlow.Application.Features.Reservations.Queries.VerifyReservationScan;
+using ParkFlow.Application.Features.Reservations;
+using ParkFlow.Application.Features.Reservations.Queries.GetReservationAvailability;
 
 namespace ParkFlow.API.Controllers;
 
@@ -42,6 +44,17 @@ public class ParkingReservationController : ControllerBase
 
     public record ReviewReservationRequest(string? Notes);
     public record VerifyScanRequest(string QrCode);
+
+    [HttpGet("availability")]
+    [Authorize]
+    public async Task<ActionResult<Result<ReservationAvailability>>> GetAvailability(
+        [FromQuery] DateTime date, [FromQuery] string startTime, [FromQuery] string endTime,
+        [FromQuery] ReservationType type = ReservationType.Normal)
+    {
+        if (!TimeSpan.TryParse(startTime, out var start) || !TimeSpan.TryParse(endTime, out var end))
+            return BadRequest(Result<ReservationAvailability>.Failure("Choose a valid time range.", ErrorCode.BadRequest));
+        return this.ToActionResult(await _mediator.Send(new GetReservationAvailabilityQuery(date, start, end, type)));
+    }
 
     [HttpPost("verify-scan")]
     public async Task<ActionResult<Result<VerifyReservationScanResponse>>> VerifyScan([FromBody] VerifyScanRequest request)

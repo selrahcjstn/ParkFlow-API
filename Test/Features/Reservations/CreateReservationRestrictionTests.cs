@@ -10,11 +10,36 @@ using ParkFlow.Application.Features.Reservations.DTOs;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
+using ParkFlow.Application.Features.Reservations;
 
 namespace Test.Features.Reservations;
 
 public class FakeParkingReservationRepository : IParkingReservationRepository
 {
+    public Task<int> GetReservedPeakAsync(DateTime date, TimeSpan start, TimeSpan end, CancellationToken cancellationToken = default) =>
+        Task.FromResult(ReservationCapacityPolicy.GetPeak(Reservations
+            .Where(r => r.ReservationDate.Date == date.Date && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Approved))
+            .Select(r => new ReservationTimeWindow(r.Type == ReservationType.Special ? TimeSpan.Zero : r.StartTime,
+                r.Type == ReservationType.Special ? TimeSpan.FromDays(1) : r.EndTime)), start, end));
+    private readonly SemaphoreSlim _bookingLock = new(1, 1);
+    public async Task<ReservationBookingResult> TryAddWithinCapacityAsync(ParkingReservation reservation, int capacity, CancellationToken cancellationToken = default)
+    {
+        await _bookingLock.WaitAsync(cancellationToken);
+        try
+        {
+            var existing = Reservations.Where(r => r.ReservationDate.Date == reservation.ReservationDate.Date
+                && r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.Rejected).ToList();
+            if (existing.Any(r => r.UserId == reservation.UserId)) return ReservationBookingResult.DuplicateUser;
+            if (reservation.VehicleId.HasValue && existing.Any(r => r.VehicleId == reservation.VehicleId)) return ReservationBookingResult.DuplicateVehicle;
+            var start = reservation.Type == ReservationType.Special ? TimeSpan.Zero : reservation.StartTime;
+            var end = reservation.Type == ReservationType.Special ? TimeSpan.FromDays(1) : reservation.EndTime;
+            if (capacity <= 0 || await GetReservedPeakAsync(reservation.ReservationDate, start, end, cancellationToken) >= capacity)
+                return ReservationBookingResult.CapacityFull;
+            Reservations.Add(reservation);
+            return ReservationBookingResult.Created;
+        }
+        finally { _bookingLock.Release(); }
+    }
     public Task<ParkFlow.Application.Features.Reservations.Queries.GetCalendarReservations.CalendarReservationPage> GetCalendarPageAsync(DateTime date, DateTime month, int page, CancellationToken cancellationToken = default, string? search = null, bool gateOnly = false) => throw new NotImplementedException();
     public List<ParkingReservation> Reservations { get; } = new();
 

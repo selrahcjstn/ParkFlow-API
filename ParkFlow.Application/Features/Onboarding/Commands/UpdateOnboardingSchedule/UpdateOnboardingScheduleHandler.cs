@@ -4,6 +4,7 @@ using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
+using ParkFlow.Application.Features.ParkingLogs.Services;
 
 namespace ParkFlow.Application.Features.Onboarding.Commands.UpdateOnboardingSchedule;
 
@@ -39,6 +40,14 @@ public class UpdateOnboardingScheduleHandler : IRequestHandler<UpdateOnboardingS
             return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
         }
 
+        var user = await _userAccountRepository.GetByIdAsync(request.UserId);
+        if (user == null)
+            return Result<Guid>.Failure("Account not found.", ErrorCode.NotFound);
+        if (PersonnelParkingPolicy.AppliesTo(user.UserProfile?.Personnel))
+            return Result<Guid>.Failure(
+                "Faculty and university staff parking hours are managed by the Super Admin. No personal schedule is required.",
+                ErrorCode.Forbidden);
+
         var submission = await _corSubmissionRepository.GetLatestByUserIdAsync(request.UserId);
         if (submission == null)
         {
@@ -52,7 +61,6 @@ public class UpdateOnboardingScheduleHandler : IRequestHandler<UpdateOnboardingS
 
         await _parkingScheduleRepository.ReplaceSchedulesAsync(submission.Id, newSchedules);
 
-        var user = await _userAccountRepository.GetByIdAsync(request.UserId);
         if (user != null)
         {
             user.UpdateOnboardingStep(OnboardingStep.Done);

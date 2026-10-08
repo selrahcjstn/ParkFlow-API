@@ -1,11 +1,14 @@
 using ParkFlow.Domain.Entities;
 using ParkFlow.Application.Features.Reservations.Queries.GetCalendarReservations;
 using ParkFlow.Domain.Enums;
+using ParkFlow.Application.Features.Reservations;
 
 namespace ParkFlow.Application.Interfaces;
 
 public interface IParkingReservationRepository
 {
+    Task<int> GetReservedPeakAsync(DateTime date, TimeSpan start, TimeSpan end, CancellationToken cancellationToken = default);
+    Task<ReservationBookingResult> TryAddWithinCapacityAsync(ParkingReservation reservation, int capacity, CancellationToken cancellationToken = default);
     Task<CalendarReservationPage> GetCalendarPageAsync(DateTime date, DateTime month, int page,
         CancellationToken cancellationToken = default, string? search = null, bool gateOnly = false);
     async Task<IEnumerable<ParkingReservation>> GetByUserIdsAsync(IEnumerable<Guid> userIds)

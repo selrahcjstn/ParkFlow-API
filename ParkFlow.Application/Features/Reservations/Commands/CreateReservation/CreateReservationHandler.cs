@@ -138,42 +138,6 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
                 ErrorCode.BadRequest);
         }
 
-        // Enforce restriction: 1 parking reservation per day per user across all platforms (Mobile & Web)
-        var userReservations = (await _reservationRepository.GetByUserIdAsync(user.Id)).ToList();
-        var hasReservationOnDate = userReservations.Any(r =>
-            r.ReservationDate.Year == request.ReservationDate.Year &&
-            r.ReservationDate.Month == request.ReservationDate.Month &&
-            r.ReservationDate.Day == request.ReservationDate.Day &&
-            r.Status != ReservationStatus.Cancelled &&
-            r.Status != ReservationStatus.Rejected);
-
-        if (hasReservationOnDate)
-        {
-            return Result<ParkingReservationDto>.Failure(
-                $"You already have a reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
-                ErrorCode.Conflict);
-        }
-
-        // Verify vehicle does not already have an active/pending/completed reservation on this date
-        if (assignedVehicleId.HasValue)
-        {
-            var vehicleReservations = (await _reservationRepository.GetAllAsync())
-                .Where(r => r.VehicleId == assignedVehicleId.Value &&
-                            r.ReservationDate.Year == request.ReservationDate.Year &&
-                            r.ReservationDate.Month == request.ReservationDate.Month &&
-                            r.ReservationDate.Day == request.ReservationDate.Day &&
-                            r.Status != ReservationStatus.Cancelled &&
-                            r.Status != ReservationStatus.Rejected)
-                .ToList();
-
-            if (vehicleReservations.Any())
-            {
-                return Result<ParkingReservationDto>.Failure(
-                    $"This vehicle already has a reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
-                    ErrorCode.Conflict);
-            }
-        }
-
         // Generate Reference Number: RES-YYYYMMDD-XXXX
         var randomPart = new Random().Next(1000, 9999);
         var refNum = $"RES-{request.ReservationDate:yyyyMMdd}-{randomPart}";
@@ -204,8 +168,18 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
             reservation.Approve(adminId, "Auto-approved (Created by Admin)");
         }
 
-        await _reservationRepository.AddAsync(reservation);
-        await _reservationRepository.SaveChangesAsync();
+        var booking = await _reservationRepository.TryAddWithinCapacityAsync(reservation,
+            ReservationCapacityPolicy.GetCapacity(SystemSettingsStore.Current), cancellationToken);
+        if (booking != ReservationBookingResult.Created)
+        {
+            var message = booking switch
+            {
+                ReservationBookingResult.DuplicateUser => $"You already have a reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
+                ReservationBookingResult.DuplicateVehicle => $"This vehicle already has a reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
+                _ => "No reservation spaces are available for this time range. Please choose another time or date."
+            };
+            return Result<ParkingReservationDto>.Failure(message, ErrorCode.Conflict);
+        }
 
         if (isAdmin)
         {
@@ -313,6 +287,10 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
 
         var dto = new ParkingReservationDto
         {
+            Availability = ReservationCapacityPolicy.Describe(SystemSettingsStore.Current,
+                await _reservationRepository.GetReservedPeakAsync(reservation.ReservationDate,
+                    reservation.Type == ReservationType.Special ? TimeSpan.Zero : reservation.StartTime,
+                    reservation.Type == ReservationType.Special ? TimeSpan.FromDays(1) : reservation.EndTime, cancellationToken)),
             Id = reservation.Id,
             UserId = reservation.UserId,
             UserFullName = user.UserProfile != null ? $"{user.UserProfile.FirstName} {user.UserProfile.LastName}".Trim() : string.Empty,

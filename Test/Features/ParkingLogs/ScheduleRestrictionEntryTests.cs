@@ -244,6 +244,12 @@ public class ScheduleRestrictionEntryTests
 
 public class FakeTestParkingReservationRepository : IParkingReservationRepository
 {
+    public Task<int> GetReservedPeakAsync(DateTime date, TimeSpan start, TimeSpan end, CancellationToken cancellationToken = default) => Task.FromResult(0);
+    public async Task<ParkFlow.Application.Features.Reservations.ReservationBookingResult> TryAddWithinCapacityAsync(ParkingReservation reservation, int capacity, CancellationToken cancellationToken = default)
+    {
+        await AddAsync(reservation);
+        return ParkFlow.Application.Features.Reservations.ReservationBookingResult.Created;
+    }
     public Task<ParkFlow.Application.Features.Reservations.Queries.GetCalendarReservations.CalendarReservationPage> GetCalendarPageAsync(DateTime date, DateTime month, int page, CancellationToken cancellationToken = default, string? search = null, bool gateOnly = false) => throw new NotImplementedException();
     private readonly List<ParkingReservation> _reservations = new();
 
