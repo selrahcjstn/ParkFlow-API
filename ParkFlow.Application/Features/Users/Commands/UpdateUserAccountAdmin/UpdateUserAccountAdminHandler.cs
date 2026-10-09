@@ -46,6 +46,19 @@ public class UpdateUserAccountAdminHandler : IRequestHandler<UpdateUserAccountAd
             if (user == null)
                 return Result<Guid>.Failure("User account not found.", ErrorCode.NotFound);
 
+            // Check before changing the profile or deleting its previous role record.
+            var requestedRole = request.Request.Role?.Trim();
+            if (string.Equals(requestedRole, "Student", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(request.Request.Student?.StudentNumber) &&
+                await _studentRepository.GetByStudentNumberAsync(request.Request.Student.StudentNumber, user.UserProfile?.Id) != null)
+                return Result<Guid>.Failure("This student ID number is already registered to another account.", ErrorCode.Conflict);
+
+            if ((string.Equals(requestedRole, "UniversityStaff", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(requestedRole, "NonAcademicPersonnel", StringComparison.OrdinalIgnoreCase)) &&
+                !string.IsNullOrWhiteSpace(request.Request.Personnel?.IdCardNumber) &&
+                await _personnelRepository.GetByIdCardNumberAsync(request.Request.Personnel.IdCardNumber, user.UserProfile?.Id) != null)
+                return Result<Guid>.Failure("This employee ID number is already registered to another account.", ErrorCode.Conflict);
+
             // 1. Phone Number
             if (!string.IsNullOrWhiteSpace(request.Request.PhoneNumber))
             {
@@ -301,6 +314,10 @@ public class UpdateUserAccountAdminHandler : IRequestHandler<UpdateUserAccountAd
             await _userAccountRepository.UpdateAsync(user);
 
             return Result<Guid>.Success(user.Id, "User account successfully updated.");
+        }
+        catch (RegistrationIdConflictException ex)
+        {
+            return Result<Guid>.Failure(ex.Message, ErrorCode.Conflict);
         }
         catch (Exception ex)
         {

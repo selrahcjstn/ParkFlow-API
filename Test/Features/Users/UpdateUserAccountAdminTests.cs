@@ -57,8 +57,8 @@ public class FakeStudentRepository : IStudentRepository
         return Task.CompletedTask;
     }
 
-    public Task<Student?> GetByStudentNumberAsync(string studentNumber) =>
-        Task.FromResult(Students.FirstOrDefault(s => s.StudentNumber == studentNumber));
+    public Task<Student?> GetByStudentNumberAsync(string studentNumber, Guid? excludeProfileId = null) =>
+        Task.FromResult(Students.FirstOrDefault(s => s.UserProfileId != excludeProfileId && Student.NormalizeNumber(s.StudentNumber) == Student.NormalizeNumber(studentNumber)));
 
     public Task<Student?> GetByUserProfileIdAsync(Guid userProfileId) =>
         Task.FromResult(Students.FirstOrDefault(s => s.UserProfileId == userProfileId));
@@ -91,8 +91,8 @@ public class FakePersonnelRepository : IPersonnelRepository
         return Task.CompletedTask;
     }
 
-    public Task<Personnel?> GetByIdCardNumberAsync(string idCardNumber) =>
-        Task.FromResult(PersonnelList.FirstOrDefault(p => p.IdCardNumber == idCardNumber));
+    public Task<Personnel?> GetByIdCardNumberAsync(string idCardNumber, Guid? excludeProfileId = null) =>
+        Task.FromResult(PersonnelList.FirstOrDefault(p => p.UserProfileId != excludeProfileId && Personnel.NormalizeId(p.IdCardNumber) == Personnel.NormalizeId(idCardNumber)));
 
     public Task<Personnel?> GetByUserProfileIdAsync(Guid userProfileId) =>
         Task.FromResult(PersonnelList.FirstOrDefault(p => p.UserProfileId == userProfileId));

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using ParkFlow.Infrastructure.Realtime;
 using ParkFlow.Application;
+using ParkFlow.Application.Common;
 using ParkFlow.Infrastructure;
 using ParkFlow.Persistence;
 using System.Text;
@@ -116,6 +117,17 @@ app.UseSwaggerUI();
 // app.UseHttpsRedirection();
 
 app.UseCors("AllowFrontend");
+
+// A concurrent registration may hit the unique index after its initial ID check.
+app.Use(async (context, next) =>
+{
+    try { await next(context); }
+    catch (RegistrationIdConflictException ex) when (!context.Response.HasStarted)
+    {
+        context.Response.StatusCode = StatusCodes.Status409Conflict;
+        await context.Response.WriteAsJsonAsync(Result<object>.Failure(ex.Message, ErrorCode.Conflict));
+    }
+});
 
 app.UseStaticFiles();
 

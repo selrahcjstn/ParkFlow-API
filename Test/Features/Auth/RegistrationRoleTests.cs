@@ -301,8 +301,8 @@ public class RegRoleStudentRepository : IStudentRepository
     public Task DeleteAsync(Student student) { Students.Remove(student); return Task.CompletedTask; }
     public Task<Student?> GetByUserProfileIdAsync(Guid userProfileId) =>
         Task.FromResult(Students.FirstOrDefault(s => s.UserProfileId == userProfileId));
-    public Task<Student?> GetByStudentNumberAsync(string studentNumber) =>
-        Task.FromResult(Students.FirstOrDefault(s => s.StudentNumber.Equals(studentNumber, StringComparison.OrdinalIgnoreCase)));
+    public Task<Student?> GetByStudentNumberAsync(string studentNumber, Guid? excludeProfileId = null) =>
+        Task.FromResult(Students.FirstOrDefault(s => s.UserProfileId != excludeProfileId && Student.NormalizeNumber(s.StudentNumber) == Student.NormalizeNumber(studentNumber)));
 }
 
 public class RegRolePersonnelRepository : IPersonnelRepository
@@ -313,8 +313,8 @@ public class RegRolePersonnelRepository : IPersonnelRepository
     public Task DeleteAsync(Personnel personnel) { PersonnelList.Remove(personnel); return Task.CompletedTask; }
     public Task<Personnel?> GetByUserProfileIdAsync(Guid userProfileId) =>
         Task.FromResult(PersonnelList.FirstOrDefault(p => p.UserProfileId == userProfileId));
-    public Task<Personnel?> GetByIdCardNumberAsync(string idCardNumber) =>
-        Task.FromResult(PersonnelList.FirstOrDefault(p => p.IdCardNumber.Equals(idCardNumber, StringComparison.OrdinalIgnoreCase)));
+    public Task<Personnel?> GetByIdCardNumberAsync(string idCardNumber, Guid? excludeProfileId = null) =>
+        Task.FromResult(PersonnelList.FirstOrDefault(p => p.UserProfileId != excludeProfileId && Personnel.NormalizeId(p.IdCardNumber) == Personnel.NormalizeId(idCardNumber)));
 }
 
 public class FakeJwtService : IJwtService

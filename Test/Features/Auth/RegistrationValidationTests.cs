@@ -104,4 +104,38 @@ public class RegistrationValidationTests
             new UpdateOnboardingVehicleCommand(userId, "ABC1234", "Honda", type)).IsValid);
         Assert.Equal(2, (int)VehicleType.Car);
     }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task OnboardingRejectsLegacyDuplicateEvenWhenOwnRecordIsFirst(bool student)
+    {
+        var users = new FakeUserAccountRepository();
+        var user = new UserAccount("hash", "09171234567");
+        await users.AddAsync(user);
+        var profiles = new RegRoleUserProfileRepository();
+        var profile = new UserProfile(user.Id, "New", "User", null, null);
+        await profiles.AddAsync(profile);
+        var students = new RegRoleStudentRepository();
+        var personnel = new RegRolePersonnelRepository();
+        if (student)
+        {
+            await students.AddAsync(new Student(profile.Id, "202600123", "BSIT", "1A", 1));
+            await students.AddAsync(new Student(Guid.NewGuid(), "2026-00123", "BSIT", "1A", 1));
+        }
+        else
+        {
+            await personnel.AddAsync(new Personnel(profile.Id, "EMP-00123", "Office"));
+            await personnel.AddAsync(new Personnel(Guid.NewGuid(), " emp-00123 ", "Office"));
+        }
+        var result = student
+            ? await new UpdateOnboardingStudentHandler(profiles, students, personnel, users, new UpdateOnboardingStudentValidator())
+                .Handle(new UpdateOnboardingStudentCommand(user.Id, "202600123", "BSIT", "1A", 1), default)
+            : await new UpdateOnboardingPersonnelHandler(profiles, personnel, students, users, new UpdateOnboardingPersonnelValidator())
+                .Handle(new UpdateOnboardingPersonnelCommand(user.Id, "EMP-00123", "Office"), default);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.Conflict, result.ErrorCode);
+        Assert.Contains("already registered", result.Message);
+        Assert.Equal(OnboardingStep.Profile, user.OnboardingStep);
+    }
 }

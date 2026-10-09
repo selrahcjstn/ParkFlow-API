@@ -107,7 +107,11 @@ public class OnboardingCacheTests
         if (student) profile.Student = new Student(profile.Id, "202600123", "BSIT", "1A", 1);
         else profile.Personnel = new Personnel(profile.Id, "EMP-123", "Office");
         await cache.SetAsync(CacheKeys.UserVehicles(user.Id), "stale document links");
-        var handler = new UpdateOnboardingCorHandler(submissions, users, new UpdateOnboardingCorValidator(), cacheService: cache);
+        var students = new RegRoleStudentRepository();
+        var personnel = new RegRolePersonnelRepository();
+        if (profile.Student != null) await students.AddAsync(profile.Student);
+        if (profile.Personnel != null) await personnel.AddAsync(profile.Personnel);
+        var handler = new UpdateOnboardingCorHandler(submissions, users, new UpdateOnboardingCorValidator(), profiles, students, personnel, cacheService: cache);
         var submitted = await handler.Handle(new UpdateOnboardingCorCommand(user.Id, "2026-2027",
             "https://example.test/cor.pdf", "https://example.test/orcr.pdf", "https://example.test/motor.jpg"), default);
         Assert.True(submitted.IsSuccess);

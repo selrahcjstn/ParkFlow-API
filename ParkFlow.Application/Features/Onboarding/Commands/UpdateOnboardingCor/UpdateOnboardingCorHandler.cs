@@ -12,6 +12,9 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IValidator<UpdateOnboardingCorCommand> _validator;
+    private readonly IUserProfileRepository _userProfileRepository;
+    private readonly IStudentRepository _studentRepository;
+    private readonly IPersonnelRepository _personnelRepository;
     private readonly IVehicleRepository? _vehicleRepository;
     private readonly ISignalRNotificationSender? _signalRNotificationSender;
     private readonly ICacheService? _cacheService;
@@ -20,6 +23,9 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
         ICorSubmissionRepository corSubmissionRepository,
         IUserAccountRepository userAccountRepository,
         IValidator<UpdateOnboardingCorCommand> validator,
+        IUserProfileRepository userProfileRepository,
+        IStudentRepository studentRepository,
+        IPersonnelRepository personnelRepository,
         IVehicleRepository? vehicleRepository = null,
         ISignalRNotificationSender? signalRNotificationSender = null,
         ICacheService? cacheService = null)
@@ -27,6 +33,9 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
         _corSubmissionRepository = corSubmissionRepository;
         _userAccountRepository = userAccountRepository;
         _validator = validator;
+        _userProfileRepository = userProfileRepository;
+        _studentRepository = studentRepository;
+        _personnelRepository = personnelRepository;
         _vehicleRepository = vehicleRepository;
         _signalRNotificationSender = signalRNotificationSender;
         _cacheService = cacheService;
@@ -40,6 +49,26 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
             var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
             return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
         }
+
+        // Do not let older clients or a skipped role step complete an invalid registration.
+        var profile = await _userProfileRepository.GetByUserIdAsync(request.UserId);
+        if (profile == null)
+            return Result<Guid>.Failure("Please complete your profile and ID information before submitting documents.", ErrorCode.BadRequest);
+
+        var student = await _studentRepository.GetByUserProfileIdAsync(profile.Id);
+        var personnel = await _personnelRepository.GetByUserProfileIdAsync(profile.Id);
+        if (student == null && personnel == null)
+            return Result<Guid>.Failure("Please save your student or employee ID number before submitting documents.", ErrorCode.BadRequest);
+
+        if (student != null && string.IsNullOrWhiteSpace(student.StudentNumber))
+            return Result<Guid>.Failure("Please save your student ID number before submitting documents.", ErrorCode.BadRequest);
+        if (student != null && await _studentRepository.GetByStudentNumberAsync(student.StudentNumber, profile.Id) != null)
+            return Result<Guid>.Failure("This student ID number is already registered to another account. Please check your ID information or contact campus administration.", ErrorCode.Conflict);
+
+        if (personnel != null && string.IsNullOrWhiteSpace(personnel.IdCardNumber))
+            return Result<Guid>.Failure("Please save your employee ID number before submitting documents.", ErrorCode.BadRequest);
+        if (personnel != null && await _personnelRepository.GetByIdCardNumberAsync(personnel.IdCardNumber, profile.Id) != null)
+            return Result<Guid>.Failure("This employee ID number is already registered to another account. Please check your ID information or contact campus administration.", ErrorCode.Conflict);
 
         var existing = await _corSubmissionRepository.GetLatestByUserIdAsync(request.UserId);
 

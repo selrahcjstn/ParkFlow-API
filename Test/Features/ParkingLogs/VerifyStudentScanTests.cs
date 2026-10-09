@@ -212,8 +212,8 @@ public class FakeTestStudentRepository : IStudentRepository
     public Task DeleteAsync(Student student) { _students.Remove(student); return Task.CompletedTask; }
     public Task<Student?> GetByUserProfileIdAsync(Guid userProfileId) =>
         Task.FromResult(_students.FirstOrDefault(s => s.UserProfileId == userProfileId));
-    public Task<Student?> GetByStudentNumberAsync(string studentNumber) =>
-        Task.FromResult(_students.FirstOrDefault(s => Student.NormalizeNumber(s.StudentNumber) == Student.NormalizeNumber(studentNumber)));
+    public Task<Student?> GetByStudentNumberAsync(string studentNumber, Guid? excludeProfileId = null) =>
+        Task.FromResult(_students.FirstOrDefault(s => s.UserProfileId != excludeProfileId && Student.NormalizeNumber(s.StudentNumber) == Student.NormalizeNumber(studentNumber)));
 }
 
 public class FakeTestUserProfileRepository : IUserProfileRepository
