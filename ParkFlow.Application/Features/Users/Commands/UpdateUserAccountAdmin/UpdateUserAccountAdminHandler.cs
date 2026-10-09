@@ -50,13 +50,13 @@ public class UpdateUserAccountAdminHandler : IRequestHandler<UpdateUserAccountAd
             var requestedRole = request.Request.Role?.Trim();
             if (string.Equals(requestedRole, "Student", StringComparison.OrdinalIgnoreCase) &&
                 !string.IsNullOrWhiteSpace(request.Request.Student?.StudentNumber) &&
-                await _studentRepository.GetByStudentNumberAsync(request.Request.Student.StudentNumber, user.UserProfile?.Id) != null)
+                await _studentRepository.StudentNumberExistsAsync(request.Request.Student.StudentNumber, user.UserProfile?.Id))
                 return Result<Guid>.Failure("This student ID number is already registered to another account.", ErrorCode.Conflict);
 
             if ((string.Equals(requestedRole, "UniversityStaff", StringComparison.OrdinalIgnoreCase) ||
                  string.Equals(requestedRole, "NonAcademicPersonnel", StringComparison.OrdinalIgnoreCase)) &&
                 !string.IsNullOrWhiteSpace(request.Request.Personnel?.IdCardNumber) &&
-                await _personnelRepository.GetByIdCardNumberAsync(request.Request.Personnel.IdCardNumber, user.UserProfile?.Id) != null)
+                await _personnelRepository.IdCardNumberExistsAsync(request.Request.Personnel.IdCardNumber, user.UserProfile?.Id))
                 return Result<Guid>.Failure("This employee ID number is already registered to another account.", ErrorCode.Conflict);
 
             // 1. Phone Number

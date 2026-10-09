@@ -65,4 +65,12 @@ public class StudentRepository : IStudentRepository
             .Include(s => s.UserProfile)
             .FirstOrDefaultAsync(x => x.StudentNumber.Trim().Replace("-", "").Replace(" ", "").ToUpper() == normalized);
     }
+
+    public Task<bool> StudentNumberExistsAsync(string studentNumber, Guid? excludeProfileId = null)
+    {
+        var normalized = Student.NormalizeNumber(studentNumber);
+        // Check the ID column directly, including pending/incomplete accounts and legacy formatting.
+        return _context.Students.AnyAsync(x => (excludeProfileId == null || x.UserProfileId != excludeProfileId) &&
+            x.StudentNumber.Trim().Replace("-", "").Replace(" ", "").ToUpper() == normalized);
+    }
 }

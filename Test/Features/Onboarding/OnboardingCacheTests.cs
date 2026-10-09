@@ -46,7 +46,7 @@ public class OnboardingCacheTests
             "profile" => await new UpdateOnboardingProfileHandler(users, profiles, new UpdateOnboardingProfileValidator(), cache)
                 .Handle(new UpdateOnboardingProfileCommand(user.Id, "09171234567", "Juan", "Cruz", null, null), default),
             "student" => await new UpdateOnboardingStudentHandler(profiles, students, personnel, users, new UpdateOnboardingStudentValidator(), cache)
-                .Handle(new UpdateOnboardingStudentCommand(user.Id, "202600123", "BSIT", "1A", 1), default),
+                .Handle(new UpdateOnboardingStudentCommand(user.Id, "2023106763", "BSIT", "1A", 1), default),
             "faculty" or "staff" => await new UpdateOnboardingPersonnelHandler(profiles, personnel, students, users, new UpdateOnboardingPersonnelValidator(), cache)
                 .Handle(new UpdateOnboardingPersonnelCommand(user.Id, "EMP-123", "Office", step == "staff" ? "NonAcademicPersonnel" : "UniversityStaff"), default),
             _ => await new UpdateOnboardingVehicleHandler(new Test.Features.Violations.FakeVehicleRepository(), users,
@@ -73,10 +73,10 @@ public class OnboardingCacheTests
         var profile = new UserProfile(user.Id, "Juan", "Cruz", null, null) { UserAccount = user };
         await profiles.AddAsync(profile);
         var students = new RegRoleStudentRepository();
-        await students.AddAsync(new Student(Guid.NewGuid(), "202600123", "BSIT", "1A", 1));
+        await students.AddAsync(new Student(Guid.NewGuid(), "2023106763", "BSIT", "1A", 1));
         await cache.SetAsync(CacheKeys.UserProfile(user.Id), "unchanged profile");
         var result = await new UpdateOnboardingStudentHandler(profiles, students, new RegRolePersonnelRepository(), users,
-            new UpdateOnboardingStudentValidator(), cache).Handle(new UpdateOnboardingStudentCommand(user.Id, "202600123", "BSIT", "1A", 1), default);
+            new UpdateOnboardingStudentValidator(), cache).Handle(new UpdateOnboardingStudentCommand(user.Id, "2023106763", "BSIT", "1A", 1), default);
         Assert.Equal(ErrorCode.Conflict, result.ErrorCode);
         Assert.Equal(OnboardingStep.Profile, user.OnboardingStep);
         Assert.Equal("unchanged profile", await cache.GetAsync<string>(CacheKeys.UserProfile(user.Id)));

@@ -45,8 +45,7 @@ public class UpdateOnboardingStudentHandler : IRequestHandler<UpdateOnboardingSt
         if (profile == null)
             return Result<Guid>.Failure("User profile not found.", ErrorCode.NotFound);
 
-        var existingStudentByNumber = await _studentRepository.GetByStudentNumberAsync(Student.NormalizeNumber(request.StudentNumber), profile.Id);
-        if (existingStudentByNumber != null)
+        if (await _studentRepository.StudentNumberExistsAsync(request.StudentNumber, profile.Id))
         {
             return Result<Guid>.Failure("This student ID number is already registered. Please check your ID number or contact campus administration.", ErrorCode.Conflict);
         }

@@ -214,6 +214,8 @@ public class FakeTestStudentRepository : IStudentRepository
         Task.FromResult(_students.FirstOrDefault(s => s.UserProfileId == userProfileId));
     public Task<Student?> GetByStudentNumberAsync(string studentNumber, Guid? excludeProfileId = null) =>
         Task.FromResult(_students.FirstOrDefault(s => s.UserProfileId != excludeProfileId && Student.NormalizeNumber(s.StudentNumber) == Student.NormalizeNumber(studentNumber)));
+    public Task<bool> StudentNumberExistsAsync(string studentNumber, Guid? excludeProfileId = null) =>
+        Task.FromResult(_students.Any(s => s.UserProfileId != excludeProfileId && Student.NormalizeNumber(s.StudentNumber) == Student.NormalizeNumber(studentNumber)));
 }
 
 public class FakeTestUserProfileRepository : IUserProfileRepository

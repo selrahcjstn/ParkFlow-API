@@ -75,11 +75,11 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
 
         // Check IDs before creating any account/profile records, including admin registration.
         if (!string.IsNullOrWhiteSpace(request.Student?.StudentNumber) &&
-            await _studentRepository.GetByStudentNumberAsync(Student.NormalizeNumber(request.Student.StudentNumber)) != null)
+            await _studentRepository.StudentNumberExistsAsync(request.Student.StudentNumber))
             return Result<string>.Failure("This student ID number is already registered.", ErrorCode.Conflict);
 
         if (!string.IsNullOrWhiteSpace(request.Personnel?.IdCardNumber) &&
-            await _personnelRepository.GetByIdCardNumberAsync(Personnel.NormalizeId(request.Personnel.IdCardNumber)) != null)
+            await _personnelRepository.IdCardNumberExistsAsync(request.Personnel.IdCardNumber))
             return Result<string>.Failure("This employee ID number is already registered.", ErrorCode.Conflict);
 
         var plainPassword = (request.IsAdminCreated || string.IsNullOrWhiteSpace(request.Password))

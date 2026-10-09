@@ -187,6 +187,7 @@ public class FakeStudentRepository : IStudentRepository
     public Task UpdateAsync(Student student) => Task.CompletedTask;
     public Task DeleteAsync(Student student) => Task.CompletedTask;
     public Task<Student?> GetByStudentNumberAsync(string studentNumber, Guid? excludeProfileId = null) => Task.FromResult<Student?>(null);
+    public Task<bool> StudentNumberExistsAsync(string studentNumber, Guid? excludeProfileId = null) => Task.FromResult(false);
 }
 
 public class FakePersonnelRepository : IPersonnelRepository
@@ -196,6 +197,7 @@ public class FakePersonnelRepository : IPersonnelRepository
     public Task UpdateAsync(Personnel personnel) => Task.CompletedTask;
     public Task DeleteAsync(Personnel personnel) => Task.CompletedTask;
     public Task<Personnel?> GetByIdCardNumberAsync(string idCardNumber, Guid? excludeProfileId = null) => Task.FromResult<Personnel?>(null);
+    public Task<bool> IdCardNumberExistsAsync(string idCardNumber, Guid? excludeProfileId = null) => Task.FromResult(false);
 }
 
 public class FakeParkingService : IParkingService

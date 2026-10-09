@@ -9,6 +9,7 @@ using ParkFlow.Application.Features.Onboarding.Commands.UpdateOnboardingSchedule
 using ParkFlow.Application.Features.Onboarding.Commands.UpdateOnboardingStudent;
 using ParkFlow.Application.Features.Onboarding.Commands.UpdateOnboardingVehicle;
 using ParkFlow.Application.Features.Onboarding.DTOs;
+using ParkFlow.Application.Features.Onboarding.Queries.CheckRegistrationId;
 using ParkFlow.Application.Interfaces;
 
 namespace ParkFlow.API.Controllers;
@@ -25,6 +26,14 @@ public class OnboardingController : ControllerBase
     {
         _mediator = mediator;
         _userContext = userContext;
+    }
+
+    [HttpGet("id-availability")]
+    public async Task<ActionResult<Result<bool>>> CheckIdAvailability([FromQuery] string number, [FromQuery] string role)
+    {
+        var result = await _mediator.Send(new CheckRegistrationIdQuery(_userContext.GetUserId(), number, role));
+        Response.Headers.CacheControl = "no-store";
+        return this.ToActionResult(result);
     }
 
     [HttpPatch("profile")]

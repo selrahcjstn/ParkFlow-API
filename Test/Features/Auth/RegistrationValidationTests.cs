@@ -76,11 +76,11 @@ public class RegistrationValidationTests
         var students = new RegRoleStudentRepository();
         var personnel = new RegRolePersonnelRepository();
         var ownerId = sameOwner ? profile.Id : Guid.NewGuid();
-        if (student) await students.AddAsync(new Student(ownerId, "2026-00123", "BSIT", "1A", 1));
+        if (student) await students.AddAsync(new Student(ownerId, "2023-106763", "BSIT", "1A", 1));
         else await personnel.AddAsync(new Personnel(ownerId, "EMP-00123", "Office"));
         var result = student
             ? await new UpdateOnboardingStudentHandler(profiles, students, personnel, users, new UpdateOnboardingStudentValidator())
-                .Handle(new UpdateOnboardingStudentCommand(user.Id, " 2026-00123 ", "BSIT", "1A", 1), default)
+                .Handle(new UpdateOnboardingStudentCommand(user.Id, " 2023-106763 ", "BSIT", "1A", 1), default)
             : await new UpdateOnboardingPersonnelHandler(profiles, personnel, students, users, new UpdateOnboardingPersonnelValidator())
                 .Handle(new UpdateOnboardingPersonnelCommand(user.Id, " emp-00123 ", "Office"), default);
         Assert.Equal(sameOwner, result.IsSuccess);
@@ -120,8 +120,8 @@ public class RegistrationValidationTests
         var personnel = new RegRolePersonnelRepository();
         if (student)
         {
-            await students.AddAsync(new Student(profile.Id, "202600123", "BSIT", "1A", 1));
-            await students.AddAsync(new Student(Guid.NewGuid(), "2026-00123", "BSIT", "1A", 1));
+            await students.AddAsync(new Student(profile.Id, "2023106763", "BSIT", "1A", 1));
+            await students.AddAsync(new Student(Guid.NewGuid(), "2023-106763", "BSIT", "1A", 1));
         }
         else
         {
@@ -130,7 +130,7 @@ public class RegistrationValidationTests
         }
         var result = student
             ? await new UpdateOnboardingStudentHandler(profiles, students, personnel, users, new UpdateOnboardingStudentValidator())
-                .Handle(new UpdateOnboardingStudentCommand(user.Id, "202600123", "BSIT", "1A", 1), default)
+                .Handle(new UpdateOnboardingStudentCommand(user.Id, "2023106763", "BSIT", "1A", 1), default)
             : await new UpdateOnboardingPersonnelHandler(profiles, personnel, students, users, new UpdateOnboardingPersonnelValidator())
                 .Handle(new UpdateOnboardingPersonnelCommand(user.Id, "EMP-00123", "Office"), default);
         Assert.False(result.IsSuccess);

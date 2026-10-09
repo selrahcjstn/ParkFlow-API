@@ -62,12 +62,12 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
 
         if (student != null && string.IsNullOrWhiteSpace(student.StudentNumber))
             return Result<Guid>.Failure("Please save your student ID number before submitting documents.", ErrorCode.BadRequest);
-        if (student != null && await _studentRepository.GetByStudentNumberAsync(student.StudentNumber, profile.Id) != null)
+        if (student != null && await _studentRepository.StudentNumberExistsAsync(student.StudentNumber, profile.Id))
             return Result<Guid>.Failure("This student ID number is already registered to another account. Please check your ID information or contact campus administration.", ErrorCode.Conflict);
 
         if (personnel != null && string.IsNullOrWhiteSpace(personnel.IdCardNumber))
             return Result<Guid>.Failure("Please save your employee ID number before submitting documents.", ErrorCode.BadRequest);
-        if (personnel != null && await _personnelRepository.GetByIdCardNumberAsync(personnel.IdCardNumber, profile.Id) != null)
+        if (personnel != null && await _personnelRepository.IdCardNumberExistsAsync(personnel.IdCardNumber, profile.Id))
             return Result<Guid>.Failure("This employee ID number is already registered to another account. Please check your ID information or contact campus administration.", ErrorCode.Conflict);
 
         var existing = await _corSubmissionRepository.GetLatestByUserIdAsync(request.UserId);

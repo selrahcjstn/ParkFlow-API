@@ -64,4 +64,11 @@ public class PersonnelRepository : IPersonnelRepository
             .Include(p => p.UserProfile)
             .FirstOrDefaultAsync(x => x.IdCardNumber.Trim().ToUpper() == normalized);
     }
+
+    public Task<bool> IdCardNumberExistsAsync(string idCardNumber, Guid? excludeProfileId = null)
+    {
+        var normalized = Personnel.NormalizeId(idCardNumber);
+        return _context.Personnel.AnyAsync(x => (excludeProfileId == null || x.UserProfileId != excludeProfileId) &&
+            x.IdCardNumber.Trim().ToUpper() == normalized);
+    }
 }

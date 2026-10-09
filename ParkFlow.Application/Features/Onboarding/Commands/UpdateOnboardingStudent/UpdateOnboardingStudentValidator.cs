@@ -7,7 +7,10 @@ public class UpdateOnboardingStudentValidator : AbstractValidator<UpdateOnboardi
     public UpdateOnboardingStudentValidator()
     {
         RuleFor(x => x.UserId).NotEmpty();
-        RuleFor(x => x.StudentNumber).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.StudentNumber).NotEmpty().MaximumLength(50)
+            .Must(number => !string.IsNullOrWhiteSpace(number) &&
+                System.Text.RegularExpressions.Regex.IsMatch(Student.NormalizeNumber(number), @"^[0-9]{10}$"))
+            .WithMessage("Student ID number must contain exactly 10 digits (e.g. 2023106763).");
         When(x => x.YearLevel < 7 || x.YearLevel > 10, () =>
         {
             RuleFor(x => x.Course).NotEmpty().WithMessage("Course is required for senior high and college students.");
