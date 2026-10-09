@@ -13,17 +13,20 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IQrCodeService _qrCodeService;
     private readonly IValidator<UpdateOnboardingVehicleCommand> _validator;
+    private readonly ICacheService? _cacheService;
 
     public UpdateOnboardingVehicleHandler(
         IVehicleRepository vehicleRepository,
         IUserAccountRepository userAccountRepository,
         IQrCodeService qrCodeService,
-        IValidator<UpdateOnboardingVehicleCommand> validator)
+        IValidator<UpdateOnboardingVehicleCommand> validator,
+        ICacheService? cacheService = null)
     {
         _vehicleRepository = vehicleRepository;
         _userAccountRepository = userAccountRepository;
         _qrCodeService = qrCodeService;
         _validator = validator;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<Guid>> Handle(UpdateOnboardingVehicleCommand request, CancellationToken cancellationToken)
@@ -89,6 +92,12 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
         {
             user.UpdateOnboardingStep(OnboardingStep.Schedule);
             await _userAccountRepository.UpdateAsync(user);
+        }
+
+        if (_cacheService != null)
+        {
+            await _cacheService.RemoveAsync(CacheKeys.UserProfile(request.UserId), cancellationToken);
+            await _cacheService.RemoveAsync(CacheKeys.UserVehicles(request.UserId), cancellationToken);
         }
 
         return Result<Guid>.Success(existingVehicle.Id, "Vehicle onboarding completed.");

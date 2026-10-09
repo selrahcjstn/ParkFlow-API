@@ -14,19 +14,22 @@ public class UpdateOnboardingPersonnelHandler : IRequestHandler<UpdateOnboarding
     private readonly IStudentRepository _studentRepository;
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IValidator<UpdateOnboardingPersonnelCommand> _validator;
+    private readonly ICacheService? _cacheService;
 
     public UpdateOnboardingPersonnelHandler(
         IUserProfileRepository userProfileRepository,
         IPersonnelRepository personnelRepository,
         IStudentRepository studentRepository,
         IUserAccountRepository userAccountRepository,
-        IValidator<UpdateOnboardingPersonnelCommand> validator)
+        IValidator<UpdateOnboardingPersonnelCommand> validator,
+        ICacheService? cacheService = null)
     {
         _userProfileRepository = userProfileRepository;
         _personnelRepository = personnelRepository;
         _studentRepository = studentRepository;
         _userAccountRepository = userAccountRepository;
         _validator = validator;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<Guid>> Handle(UpdateOnboardingPersonnelCommand request, CancellationToken cancellationToken)
@@ -81,6 +84,9 @@ public class UpdateOnboardingPersonnelHandler : IRequestHandler<UpdateOnboarding
             user.UpdateOnboardingStep(OnboardingStep.Vehicle);
             await _userAccountRepository.UpdateAsync(user);
         }
+
+        if (_cacheService != null)
+            await _cacheService.RemoveAsync(CacheKeys.UserProfile(request.UserId), cancellationToken);
 
         return Result<Guid>.Success(existingPersonnel.UserProfileId, "Personnel onboarding completed.");
     }

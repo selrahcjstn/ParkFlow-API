@@ -14,19 +14,22 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
     private readonly IValidator<UpdateOnboardingCorCommand> _validator;
     private readonly IVehicleRepository? _vehicleRepository;
     private readonly ISignalRNotificationSender? _signalRNotificationSender;
+    private readonly ICacheService? _cacheService;
 
     public UpdateOnboardingCorHandler(
         ICorSubmissionRepository corSubmissionRepository,
         IUserAccountRepository userAccountRepository,
         IValidator<UpdateOnboardingCorCommand> validator,
         IVehicleRepository? vehicleRepository = null,
-        ISignalRNotificationSender? signalRNotificationSender = null)
+        ISignalRNotificationSender? signalRNotificationSender = null,
+        ICacheService? cacheService = null)
     {
         _corSubmissionRepository = corSubmissionRepository;
         _userAccountRepository = userAccountRepository;
         _validator = validator;
         _vehicleRepository = vehicleRepository;
         _signalRNotificationSender = signalRNotificationSender;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<Guid>> Handle(UpdateOnboardingCorCommand request, CancellationToken cancellationToken)
@@ -100,6 +103,13 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
         {
             user.UpdateOnboardingStep(OnboardingStep.Done);
             await _userAccountRepository.UpdateAsync(user);
+        }
+
+        // Clear stale onboarding details before clients refresh in response to realtime events.
+        if (_cacheService != null)
+        {
+            await _cacheService.RemoveAsync(CacheKeys.UserProfile(request.UserId), cancellationToken);
+            await _cacheService.RemoveAsync(CacheKeys.UserVehicles(request.UserId), cancellationToken);
         }
 
         if (_signalRNotificationSender != null)

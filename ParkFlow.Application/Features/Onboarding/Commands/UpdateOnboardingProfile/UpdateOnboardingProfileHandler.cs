@@ -12,15 +12,18 @@ public class UpdateOnboardingProfileHandler : IRequestHandler<UpdateOnboardingPr
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IUserProfileRepository _userProfileRepository;
     private readonly IValidator<UpdateOnboardingProfileCommand> _validator;
+    private readonly ICacheService? _cacheService;
 
     public UpdateOnboardingProfileHandler(
         IUserAccountRepository userAccountRepository,
         IUserProfileRepository userProfileRepository,
-        IValidator<UpdateOnboardingProfileCommand> validator)
+        IValidator<UpdateOnboardingProfileCommand> validator,
+        ICacheService? cacheService = null)
     {
         _userAccountRepository = userAccountRepository;
         _userProfileRepository = userProfileRepository;
         _validator = validator;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<Guid>> Handle(UpdateOnboardingProfileCommand request, CancellationToken cancellationToken)
@@ -57,6 +60,9 @@ public class UpdateOnboardingProfileHandler : IRequestHandler<UpdateOnboardingPr
             profile.UpdateProfile(request.FirstName, request.LastName, request.MiddleName, request.ProfilePictureUrl);
             await _userProfileRepository.UpdateAsync(profile);
         }
+
+        if (_cacheService != null)
+            await _cacheService.RemoveAsync(CacheKeys.UserProfile(request.UserId), cancellationToken);
 
         return Result<Guid>.Success(profile.Id, "Profile onboarding completed.");
     }
