@@ -20,5 +20,6 @@ public interface IVisitorRepository
     Task<VisitSession?> GetVisitSessionByIdAsync(Guid sessionId);
     Task AddVisitSessionAsync(VisitSession session);
     Task UpdateVisitSessionAsync(VisitSession session);
+    Task<bool> CompleteVisitSessionWithChargeAsync(VisitSession session, Violation charge);
     Task<int> GetActiveVisitSessionCountAsync();
 }

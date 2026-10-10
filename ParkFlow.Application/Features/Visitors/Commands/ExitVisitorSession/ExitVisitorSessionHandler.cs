@@ -85,7 +85,13 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
         }
 
         activeSession.MarkExit(guardProfileId, exitGate);
-        await _visitorRepository.UpdateVisitSessionAsync(activeSession);
+        var charge = Violation.CreateVisitorCharge(activeSession);
+        if (!await _visitorRepository.CompleteVisitSessionWithChargeAsync(activeSession, charge))
+        {
+            return Result<VisitorExitResponse>.Failure(
+                "This visitor's exit has already been recorded. Check Collections for the parking charge.",
+                ErrorCode.Conflict);
+        }
 
         if (_signalRNotificationSender != null)
         {
@@ -96,9 +102,12 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
                     visitorId = visitor.Id,
                     sessionId = activeSession.Id,
                     plateNumber = visitor.PlateNumber,
-                    exitTime = activeSession.ExitTime
+                    exitTime = activeSession.ExitTime,
+                    chargeAmount = charge.PenaltyFee,
+                    referenceNumber = charge.ReferenceNumber
                 });
                 await _signalRNotificationSender.SendToAllAsync("ParkingSessionUpdated", new { });
+                await _signalRNotificationSender.SendToAllAsync("ApprovalUpdated", new { });
             }
             catch
             {
@@ -117,9 +126,12 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
             ExitTime: activeSession.ExitTime ?? DateTime.UtcNow,
             Purpose: activeSession.Purpose,
             Destination: activeSession.Destination,
-            Status: activeSession.Status.ToString()
+            Status: activeSession.Status.ToString(),
+            ChargeAmount: charge.PenaltyFee,
+            ReferenceNumber: charge.ReferenceNumber,
+            SettlementStatus: charge.SettlementStatus.ToString()
         );
 
-        return Result<VisitorExitResponse>.Success(response, "Visitor exit recorded successfully.");
+        return Result<VisitorExitResponse>.Success(response, "Visitor exit recorded. Parking charge is due; confirm payment after collecting it.");
     }
 }

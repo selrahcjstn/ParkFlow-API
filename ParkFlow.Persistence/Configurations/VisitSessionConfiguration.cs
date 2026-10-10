@@ -10,6 +10,8 @@ public class VisitSessionConfiguration : IEntityTypeConfiguration<VisitSession>
     {
         entity.HasKey(e => e.Id);
 
+        entity.Property(e => e.Status).IsConcurrencyToken();
+
         entity.Property(e => e.Id)
             .HasDefaultValueSql("gen_random_uuid()");
 

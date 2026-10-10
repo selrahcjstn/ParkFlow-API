@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Application.Features.Visitors.DTOs;
@@ -186,5 +187,25 @@ public class VisitorRepository : IVisitorRepository
     {
         return await _context.VisitSessions
             .CountAsync(s => s.Status == VisitSessionStatus.Inside);
+    }
+
+    public async Task<bool> CompleteVisitSessionWithChargeAsync(VisitSession session, Violation charge)
+    {
+        // Save the exit and pending charge together; a failed save must not lose the fee.
+        _context.Entry(session).Property(s => s.Status).OriginalValue = VisitSessionStatus.Inside;
+        _context.Entry(session).State = EntityState.Modified;
+        await _context.Violations.AddAsync(charge);
+        try
+        {
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        catch (DbUpdateException ex) when (ex is DbUpdateConcurrencyException ||
+            ex.InnerException is PostgresException { SqlState: "23505", ConstraintName: "IX_Violations_VisitSessionId" })
+        {
+            _context.Entry(charge).State = EntityState.Detached;
+            _context.Entry(session).State = EntityState.Detached;
+            return false;
+        }
     }
 }

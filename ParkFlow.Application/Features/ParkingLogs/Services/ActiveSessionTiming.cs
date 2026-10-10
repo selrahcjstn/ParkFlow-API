@@ -21,12 +21,9 @@ public static class ActiveSessionTiming
         if (log.EntryMethod == EntryMethod.Manual)
             return (ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entry, new TimeSpan(23, 59, 59)), false);
 
-        var nowDate = ParkingTimeHelper.ConvertUtcToPhilippinesTime(nowUtc).Date;
         bool DateMatches(ParkingReservation reservation)
         {
-            var date = reservation.ReservationDate.Date;
-            var localDate = ParkingTimeHelper.ConvertUtcToPhilippinesTime(reservation.ReservationDate).Date;
-            return date == entry.Date || localDate == entry.Date || date == nowDate || localDate == nowDate;
+            return ReservationSessionWindow.CoversEntry(reservation, log.EntryTime, settings);
         }
         bool VehicleMatches(ParkingReservation reservation) =>
             reservation.VehicleId == log.VehicleId || reservation.VehicleId == null || reservation.VehicleId == Guid.Empty;

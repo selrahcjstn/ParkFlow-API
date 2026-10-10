@@ -158,14 +158,9 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
         var philippinesExit = ParkingTimeHelper.ConvertUtcToPhilippinesTime(exitTime);
 
         var userReservations = _reservationRepository != null ? (await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId)).ToList() : [];
-        var phEntryDate = philippinesEntry.Date;
-        var phExitDate = philippinesExit.Date;
-
         bool IsReservationDateMatch(ParkFlow.Domain.Entities.ParkingReservation res)
         {
-            var resDate = res.ReservationDate.Date;
-            var phResDate = ParkingTimeHelper.ConvertUtcToPhilippinesTime(res.ReservationDate).Date;
-            return resDate == phEntryDate || phResDate == phEntryDate || resDate == phExitDate || phResDate == phExitDate;
+            return ReservationSessionWindow.CoversEntry(res, active.EntryTime, SystemSettingsStore.Current);
         }
 
         var entryReservation = userReservations.FirstOrDefault(r => 
@@ -414,6 +409,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
             OverstayTime = overstayTime,
             PenaltyFee = penaltyFee,
             ReferenceNumber = referenceNumber,
+            SettlementStatus = isViolation ? settlementStatus : "Settled",
             GuardName = guardName,
             IssuedBy = guardName
         };

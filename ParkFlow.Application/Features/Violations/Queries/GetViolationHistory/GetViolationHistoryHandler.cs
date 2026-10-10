@@ -54,6 +54,8 @@ public class GetViolationHistoryHandler
         {
             var log = violation.ParkingLog;
             var vehicle = log?.Vehicle;
+            var visit = violation.VisitSession;
+            var visitor = visit?.Visitor;
             var ownerProfile = vehicle?.Owner?.UserProfile;
             if (ownerProfile == null && vehicle?.OwnerId != null && vehicle.OwnerId != Guid.Empty)
             {
@@ -72,15 +74,15 @@ public class GetViolationHistoryHandler
             items.Add(new ViolationHistoryResponse
             {
                 // Owner
-                FirstName = ownerProfile?.FirstName ?? "Registered",
-                LastName = ownerProfile?.LastName ?? "User",
+                FirstName = visitor?.FullName ?? ownerProfile?.FirstName ?? "Registered",
+                LastName = visitor != null ? "" : ownerProfile?.LastName ?? "User",
                 MiddleName = ownerProfile?.MiddleName,
-                RoleName = roleDetails?.Role ?? "User",
+                RoleName = visitor != null ? "Visitor" : roleDetails?.Role ?? "User",
 
                 // Vehicle
-                PlateNumber = vehicle?.PlateNumber ?? "N/A",
-                Brand = vehicle?.Brand ?? "N/A",
-                VehicleType = vehicle?.VehicleType.ToString() ?? "N/A",
+                PlateNumber = visitor?.PlateNumber ?? vehicle?.PlateNumber ?? "N/A",
+                Brand = visitor?.Brand ?? vehicle?.Brand ?? "N/A",
+                VehicleType = visitor?.VehicleType.ToString() ?? vehicle?.VehicleType.ToString() ?? "N/A",
 
                 // Violation
                 ViolationId = violation.Id,
@@ -91,8 +93,8 @@ public class GetViolationHistoryHandler
                 IsPaid = violation.SettlementStatus == global::SettlementStatus.Settled,
 
                 // Session
-                EntryTime = log?.EntryTime ?? violation.CreatedAt,
-                ExitTime = log?.ExitTime ?? DateTime.UtcNow,
+                EntryTime = visit?.EntryTime ?? log?.EntryTime ?? violation.CreatedAt,
+                ExitTime = visit?.ExitTime ?? log?.ExitTime ?? DateTime.UtcNow,
                 IssuedAt = violation.CreatedAt
             });
         }

@@ -96,14 +96,9 @@ public class GetActiveSessionByVehicleIdHandler
         var userReservations = _reservationRepository != null 
             ? (await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId)).ToList() 
             : new List<ParkFlow.Domain.Entities.ParkingReservation>();
-        var phEntryDate = philippinesEntry.Date;
-        var phNowDate = ParkingTimeHelper.ConvertUtcToPhilippinesTime(nowUtc).Date;
-
         bool IsReservationDateMatch(ParkFlow.Domain.Entities.ParkingReservation res)
         {
-            var resDate = res.ReservationDate.Date;
-            var phResDate = ParkingTimeHelper.ConvertUtcToPhilippinesTime(res.ReservationDate).Date;
-            return resDate == phEntryDate || phResDate == phEntryDate || resDate == phNowDate || phResDate == phNowDate;
+            return ReservationSessionWindow.CoversEntry(res, activeLog.EntryTime, sysSettings);
         }
 
         var entryReservation = userReservations.FirstOrDefault(r =>

@@ -137,6 +137,7 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
         // 5. Construct and return receipt
         var log = violation.ParkingLog;
         var vehicle = log?.Vehicle;
+        var visitor = violation.VisitSession?.Visitor;
         var ownerProfile = vehicle?.Owner?.UserProfile;
         var guardMiddle = userProfile != null && !string.IsNullOrWhiteSpace(userProfile.MiddleName) ? $" {userProfile.MiddleName}" : "";
         var guardName = userProfile != null ? $"{userProfile.FirstName}{guardMiddle} {userProfile.LastName}" : "Campus Administrator";
@@ -150,14 +151,14 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
             PaidAt = DateTime.UtcNow,
 
             // Owner Info
-            OwnerFirstName = ownerProfile?.FirstName ?? "N/A",
-            OwnerLastName = ownerProfile?.LastName ?? "N/A",
+            OwnerFirstName = visitor?.FullName ?? ownerProfile?.FirstName ?? "N/A",
+            OwnerLastName = visitor != null ? "" : ownerProfile?.LastName ?? "N/A",
             OwnerMiddleName = ownerProfile?.MiddleName,
 
             // Vehicle Info
-            PlateNumber = vehicle?.PlateNumber ?? "N/A",
-            VehicleBrand = vehicle?.Brand ?? "N/A",
-            VehicleType = vehicle?.VehicleType.ToString() ?? "N/A",
+            PlateNumber = visitor?.PlateNumber ?? vehicle?.PlateNumber ?? "N/A",
+            VehicleBrand = visitor?.Brand ?? vehicle?.Brand ?? "N/A",
+            VehicleType = visitor?.VehicleType.ToString() ?? vehicle?.VehicleType.ToString() ?? "N/A",
 
             // Processor Info
             GuardName = guardName
@@ -166,7 +167,7 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
         var notificationData = new
         {
             ReferenceNumber = violation.ReferenceNumber,
-            PlateNumber = vehicle?.PlateNumber ?? "N/A",
+            PlateNumber = visitor?.PlateNumber ?? vehicle?.PlateNumber ?? "N/A",
             IsPaid = true,
             SettlementStatus = "Settled",
             PaidAt = receipt.PaidAt,

@@ -112,7 +112,7 @@ public class ScheduleRestrictionEntryTests
     }
 
     [Fact]
-    public async Task CreateParkingLog_WhenReservationEndedToday_ReturnsForbidden()
+    public async Task CreateParkingLog_WhenReservationEndedButCorIsUnverified_KeepsApprovalCheck()
     {
         // Arrange
         var guardUserAccountId = Guid.NewGuid();
@@ -173,11 +173,11 @@ public class ScheduleRestrictionEntryTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Forbidden, result.ErrorCode);
-        Assert.Contains("Reservation schedule for today ended at", result.Message);
+        Assert.Contains("document is unverified or pending admin approval", result.Message);
     }
 
     [Fact]
-    public async Task CreateParkingLog_WhenReservationCompleted_ReturnsForbidden()
+    public async Task CreateParkingLog_WhenReservationCompletedButCorIsUnverified_KeepsApprovalCheck()
     {
         // Arrange
         var guardUserAccountId = Guid.NewGuid();
@@ -238,7 +238,7 @@ public class ScheduleRestrictionEntryTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Forbidden, result.ErrorCode);
-        Assert.Contains("already been used and is now void", result.Message);
+        Assert.Contains("document is unverified or pending admin approval", result.Message);
     }
 }
 

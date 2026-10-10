@@ -28,7 +28,9 @@ public class ViolationRepository : IViolationRepository
 
     public async Task<Violation?> GetByIdAsync(Guid id)
     {
-        return await _context.Set<Violation>().FindAsync(id).AsTask();
+        return await _context.Set<Violation>()
+            .Include(v => v.VisitSession).ThenInclude(s => s!.Visitor)
+            .FirstOrDefaultAsync(v => v.Id == id);
     }
 
     public async Task<Violation?> GetByLogIdAsync(Guid logId)
@@ -50,6 +52,7 @@ public class ViolationRepository : IViolationRepository
         try
         {
             return await _context.Set<Violation>()
+                .Include(v => v.VisitSession).ThenInclude(s => s!.Visitor)
                 .Include(v => v.ParkingLog)
                     .ThenInclude(pl => pl.Vehicle)
                         .ThenInclude(ve => ve.Owner)
@@ -99,6 +102,7 @@ public class ViolationRepository : IViolationRepository
         {
             var query = _context.Set<Violation>()
                 .AsNoTracking()
+                .Include(v => v.VisitSession).ThenInclude(s => s!.Visitor)
                 .Include(v => v.ParkingLog)
                     .ThenInclude(pl => pl.Vehicle)
                         .ThenInclude(ve => ve.Owner)
@@ -233,11 +237,14 @@ public class ViolationRepository : IViolationRepository
         {
             var normalized = plateNumber.Trim().ToLower();
             return await _context.Set<Violation>()
+                .Include(v => v.VisitSession).ThenInclude(s => s!.Visitor)
                 .Include(v => v.ParkingLog)
                     .ThenInclude(pl => pl.Vehicle)
                         .ThenInclude(ve => ve.Owner)
                             .ThenInclude(ua => ua.UserProfile)
-                .Where(v => v.ParkingLog.Vehicle.PlateNumber.ToLower() == normalized && v.SettlementStatus != global::SettlementStatus.Settled)
+                .Where(v => (v.ParkingLog.Vehicle.PlateNumber.ToLower() == normalized ||
+                    (v.VisitSession != null && v.VisitSession.Visitor.PlateNumber.ToLower() == normalized)) &&
+                    v.SettlementStatus != global::SettlementStatus.Settled)
                 .OrderByDescending(v => v.CreatedAt)
                 .FirstOrDefaultAsync();
         }

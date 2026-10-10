@@ -1,6 +1,7 @@
 using ParkFlow.Application.Features.Visitors.Commands.CreateVisitorEntry;
 using ParkFlow.Application.Features.Visitors.DTOs;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Application.Features.ParkingLogs.Services;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
 using Test.Features.Auth;
@@ -116,6 +117,69 @@ public class VisitorEntryTests
         new(visitors, vehicles, new FakeUserProfileRepository(), new FakeGuardRepository(), new Test.Features.ParkingLogs.FakeAdminRepository());
 
     [Fact]
+    public async Task VisitorExit_CreatesPendingTwentyPesoCharge_AndDoesNotChargeTwice()
+    {
+        var visitors = new VisitorRepositoryFake();
+        var entry = await CreateHandler(visitors, new FakeVehicleRepository()).Handle(Entry(), default);
+        var handler = new ParkFlow.Application.Features.Visitors.Commands.ExitVisitorSession.ExitVisitorSessionHandler(
+            visitors, new FakeUserProfileRepository(), new FakeGuardRepository(), new Test.Features.ParkingLogs.FakeAdminRepository());
+        var exit = await handler.Handle(new("ABC123", null), default);
+        Assert.True(exit.IsSuccess);
+        Assert.Equal(entry.Data!.EntryFee, exit.Data!.ChargeAmount);
+        Assert.Equal("Pending", exit.Data.SettlementStatus);
+        Assert.StartsWith("CHG-", exit.Data.ReferenceNumber);
+        var charge = Assert.Single(visitors.Charges);
+        Assert.Null(charge.ParkingLogId);
+        Assert.Equal(entry.Data.SessionId, charge.VisitSessionId);
+        Assert.Equal(ViolationType.ManualParkingCharge, charge.ViolationType);
+        Assert.Equal(VisitSessionStatus.Completed, visitors.Sessions.Single().Status);
+        Assert.False((await handler.Handle(new("ABC123", null), default)).IsSuccess);
+        Assert.Single(visitors.Charges);
+    }
+
+    [Fact]
+    public async Task VisitorCharge_IsVisibleInCollections_AndCanBeSettledUsingExistingPaymentFlow()
+    {
+        var visitor = new Visitor("Juan", null, "ABC123", VehicleType.Car, "Toyota");
+        var session = new VisitSession(visitor.Id) { Visitor = visitor };
+        session.MarkExit();
+        var charge = Violation.CreateVisitorCharge(session);
+        var charges = new FakeViolationRepository();
+        charges.Violations.Add(charge);
+        var profile = new UserProfile(Guid.NewGuid(), "Guard", "One", null, null);
+        var profiles = new FakeUserProfileRepository();
+        profiles.Profiles.Add(profile);
+        var guards = new FakeGuardRepository { Guard = new Guard(profile, 1) };
+        var admins = new Test.Features.ParkingLogs.FakeAdminRepository();
+        var history = new ParkFlow.Application.Features.Violations.Queries.GetViolationHistory.GetViolationHistoryHandler(
+            charges, profiles, guards, admins, new ParkingLogRoleService());
+        var result = await history.Handle(new(profile.UserAccountId, 1, 20, true), default);
+        var item = Assert.Single(result.Data!.Items);
+        Assert.Equal("Visitor", item.RoleName);
+        Assert.Equal("Juan", item.FirstName);
+        Assert.Equal("ABC123", item.PlateNumber);
+        Assert.Equal(20m, item.PenaltyFee);
+        Assert.Equal("Manual Parking Charge", item.ViolationType);
+        Assert.Equal(session.EntryTime, item.EntryTime);
+        Assert.Equal(session.ExitTime, item.ExitTime);
+        Assert.False(item.IsPaid);
+
+        var payments = new ParkFlow.Application.Features.Violations.Commands.ProcessViolationPayment.ProcessViolationPaymentHandler(
+            charges, profiles, guards, new FakeParkingLogRepository(),
+            new ParkFlow.Application.Features.Violations.Commands.ProcessViolationPayment.ProcessViolationPaymentCommandValidator(),
+            new FakeSignalRNotificationSender(), adminRepository: admins);
+        var receipt = await payments.Handle(new(charge.ReferenceNumber, profile.UserAccountId), default);
+        Assert.True(receipt.IsSuccess);
+        Assert.Equal("Juan", receipt.Data!.OwnerFirstName);
+        Assert.Equal("ABC123", receipt.Data.PlateNumber);
+        Assert.Equal("Toyota", receipt.Data.VehicleBrand);
+        Assert.Equal(20m, receipt.Data.PenaltyFee);
+        Assert.Equal("Settled", receipt.Data.SettlementStatus);
+        Assert.False((await payments.Handle(new(charge.ReferenceNumber, profile.UserAccountId), default)).IsSuccess);
+        Assert.Empty((await history.Handle(new(profile.UserAccountId, 1, 20, true), default)).Data!.Items);
+    }
+
+    [Fact]
     public async Task DetailHistory_IsPaged_WithoutLosingFullVisitorSummary()
     {
         var visitors = new VisitorRepositoryFake();
@@ -145,14 +209,16 @@ public class VisitorEntryTests
     {
         public Visitor? Visitor { get; private set; }
         public List<VisitSession> Sessions { get; } = [];
+        public List<Violation> Charges { get; } = [];
         public Task<Visitor?> GetByIdAsync(Guid id) => Task.FromResult(Visitor?.Id == id ? Visitor : null);
         public Task<Visitor?> GetByPlateNumberAsync(string plate) => Task.FromResult(Visitor?.PlateNumber == plate ? Visitor : null);
         public Task<VisitSession?> GetActiveVisitSessionByVisitorIdAsync(Guid id) =>
             Task.FromResult(Sessions.FirstOrDefault(s => s.VisitorId == id && s.Status == VisitSessionStatus.Inside));
         public Task AddAsync(Visitor visitor) { Visitor = visitor; return Task.CompletedTask; }
-        public Task AddVisitSessionAsync(VisitSession session) { Sessions.Add(session); return Task.CompletedTask; }
+        public Task AddVisitSessionAsync(VisitSession session) { session.Visitor = Visitor!; Sessions.Add(session); return Task.CompletedTask; }
         public Task UpdateAsync(Visitor visitor) => Task.CompletedTask;
         public Task UpdateVisitSessionAsync(VisitSession session) => Task.CompletedTask;
+        public Task<bool> CompleteVisitSessionWithChargeAsync(VisitSession session, Violation charge) { Charges.Add(charge); return Task.FromResult(true); }
         public Task DeleteAsync(Visitor visitor) => throw new NotImplementedException();
         public Task<VisitorDetailDto?> GetDetailPageAsync(Guid id, int page, int size)
         {

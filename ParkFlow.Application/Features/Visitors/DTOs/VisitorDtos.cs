@@ -87,7 +87,10 @@ public record VisitorExitResponse(
     DateTime ExitTime,
     string? Purpose,
     string? Destination,
-    string Status
+    string Status,
+    decimal ChargeAmount,
+    string ReferenceNumber,
+    string SettlementStatus
 );
 
 public record UnifiedPlateLookupDto(

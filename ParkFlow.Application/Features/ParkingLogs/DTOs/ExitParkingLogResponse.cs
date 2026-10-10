@@ -15,6 +15,7 @@ public class ExitParkingLogResponse
     public double OverstayTime { get; set; }
     public decimal PenaltyFee { get; set; }
     public string? ReferenceNumber { get; set; }
+    public string? SettlementStatus { get; set; }
     public string? GuardName { get; set; }
     public string? IssuedBy { get; set; }
 }

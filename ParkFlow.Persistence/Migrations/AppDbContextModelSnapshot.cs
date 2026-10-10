@@ -673,6 +673,7 @@ namespace ParkFlow.Persistence.Migrations
                         .HasColumnType("character varying(255)");
 
                     b.Property<int>("Status")
+                        .IsConcurrencyToken()
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -701,7 +702,7 @@ namespace ParkFlow.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("ParkingLogId")
+                    b.Property<Guid?>("ParkingLogId")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("PenaltyFee")
@@ -720,11 +721,20 @@ namespace ParkFlow.Persistence.Migrations
                     b.Property<int>("ViolationType")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("VisitSessionId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ParkingLogId");
 
-                    b.ToTable("Violations");
+                    b.HasIndex("VisitSessionId")
+                        .IsUnique();
+
+                    b.ToTable("Violations", t =>
+                        {
+                            t.HasCheckConstraint("CK_Violations_Session", "(\"ParkingLogId\" IS NOT NULL) <> (\"VisitSessionId\" IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("Student", b =>
@@ -1058,10 +1068,16 @@ namespace ParkFlow.Persistence.Migrations
                     b.HasOne("ParkFlow.Domain.Entities.ParkingLog", "ParkingLog")
                         .WithMany()
                         .HasForeignKey("ParkingLogId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("ParkFlow.Domain.Entities.VisitSession", "VisitSession")
+                        .WithMany()
+                        .HasForeignKey("VisitSessionId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("ParkingLog");
+
+                    b.Navigation("VisitSession");
                 });
 
             modelBuilder.Entity("Student", b =>

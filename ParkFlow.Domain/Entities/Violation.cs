@@ -4,8 +4,11 @@ namespace ParkFlow.Domain.Entities;
 
 public class Violation : BaseEntity
 {
-    public Guid ParkingLogId { get; private set; }
+    public Guid? ParkingLogId { get; private set; }
     public ParkingLog ParkingLog { get; private set; } = null!;
+
+    public Guid? VisitSessionId { get; private set; }
+    public VisitSession? VisitSession { get; private set; }
 
     public string ReferenceNumber { get; private set; } = null!;
 
@@ -47,5 +50,15 @@ public class Violation : BaseEntity
     {
         SettlementStatus = SettlementStatus.Settled;
         UpdatedAt = DateTime.UtcNow;
+    }
+
+    public static Violation CreateVisitorCharge(VisitSession session)
+    {
+        return new Violation(session.Id, VisitSession.ParkingFee, ViolationType.ManualParkingCharge)
+        {
+            ParkingLogId = null,
+            VisitSessionId = session.Id,
+            VisitSession = session
+        };
     }
 }
