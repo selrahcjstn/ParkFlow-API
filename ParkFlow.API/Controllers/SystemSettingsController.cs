@@ -43,9 +43,7 @@ public class SystemSettingsController : ControllerBase
     public async Task<ActionResult<Result<SystemSettingsDto>>> UpdateSettings([FromBody] SystemSettingsDto request)
     {
         var isSuperAdmin = User.IsInRole("SuperAdmin") || User.HasClaim("role", "SuperAdmin")
-            || User.HasClaim("profile_type", "superadmin")
-            || string.Equals(User.FindFirst(ClaimTypes.Email)?.Value ?? User.FindFirst("email")?.Value,
-                "superadmin@parkflow.com", StringComparison.OrdinalIgnoreCase);
+            || User.HasClaim("profile_type", "superadmin");
         if (!isSuperAdmin) return Forbid();
         if (request.TotalCapacity < 1 || request.ReservationAllocationPercent < 0 || request.ReservationAllocationPercent > 100)
             return BadRequest(Result<SystemSettingsDto>.Failure(

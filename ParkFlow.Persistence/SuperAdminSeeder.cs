@@ -33,9 +33,29 @@ public static class SuperAdminSeeder
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
 
         // 1. SuperAdmin Account
-        var superAdminEmail = "superadmin@parkflow.com";
+        var superAdminEmail = "superadmin6767@gmail.com";
         var superAdminPassword = passwordHasher.HashPassword("SuperAdmin123!");
         var existingSuperAdmin = await userAccountRepository.GetByEmailAsync(superAdminEmail);
+        var migratedSuperAdmin = false;
+        // Rename the original seeded account instead of deleting its profile/history
+        // or creating another account with elevated permissions.
+        var previousSuperAdmin = await userAccountRepository.GetByEmailAsync("superadmin@parkflow.com");
+        if (previousSuperAdmin != null)
+        {
+            if (existingSuperAdmin != null)
+                throw new InvalidOperationException("Both Super Admin emails exist. Resolve the account conflict before seeding.");
+            if (previousSuperAdmin.UserProfile?.Admin?.RoleLevel != RoleLevel.SuperAdmin)
+                throw new InvalidOperationException("The previous Super Admin email no longer belongs to a Super Admin account.");
+
+            var previousIdentity = await authIdentityRepository.GetByEmailAsync("superadmin@parkflow.com")
+                ?? throw new InvalidOperationException("The previous Super Admin login identity was not found.");
+            if (previousIdentity.Provider != AuthProvider.Manual)
+                throw new InvalidOperationException("The previous Super Admin login is not a manual login identity.");
+            previousIdentity.UpdateEmail(superAdminEmail);
+            await authIdentityRepository.UpdateAsync(previousIdentity);
+            existingSuperAdmin = previousSuperAdmin;
+            migratedSuperAdmin = true;
+        }
         if (existingSuperAdmin == null)
         {
             var user = new UserAccount(superAdminPassword, "+639000000000");
@@ -57,7 +77,9 @@ public static class SuperAdminSeeder
         {
             existingSuperAdmin.Verify();
             existingSuperAdmin.UpdateOnboardingStep(OnboardingStep.Done);
-            existingSuperAdmin.UpdatePassword(superAdminPassword);
+            // Apply the supplied default only on migration; do not overwrite later password changes.
+            if (migratedSuperAdmin)
+                existingSuperAdmin.UpdatePassword(superAdminPassword);
             await userAccountRepository.UpdateAsync(existingSuperAdmin);
 
             var identity = await authIdentityRepository.GetByEmailAsync(superAdminEmail);
@@ -69,7 +91,8 @@ public static class SuperAdminSeeder
             }
             else
             {
-                identity.UpdatePasswordHash(superAdminPassword);
+                if (migratedSuperAdmin)
+                    identity.UpdatePasswordHash(superAdminPassword);
                 identity.MarkVerified();
                 await authIdentityRepository.UpdateAsync(identity);
             }

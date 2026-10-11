@@ -66,9 +66,7 @@ public class AdminController : ControllerBase
 
 		var isSuperAdminClaim = User.IsInRole("SuperAdmin")
 			|| User.HasClaim("role", "SuperAdmin")
-			|| User.HasClaim("profile_type", "superadmin")
-			|| string.Equals(User.FindFirst(ClaimTypes.Email)?.Value, "superadmin@parkflow.com", StringComparison.OrdinalIgnoreCase)
-			|| string.Equals(User.FindFirst("email")?.Value, "superadmin@parkflow.com", StringComparison.OrdinalIgnoreCase);
+			|| User.HasClaim("profile_type", "superadmin");
 
 		var effectiveKey = registrationKey ?? command.RegistrationKey;
 		if (string.IsNullOrWhiteSpace(effectiveKey) && isSuperAdminClaim)

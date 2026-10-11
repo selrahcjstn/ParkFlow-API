@@ -272,9 +272,7 @@ namespace ParkFlow.API.Controllers
 
                 var isSuperAdminClaim = User.IsInRole("SuperAdmin")
                     || User.HasClaim("role", "SuperAdmin")
-                    || User.HasClaim("profile_type", "superadmin")
-                    || string.Equals(User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value, "superadmin@parkflow.com", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(User.FindFirst("email")?.Value, "superadmin@parkflow.com", StringComparison.OrdinalIgnoreCase);
+                    || User.HasClaim("profile_type", "superadmin");
 
                 var configuration = HttpContext.RequestServices.GetService<Microsoft.Extensions.Configuration.IConfiguration>();
                 var effectiveKey = registrationKey;
