@@ -12,7 +12,17 @@ public record DashboardSummaryResponse(
 	int MaxCapacity,
 	decimal TodayRevenue,
 	int ViolationsCount,
-	List<ParkingActivityDto> ActivityOverLast7Days
+	List<ParkingActivityDto> ActivityOverLast7Days,
+	DashboardTrendsDto? Trends = null
+);
+
+public record DashboardDailyComparison(int RegisteredClients, decimal? Revenue, int? PendingCharges, DateTime Date);
+
+public record DashboardTrendsDto(
+	decimal? RegisteredClientsPercent,
+	decimal? RevenuePercent,
+	decimal? PendingChargesPercent,
+	DateTime ComparisonDate
 );
 
 public record ParkingActivityDto(

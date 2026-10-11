@@ -12,16 +12,13 @@ namespace ParkFlow.Application.Features.Dashboard.Queries.GetDashboardSummary;
 public class GetDashboardSummaryHandler : IRequestHandler<GetDashboardSummaryQuery, Result<DashboardSummaryResponse>>
 {
     private readonly IDashboardRepository _dashboardRepository;
-    private readonly IParkingLogRepository _parkingLogRepository;
     private readonly ICacheService? _cacheService;
 
     public GetDashboardSummaryHandler(
         IDashboardRepository dashboardRepository,
-        IParkingLogRepository parkingLogRepository,
         ICacheService? cacheService = null)
     {
         _dashboardRepository = dashboardRepository;
-        _parkingLogRepository = parkingLogRepository;
         _cacheService = cacheService;
     }
 
@@ -38,10 +35,12 @@ public class GetDashboardSummaryHandler : IRequestHandler<GetDashboardSummaryQue
 
             async Task<DashboardSummaryResponse> LoadSummaryAsync()
             {
+                var asOfUtc = DateTime.UtcNow;
                 var totalUsers = await _dashboardRepository.GetTotalUsersCountAsync();
-                var activeLogs = await _parkingLogRepository.GetActiveParkingLogsAsync(Math.Max(1000, effectiveCapacity));
-                var todayRevenue = await _dashboardRepository.GetTodayRevenueAsync();
+                var activeParking = await _dashboardRepository.GetActiveParkingCountAsync();
+                var todayRevenue = await _dashboardRepository.GetTodayRevenueAsync(asOfUtc);
                 var violationsCount = await _dashboardRepository.GetActiveViolationsCountAsync();
+                var previous = await _dashboardRepository.GetDailyComparisonAsync(asOfUtc);
 
                 var activityDict = await _dashboardRepository.GetActivityOverLast7DaysAsync();
 
@@ -56,11 +55,20 @@ public class GetDashboardSummaryHandler : IRequestHandler<GetDashboardSummaryQue
 
                 var response = new DashboardSummaryResponse(
                     TotalUsers: totalUsers,
-                    ActiveParking: activeLogs.Count,
+                    ActiveParking: activeParking,
                     MaxCapacity: effectiveCapacity,
                     TodayRevenue: todayRevenue,
                     ViolationsCount: violationsCount,
-                    ActivityOverLast7Days: activityList
+                    ActivityOverLast7Days: activityList,
+                    Trends: new DashboardTrendsDto(
+                        CalculatePercentageChange(totalUsers, previous.RegisteredClients),
+                        previous.Revenue.HasValue
+                            ? CalculatePercentageChange(todayRevenue, previous.Revenue.Value)
+                            : null,
+                        previous.PendingCharges.HasValue
+                            ? CalculatePercentageChange(violationsCount, previous.PendingCharges.Value)
+                            : null,
+                        previous.Date)
                 );
 
                 return response;
@@ -75,5 +83,11 @@ public class GetDashboardSummaryHandler : IRequestHandler<GetDashboardSummaryQue
         {
             return Result<DashboardSummaryResponse>.Failure($"Failed to retrieve dashboard summary: {ex.Message}", ErrorCode.ServerError);
         }
+    }
+
+    public static decimal? CalculatePercentageChange(decimal current, decimal previous)
+    {
+        if (previous == 0m) return current == 0m ? 0m : null;
+        return Math.Round((current - previous) / previous * 100m, 1, MidpointRounding.AwayFromZero);
     }
 }

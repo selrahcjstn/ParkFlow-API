@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
+using ParkFlow.Application.Features.Dashboard.Queries.GetDashboardSummary;
+using ParkFlow.Application.Features.ParkingLogs.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,46 +23,52 @@ public class DashboardRepository : IDashboardRepository
 	public async Task<int> GetTotalUsersCountAsync()
 	{
 		// This metric is displayed as Registered Clients, not system accounts.
-		return await _context.UserAccounts.CountAsync(user =>
+		return await ClientAccounts.CountAsync();
+	}
+
+	private IQueryable<UserAccount> ClientAccounts => _context.UserAccounts.Where(user =>
 			user.UserProfile == null ||
 			(user.UserProfile.Admin == null && user.UserProfile.Guard == null));
-	}
 
-	public async Task<decimal> GetTodayRevenueAsync()
+	public async Task<int> GetActiveParkingCountAsync()
 	{
-		var utcNow = DateTime.UtcNow;
-		var phNow = ParkFlow.Application.Features.ParkingLogs.Services.ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
-		var todayPh = phNow.Date;
-		var todayUtc = utcNow.Date;
-
-		var settled = await _context.Violations
-			.Where(v => v.SettlementStatus == SettlementStatus.Settled)
-			.ToListAsync();
-
-		var todayRevenue = settled
-			.Where(v =>
-			{
-				var dt = v.UpdatedAt ?? v.CreatedAt;
-				var phDt = ParkFlow.Application.Features.ParkingLogs.Services.ParkingTimeHelper.ConvertUtcToPhilippinesTime(dt).Date;
-				return phDt == todayPh || dt.Date == todayUtc;
-			})
-			.Sum(v => v.PenaltyFee);
-
-		return todayRevenue;
+		var registered = await _context.ParkingLogs.CountAsync(log => log.Status == ParkingStatus.Parked && log.ExitTime == null);
+		var visitors = await _context.VisitSessions.CountAsync(session => session.Status == VisitSessionStatus.Inside && session.ExitTime == null);
+		return registered + visitors;
 	}
+
+	public async Task<decimal> GetTodayRevenueAsync(DateTime? asOfUtc = null)
+	{
+		var today = ParkingTimeHelper.ConvertUtcToPhilippinesTime(asOfUtc ?? DateTime.UtcNow).Date;
+		var startUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(today, TimeSpan.Zero);
+		return await GetRevenueAsync(startUtc, startUtc.AddDays(1));
+	}
+
+	private async Task<decimal> GetRevenueAsync(DateTime startUtc, DateTime endUtc) =>
+		await _context.Violations
+			.Where(v => v.SettlementStatus == SettlementStatus.Settled &&
+				v.UpdatedAt >= startUtc && v.UpdatedAt < endUtc)
+			.SumAsync(v => (decimal?)v.PenaltyFee) ?? 0m;
 
 	public async Task<int> GetActiveViolationsCountAsync()
 	{
-		var pendingCount = await _context.Violations
-			.Where(v => v.SettlementStatus == SettlementStatus.Pending)
-			.CountAsync();
+		return await _context.Violations.CountAsync(v => v.SettlementStatus != SettlementStatus.Settled);
+	}
 
-		if (pendingCount == 0)
-		{
-			return await _context.Violations.CountAsync();
-		}
-
-		return pendingCount;
+	public async Task<DashboardDailyComparison> GetDailyComparisonAsync(DateTime asOfUtc)
+	{
+		var today = ParkingTimeHelper.ConvertUtcToPhilippinesTime(asOfUtc).Date;
+		var startUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(today, TimeSpan.Zero);
+		// Cumulative clients at yesterday's close, based on surviving account records.
+		var previousClients = await ClientAccounts.CountAsync(user => user.CreatedAt < startUtc);
+		var previousRevenue = await GetRevenueAsync(startUtc.AddDays(-1), startUtc);
+		// MarkAsPaid records the payment timestamp in UpdatedAt. A charge paid today
+		// was still pending at yesterday's close. Never invent dates for legacy paid rows.
+		var unknownPaymentDates = await _context.Violations.AnyAsync(v =>
+			v.SettlementStatus == SettlementStatus.Settled && v.UpdatedAt == null);
+		int? previousPending = unknownPaymentDates ? null : await _context.Violations.CountAsync(v =>
+			v.CreatedAt < startUtc && (v.SettlementStatus != SettlementStatus.Settled || v.UpdatedAt >= startUtc));
+		return new DashboardDailyComparison(previousClients, unknownPaymentDates ? null : previousRevenue, previousPending, today.AddDays(-1));
 	}
 
 	public async Task<Dictionary<DateTime, (int CheckIns, int CheckOuts)>> GetActivityOverLast7DaysAsync()
