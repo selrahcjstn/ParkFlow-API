@@ -298,14 +298,25 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
                         var earliestStart = todaySchedules.Min(s => _scheduleService.GetEarliestAllowedEntryTime(s));
                         if (philippinesNow.TimeOfDay < earliestStart)
                         {
+                            if (student == null)
+                                return Result<CreateParkingLogResponse>.Failure(
+                                    $"Entry denied: Too early for class schedule. Earliest allowed entry is {DateTime.Today.Add(earliestStart):hh:mm tt}.",
+                                    ErrorCode.BadRequest);
+
+                            if (!request.AcceptUnscheduledFee)
+                                return Result<CreateParkingLogResponse>.Failure(
+                                    new CreateParkingLogResponse { FeeOptionAvailable = true, EntryFee = 20m },
+                                    "Your class schedule starts later today. You may enter now with a one-time ₱20 parking charge for this visit. The charge remains due when your class schedule starts.",
+                                    ErrorCode.Forbidden);
+
+                            chargeUnscheduledFee = true;
+                        }
+                        else
+                        {
                             return Result<CreateParkingLogResponse>.Failure(
-                                $"Entry denied: Too early for class schedule. Earliest allowed entry is {DateTime.Today.Add(earliestStart):hh:mm tt}.",
+                                "Entry denied: Entry time does not align with authorized schedule.",
                                 ErrorCode.BadRequest);
                         }
-
-                        return Result<CreateParkingLogResponse>.Failure(
-                            "Entry denied: Entry time does not align with authorized schedule.",
-                            ErrorCode.BadRequest);
                     }
                 }
 
