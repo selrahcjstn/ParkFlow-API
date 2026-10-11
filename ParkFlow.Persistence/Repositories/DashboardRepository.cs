@@ -20,7 +20,10 @@ public class DashboardRepository : IDashboardRepository
 
 	public async Task<int> GetTotalUsersCountAsync()
 	{
-		return await _context.UserAccounts.CountAsync();
+		// This metric is displayed as Registered Clients, not system accounts.
+		return await _context.UserAccounts.CountAsync(user =>
+			user.UserProfile == null ||
+			(user.UserProfile.Admin == null && user.UserProfile.Guard == null));
 	}
 
 	public async Task<decimal> GetTodayRevenueAsync()

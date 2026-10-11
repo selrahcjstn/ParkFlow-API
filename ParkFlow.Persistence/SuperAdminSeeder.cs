@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
@@ -14,7 +15,7 @@ public static class SuperAdminSeeder
 {
     public static async Task SeedSuperAdminAsync(IServiceProvider serviceProvider)
     {
-        Console.WriteLine("🌱 Checking database migrations and test accounts...");
+        Console.WriteLine("🌱 Checking database migrations and administrator accounts...");
         using var scope = serviceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await dbContext.Database.MigrateAsync();
@@ -23,13 +24,6 @@ public static class SuperAdminSeeder
         var authIdentityRepository = scope.ServiceProvider.GetRequiredService<IAuthIdentityRepository>();
         var userProfileRepository = scope.ServiceProvider.GetRequiredService<IUserProfileRepository>();
         var adminRepository = scope.ServiceProvider.GetRequiredService<IAdminRepository>();
-        var guardRepository = scope.ServiceProvider.GetRequiredService<IGuardRepository>();
-        var studentRepository = scope.ServiceProvider.GetRequiredService<IStudentRepository>();
-        var personnelRepository = scope.ServiceProvider.GetRequiredService<IPersonnelRepository>();
-        var vehicleRepository = scope.ServiceProvider.GetRequiredService<IVehicleRepository>();
-        var corSubmissionRepository = scope.ServiceProvider.GetRequiredService<ICorSubmissionRepository>();
-        var parkingScheduleRepository = scope.ServiceProvider.GetRequiredService<IParkingScheduleRepository>();
-        var qrCodeService = scope.ServiceProvider.GetRequiredService<IQrCodeService>();
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
 
         // 1. SuperAdmin Account
@@ -142,7 +136,6 @@ public static class SuperAdminSeeder
         {
             existingAdmin.Verify();
             existingAdmin.UpdateOnboardingStep(OnboardingStep.Done);
-            existingAdmin.UpdatePassword(adminPassword);
             await userAccountRepository.UpdateAsync(existingAdmin);
 
             var identity = await authIdentityRepository.GetByEmailAsync(adminEmail);
@@ -154,11 +147,27 @@ public static class SuperAdminSeeder
             }
             else
             {
-                identity.UpdatePasswordHash(adminPassword);
                 identity.MarkVerified();
                 await authIdentityRepository.UpdateAsync(identity);
             }
         }
+
+        // Sample records must be explicitly enabled; normal restarts must not
+        // repopulate a cleared database or overwrite existing administrator passwords.
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        if (!bool.TryParse(configuration["Seeding:IncludeTestData"], out var includeTestData) || !includeTestData)
+        {
+            Console.WriteLine("✅ Administrator accounts verified. Test data seeding is disabled.");
+            return;
+        }
+
+        var guardRepository = scope.ServiceProvider.GetRequiredService<IGuardRepository>();
+        var studentRepository = scope.ServiceProvider.GetRequiredService<IStudentRepository>();
+        var personnelRepository = scope.ServiceProvider.GetRequiredService<IPersonnelRepository>();
+        var vehicleRepository = scope.ServiceProvider.GetRequiredService<IVehicleRepository>();
+        var corSubmissionRepository = scope.ServiceProvider.GetRequiredService<ICorSubmissionRepository>();
+        var parkingScheduleRepository = scope.ServiceProvider.GetRequiredService<IParkingScheduleRepository>();
+        var qrCodeService = scope.ServiceProvider.GetRequiredService<IQrCodeService>();
 
         // 3. Guard Account
         var guardEmail = "guard@parkflow.com";
