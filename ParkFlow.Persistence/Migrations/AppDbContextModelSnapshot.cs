@@ -345,6 +345,9 @@ namespace ParkFlow.Persistence.Migrations
                     b.Property<DateTime>("ReservationDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("ReservedVehicleType")
+                        .HasColumnType("integer");
+
                     b.Property<TimeSpan>("StartTime")
                         .HasColumnType("interval");
 

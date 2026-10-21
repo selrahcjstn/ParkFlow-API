@@ -82,6 +82,7 @@ public class GetActiveParkingSessionHandler
 
                 var isPersonnelParking = PersonnelParkingPolicy.AppliesTo(log.Vehicle.Owner?.UserProfile?.Personnel);
                 var nowUtc = DateTime.UtcNow;
+                var vehicleRates = sysSettings.ForVehicle(log.Vehicle.VehicleType);
                 var amount = 0m;
                 var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
                 var timing = ActiveSessionTiming.Resolve(log, nowUtc, sysSettings, corSubmissions,
@@ -91,7 +92,7 @@ public class GetActiveParkingSessionHandler
 
                 if (isPersonnelParking)
                 {
-                    amount = PersonnelParkingPolicy.CalculateCharge(log.EntryTime, nowUtc, sysSettings);
+                    amount = PersonnelParkingPolicy.CalculateCharge(log.EntryTime, nowUtc, sysSettings, log.Vehicle.VehicleType);
                 }
                 else if (log.EntryMethod == EntryMethod.Manual)
                 {
@@ -99,7 +100,7 @@ public class GetActiveParkingSessionHandler
                     var overdueDays = (philippinesNow.Date - philippinesEntry.Date).Days;
                     if (overdueDays < 0) overdueDays = 0;
 
-                    amount = 20m + (overdueDays * 100m);
+                    amount = vehicleRates.EntryFee + (overdueDays * vehicleRates.DailyOverstayFee);
                 }
                 else if (timing.HasReservation)
                 {
@@ -109,11 +110,11 @@ public class GetActiveParkingSessionHandler
 
                     if (overstayHours > 0)
                     {
-                        amount = 20m + 100m + (overdueDays * 100m);
+                        amount = vehicleRates.EntryFee + vehicleRates.DailyOverstayFee + (overdueDays * vehicleRates.DailyOverstayFee);
                     }
                     else
                     {
-                        amount = 20m;
+                        amount = vehicleRates.EntryFee;
                     }
                 }
                 else
@@ -121,7 +122,7 @@ public class GetActiveParkingSessionHandler
                     if (overstayHours > 0)
                     {
                         var overstayDuration = nowUtc - maximumExitTimeUtc;
-                        amount = _violationService.CalculatePenalty(overstayDuration);
+                        amount = _violationService.CalculatePenaltyForVehicle(overstayDuration, log.Vehicle.VehicleType);
                     }
                 }
 

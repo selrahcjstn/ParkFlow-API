@@ -21,6 +21,7 @@ public class ParkingReservation : BaseEntity
     public ReservationType Type { get; private set; } = ReservationType.Normal;
     public Guid? VehicleId { get; private set; }
     public Vehicle? Vehicle { get; private set; }
+    public VehicleType ReservedVehicleType { get; private set; }
 
     private ParkingReservation() { } // For EF Core
 
@@ -32,7 +33,8 @@ public class ParkingReservation : BaseEntity
         TimeSpan endTime,
         string reason,
         ReservationType type = ReservationType.Normal,
-        Guid? vehicleId = null)
+        Guid? vehicleId = null,
+        VehicleType reservedVehicleType = VehicleType.Motorcycle)
     {
         if (userId == Guid.Empty)
             throw new ArgumentException("UserId is required.", nameof(userId));
@@ -52,6 +54,7 @@ public class ParkingReservation : BaseEntity
         Status = ReservationStatus.Pending;
         Type = type;
         VehicleId = vehicleId;
+        ReservedVehicleType = reservedVehicleType == VehicleType.Car ? VehicleType.Car : VehicleType.Motorcycle;
     }
 
     public void SetAdminNotes(string? notes)
@@ -64,6 +67,16 @@ public class ParkingReservation : BaseEntity
         if (string.IsNullOrWhiteSpace(AdminNotes)) return null;
         var match = System.Text.RegularExpressions.Regex.Match(AdminNotes, @"\[NotifyEmail:(.*?)\]");
         return match.Success ? match.Value : null;
+    }
+
+    public void Confirm()
+    {
+        if (Status != ReservationStatus.Pending)
+            throw new InvalidOperationException("Only new reservations can be confirmed.");
+
+        Status = ReservationStatus.Approved;
+        ApprovedAt = DateTime.UtcNow;
+        ApprovedByAdminId = null;
     }
 
     public void Approve(Guid adminId, string? notes = null)
@@ -108,8 +121,8 @@ public class ParkingReservation : BaseEntity
 
     public void Cancel()
     {
-        if (Status == ReservationStatus.Approved || Status == ReservationStatus.Rejected || Status == ReservationStatus.Completed)
-            throw new InvalidOperationException("Cannot cancel a reservation that has already been reviewed or completed.");
+        if (Status != ReservationStatus.Pending && Status != ReservationStatus.Approved)
+            throw new InvalidOperationException("Only active reservations can be cancelled.");
 
         Status = ReservationStatus.Cancelled;
     }

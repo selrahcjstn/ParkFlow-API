@@ -1,7 +1,19 @@
 using System;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Common
 {
+    public class VehicleParkingSettingsDto
+    {
+        public int TotalCapacity { get; set; } = 250;
+        public int ReservationAllocationSlots { get; set; } = 75;
+        public decimal ViolationRatePerHour { get; set; } = 100m;
+        public decimal BaseFee { get; set; } = 50m;
+        public decimal EntryFee { get; set; } = 20m;
+        public decimal DailyOverstayFee { get; set; } = 100m;
+        public VehicleParkingSettingsDto Copy() => (VehicleParkingSettingsDto)MemberwiseClone();
+    }
+
     public class SystemSettingsDto
     {
         public decimal ViolationRatePerHour { get; set; } = 100.00m;
@@ -19,6 +31,11 @@ namespace ParkFlow.Application.Common
         public string AcademicYear { get; set; } = "2026-2027";
         public string CurrentSemester { get; set; } = "1st Semester";
         public DateTime LastResetDate { get; set; } = DateTime.UtcNow;
+
+        public VehicleParkingSettingsDto CarParking { get; set; } = new();
+        public VehicleParkingSettingsDto MotorcycleParking { get; set; } = new();
+        // Legacy electric bikes use motorcycle spaces and rates.
+        public VehicleParkingSettingsDto ForVehicle(VehicleType type) => type == VehicleType.Car ? CarParking : MotorcycleParking;
 
         public int MaxParkingHours { get; set; } = 8;
         public int TotalCapacity { get; set; } = 500;
@@ -55,8 +72,10 @@ namespace ParkFlow.Application.Common
                         CurrentSemester = _settings.CurrentSemester,
                         LastResetDate = _settings.LastResetDate,
                         MaxParkingHours = _settings.MaxParkingHours,
-                        TotalCapacity = _settings.TotalCapacity,
-                        ReservationAllocationSlots = _settings.ReservationAllocationSlots,
+                        CarParking = _settings.CarParking.Copy(),
+                        MotorcycleParking = _settings.MotorcycleParking.Copy(),
+                        TotalCapacity = _settings.CarParking.TotalCapacity + _settings.MotorcycleParking.TotalCapacity,
+                        ReservationAllocationSlots = _settings.CarParking.ReservationAllocationSlots + _settings.MotorcycleParking.ReservationAllocationSlots,
                         MaxVehiclesPerUser = _settings.MaxVehiclesPerUser,
                         MaintenanceMode = _settings.MaintenanceMode,
                         RfidInstantScanEnabled = _settings.RfidInstantScanEnabled,
@@ -84,7 +103,9 @@ namespace ParkFlow.Application.Common
             int? earlyParkingMinutes = null,
             string? personnelFreeParkingStart = null,
             string? personnelFreeParkingEnd = null,
-            int? reservationAllocationSlots = null)
+            int? reservationAllocationSlots = null,
+            VehicleParkingSettingsDto? carParking = null,
+            VehicleParkingSettingsDto? motorcycleParking = null)
         {
             lock (_lock)
             {
@@ -95,6 +116,21 @@ namespace ParkFlow.Application.Common
                 _settings.MaxParkingHours = maxParkingHours;
                 _settings.TotalCapacity = totalCapacity;
                 if (reservationAllocationSlots.HasValue) _settings.ReservationAllocationSlots = reservationAllocationSlots.Value;
+                if (carParking != null) _settings.CarParking = carParking.Copy();
+                if (motorcycleParking != null) _settings.MotorcycleParking = motorcycleParking.Copy();
+                if (carParking == null && motorcycleParking == null)
+                {
+                    // Keep older internal callers compatible with aggregate settings.
+                    _settings.CarParking.TotalCapacity = totalCapacity / 2;
+                    _settings.MotorcycleParking.TotalCapacity = totalCapacity - totalCapacity / 2;
+                    if (reservationAllocationSlots.HasValue)
+                    {
+                        _settings.CarParking.ReservationAllocationSlots = reservationAllocationSlots.Value / 2;
+                        _settings.MotorcycleParking.ReservationAllocationSlots = reservationAllocationSlots.Value - reservationAllocationSlots.Value / 2;
+                    }
+                    _settings.CarParking.ViolationRatePerHour = _settings.MotorcycleParking.ViolationRatePerHour = rate;
+                    if (baseFee.HasValue) _settings.CarParking.BaseFee = _settings.MotorcycleParking.BaseFee = baseFee.Value;
+                }
                 _settings.MaxVehiclesPerUser = maxVehiclesPerUser;
                 _settings.MaintenanceMode = maintenanceMode;
                 _settings.RfidInstantScanEnabled = rfidInstantScanEnabled;

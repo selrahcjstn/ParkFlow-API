@@ -182,13 +182,14 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
         var employeePersonnel = employeeProfile == null ? null : await _personnelRepository.GetByUserProfileIdAsync(employeeProfile.Id);
         var isPersonnelParking = PersonnelParkingPolicy.AppliesTo(employeePersonnel);
         var systemSettings = SystemSettingsStore.Current;
+        var vehicleRates = systemSettings.ForVehicle(vehicle.VehicleType);
         var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
 
         if (isPersonnelParking)
         {
             maximumExitTime = PersonnelParkingPolicy.GetDeadlineUtc(active.EntryTime, systemSettings);
             overstayTime = PersonnelParkingPolicy.GetChargeDuration(active.EntryTime, exitTime, systemSettings).TotalHours;
-            penaltyFee = PersonnelParkingPolicy.CalculateCharge(active.EntryTime, exitTime, systemSettings);
+            penaltyFee = PersonnelParkingPolicy.CalculateCharge(active.EntryTime, exitTime, systemSettings, vehicle.VehicleType);
             if (penaltyFee > 0m)
             {
                 var violation = new Violation(active.Id, penaltyFee, ViolationType.Overstay);
@@ -210,7 +211,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
 
             if (overdueDays > 0)
             {
-                penaltyFee = 20m + (overdueDays * 100m);
+                penaltyFee = vehicleRates.EntryFee + (overdueDays * vehicleRates.DailyOverstayFee);
                 overstayTime = (exitTime - entryMidnightUtc).TotalHours;
                 violationType = "Manual Parking Overstay";
                 var violation = new Violation(active.Id, penaltyFee, ViolationType.Overstay);
@@ -222,7 +223,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
             }
             else
             {
-                penaltyFee = 20m;
+                penaltyFee = vehicleRates.EntryFee;
                 overstayTime = 0;
                 violationType = "Manual Parking Charge";
                 var violation = new Violation(active.Id, penaltyFee, ViolationType.ManualParkingCharge);
@@ -254,7 +255,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
                 {
                     var overstayDuration = exitTime - maximumExitTime.Value;
                     overstayTime = overstayDuration.TotalHours;
-                    penaltyFee = 20m + 100m + (overdueDays * 100m);
+                    penaltyFee = vehicleRates.EntryFee + vehicleRates.DailyOverstayFee + (overdueDays * vehicleRates.DailyOverstayFee);
                     violationType = "Reservation Overstay";
                     var violation = new Violation(active.Id, penaltyFee, ViolationType.Overstay);
                     await _violationRepository.AddAsync(violation);
@@ -265,7 +266,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
                 }
                 else
                 {
-                    penaltyFee = 20m;
+                    penaltyFee = vehicleRates.EntryFee;
                     overstayTime = 0;
                     violationType = "Reservation Parking Charge";
                     var violation = new Violation(active.Id, penaltyFee, ViolationType.ReservationCharge);
@@ -302,7 +303,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
             {
                 var overstayDuration = exitTime - maximumExitTime.Value;
                 overstayTime = overstayDuration.TotalHours;
-                penaltyFee = _violationService.CalculatePenalty(overstayDuration);
+                penaltyFee = _violationService.CalculatePenaltyForVehicle(overstayDuration, vehicle.VehicleType);
 
                 if (penaltyFee > 0m)
                 {

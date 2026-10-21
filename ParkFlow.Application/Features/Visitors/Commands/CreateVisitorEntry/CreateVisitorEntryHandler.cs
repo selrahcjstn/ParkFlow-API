@@ -170,7 +170,7 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
             Destination: newSession.Destination,
             Status: newSession.Status.ToString(),
             IsReturning: isReturning,
-            EntryFee: VisitSession.ParkingFee
+            EntryFee: SystemSettingsStore.Current.ForVehicle(visitor.VehicleType).EntryFee
         );
 
         return Result<VisitorEntryResponse>.Success(response, isReturning ? "Returning visitor entry recorded." : "New visitor entry recorded.");

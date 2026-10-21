@@ -17,11 +17,18 @@ public class ParkingReservationRepository : IParkingReservationRepository
     }
 
     public async Task<int> GetReservedPeakAsync(DateTime date, TimeSpan start, TimeSpan end, CancellationToken cancellationToken = default)
+        => await GetPeakAsync(date, start, end, null, cancellationToken);
+
+    public Task<int> GetReservedPeakForVehicleAsync(DateTime date, TimeSpan start, TimeSpan end, VehicleType type, CancellationToken cancellationToken = default) =>
+        GetPeakAsync(date, start, end, type == VehicleType.Car ? VehicleType.Car : VehicleType.Motorcycle, cancellationToken);
+
+    private async Task<int> GetPeakAsync(DateTime date, TimeSpan start, TimeSpan end, VehicleType? type, CancellationToken cancellationToken)
     {
         var day = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
         var nextDay = day.AddDays(1);
         var windows = await _context.ParkingReservations.AsNoTracking()
-            .Where(r => r.ReservationDate >= day && r.ReservationDate < nextDay
+            .Where(r => (!type.HasValue || r.ReservedVehicleType == type.Value)
+                && r.ReservationDate >= day && r.ReservationDate < nextDay
                 && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Approved)
                 && (r.Type == ReservationType.Special || (r.StartTime < end && r.EndTime > start)))
             .Select(r => new ReservationTimeWindow(
@@ -40,6 +47,9 @@ public class ParkingReservationRepository : IParkingReservationRepository
         {
             await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
             var day = DateTime.SpecifyKind(reservation.ReservationDate.Date, DateTimeKind.Utc);
+            // Serialize this user's bookings across all dates before taking the capacity lock.
+            var userLock = "ReservationUser:" + reservation.UserId;
+            await _context.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({userLock}, 0))", cancellationToken);
             // PostgreSQL transaction lock serializes bookings for this date, including across API instances.
             var lockKey = 8_104_000_000L + DateOnly.FromDateTime(day).DayNumber;
             await _context.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({lockKey})", cancellationToken);
@@ -52,13 +62,20 @@ public class ParkingReservationRepository : IParkingReservationRepository
             var nextDay = day.AddDays(1);
             var existing = _context.ParkingReservations.Where(r => r.ReservationDate >= day && r.ReservationDate < nextDay
                 && r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.Rejected);
-            if (await existing.AnyAsync(r => r.UserId == reservation.UserId, cancellationToken))
+            var now = DateTime.UtcNow.AddHours(8);
+            var today = DateTime.SpecifyKind(now.Date, DateTimeKind.Utc);
+            var time = now.TimeOfDay;
+            if (await _context.ParkingReservations.AnyAsync(r => r.UserId == reservation.UserId
+                && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Approved)
+                && (r.ReservationDate > today || (r.ReservationDate == today
+                    && (r.Type == ReservationType.Special || r.EndTime > time))), cancellationToken))
                 return ReservationBookingResult.DuplicateUser;
             if (reservation.VehicleId.HasValue && await existing.AnyAsync(r => r.VehicleId == reservation.VehicleId, cancellationToken))
                 return ReservationBookingResult.DuplicateVehicle;
             var start = reservation.Type == ReservationType.Special ? TimeSpan.Zero : reservation.StartTime;
             var end = reservation.Type == ReservationType.Special ? TimeSpan.FromDays(1) : reservation.EndTime;
-            if (capacity <= 0 || await GetReservedPeakAsync(day, start, end, cancellationToken) >= capacity)
+            capacity = ReservationCapacityPolicy.GetCapacity(ParkFlow.Application.Common.SystemSettingsStore.Current, reservation.ReservedVehicleType);
+            if (capacity <= 0 || await GetReservedPeakForVehicleAsync(day, start, end, reservation.ReservedVehicleType, cancellationToken) >= capacity)
                 return ReservationBookingResult.CapacityFull;
             await _context.ParkingReservations.AddAsync(reservation, cancellationToken);
             // Keep the entity Added until commit succeeds, so a rolled-back retry can insert it again.

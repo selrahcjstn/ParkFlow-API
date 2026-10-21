@@ -14,4 +14,4 @@ public record CreateReservationCommand(
     string Reason,
     string? NotifyEmail = null,
     ReservationType Type = ReservationType.Normal,
-    Guid? VehicleId = null) : IRequest<Result<ParkingReservationDto>>;
+    Guid? VehicleId = null, VehicleType VehicleType = VehicleType.Motorcycle) : IRequest<Result<ParkingReservationDto>>;

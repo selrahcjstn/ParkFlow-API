@@ -13,7 +13,8 @@ public record DashboardSummaryResponse(
 	decimal TodayRevenue,
 	int ViolationsCount,
 	List<ParkingActivityDto> ActivityOverLast7Days,
-	DashboardTrendsDto? Trends = null
+	DashboardTrendsDto? Trends = null,
+    int CarCount = 0, int MotorcycleCount = 0, int CarCapacity = 0, int MotorcycleCapacity = 0
 );
 
 public record DashboardDailyComparison(int RegisteredClients, decimal? Revenue, int? PendingCharges, DateTime Date);

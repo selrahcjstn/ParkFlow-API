@@ -19,6 +19,7 @@ public class CreateReservationValidator : AbstractValidator<CreateReservationCom
             .WithMessage("End time must be after start time.");
         RuleFor(x => x.StartTime).GreaterThanOrEqualTo(TimeSpan.Zero).LessThan(TimeSpan.FromDays(1));
         RuleFor(x => x.Type).IsInEnum();
+        RuleFor(x => x.VehicleType).Must(type => type is ParkFlow.Domain.Enums.VehicleType.Car or ParkFlow.Domain.Enums.VehicleType.Motorcycle);
 
         RuleFor(x => x.Reason)
             .NotEmpty().WithMessage("Reason is required.")

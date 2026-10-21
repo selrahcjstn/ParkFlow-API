@@ -172,6 +172,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             r.Type != ReservationType.Special && philippinesNow.TimeOfDay > r.EndTime);
 
         var systemSettings = SystemSettingsStore.Current;
+        var vehicleRates = systemSettings.ForVehicle(vehicle.VehicleType);
         var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
 
         if (admin == null && !isGuest)
@@ -264,8 +265,8 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             {
                 if (!request.AcceptUnscheduledFee)
                     return Result<CreateParkingLogResponse>.Failure(
-                        new CreateParkingLogResponse { FeeOptionAvailable = true, EntryFee = 20m },
-                        "No class or work schedule for today. You may continue with a ₱20 parking fee, payable on exit.",
+                        new CreateParkingLogResponse { FeeOptionAvailable = true, EntryFee = vehicleRates.EntryFee },
+                        $"No class or work schedule for today. You may continue with a ₱{vehicleRates.EntryFee:0.00} parking fee, payable on exit.",
                         ErrorCode.Forbidden);
 
                 chargeUnscheduledFee = true;
@@ -280,8 +281,8 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
                     {
                         if (!request.AcceptUnscheduledFee)
                             return Result<CreateParkingLogResponse>.Failure(
-                                new CreateParkingLogResponse { FeeOptionAvailable = true, EntryFee = 20m },
-                                "Your reservation has ended and there is no valid class schedule now. You may continue with a ₱20 parking charge, payable on exit.",
+                                new CreateParkingLogResponse { FeeOptionAvailable = true, EntryFee = vehicleRates.EntryFee },
+                                $"Your reservation has ended and there is no valid class schedule now. You may continue with a ₱{vehicleRates.EntryFee:0.00} parking charge, payable on exit.",
                                 ErrorCode.Forbidden);
                         chargeUnscheduledFee = true;
                     }
@@ -305,8 +306,8 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
 
                             if (!request.AcceptUnscheduledFee)
                                 return Result<CreateParkingLogResponse>.Failure(
-                                    new CreateParkingLogResponse { FeeOptionAvailable = true, EntryFee = 20m },
-                                    "Your class schedule starts later today. You may enter now with a one-time ₱20 parking charge for this visit. The charge remains due when your class schedule starts.",
+                                    new CreateParkingLogResponse { FeeOptionAvailable = true, EntryFee = vehicleRates.EntryFee },
+                                    $"Your class schedule starts later today. You may enter now with a one-time ₱{vehicleRates.EntryFee:0.00} parking charge for this visit. The charge remains due when your class schedule starts.",
                                     ErrorCode.Forbidden);
 
                             chargeUnscheduledFee = true;
@@ -361,7 +362,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             MaximumExitTime = maximumExitTimeUtc,
             EntryMethod = parkingLog.EntryMethod.ToString(),
             GuardName = guardName,
-            EntryFee = chargeUnscheduledFee || isGuest ? 20m : 0m,
+            EntryFee = chargeUnscheduledFee || isGuest ? vehicleRates.EntryFee : 0m,
             IssuedBy = guardName
         };
 

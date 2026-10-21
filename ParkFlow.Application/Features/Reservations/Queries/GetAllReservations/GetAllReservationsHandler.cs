@@ -32,6 +32,7 @@ public class GetAllReservationsHandler : IRequestHandler<GetAllReservationsQuery
             Status = r.Status,
             Type = r.Type,
             VehicleId = r.VehicleId,
+            VehicleType = r.ReservedVehicleType,
             PlateNumber = r.Vehicle?.PlateNumber,
             Brand = r.Vehicle?.Brand,
             VehicleQrCodeHash = r.Vehicle?.QrCodeHash,

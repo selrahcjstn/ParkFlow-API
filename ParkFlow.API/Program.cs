@@ -115,6 +115,11 @@ app.Use(async (context, next) =>
         context.Response.StatusCode = StatusCodes.Status409Conflict;
         await context.Response.WriteAsJsonAsync(Result<object>.Failure("This plate number is already registered.", ErrorCode.Conflict));
     }
+    catch (ParkingCapacityException ex) when (!context.Response.HasStarted)
+    {
+        context.Response.StatusCode = StatusCodes.Status409Conflict;
+        await context.Response.WriteAsJsonAsync(Result<object>.Failure(ex.Message, ErrorCode.Conflict));
+    }
     catch (RegistrationIdConflictException ex) when (!context.Response.HasStarted)
     {
         context.Response.StatusCode = StatusCodes.Status409Conflict;

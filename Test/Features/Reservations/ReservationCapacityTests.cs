@@ -101,7 +101,7 @@ public class ReservationCapacityTests
         var user = new UserAccount("hash", "09123456789"); user.Verify(); users.Users.Add(user);
         var vehicle = new Vehicle(user.Id, "ABC123", "Toyota", "qr", VehicleType.Car, verificationStatus: CorVerificationStatus.Verified);
         vehicles.Vehicles.Add(vehicle);
-        var capacity = ReservationCapacityPolicy.GetCapacity(SystemSettingsStore.Current);
+        var capacity = ReservationCapacityPolicy.GetCapacity(SystemSettingsStore.Current, VehicleType.Motorcycle);
         repo.Reservations.AddRange(Enumerable.Range(0, capacity).Select(_ => Booking()));
         var handler = new CreateReservationHandler(repo, users, vehicles, new CreateReservationValidator(), new FakeNotificationSender(), new FakeEmailService());
         var command = new CreateReservationCommand(user.Id, Day, TimeSpan.FromHours(10), TimeSpan.FromHours(15), "Visit", VehicleId: vehicle.Id);

@@ -12,10 +12,27 @@ public class ParkingLogRepository : IParkingLogRepository
         _context = context;
     }
 
+    public Task<(int Cars, int Motorcycles)> GetOccupancyAsync() => ParkingCapacityGuard.CountAsync(_context);
+
     public async Task AddParkingLogAsync(ParkingLog parkingLog)
     {
-        await _context.Set<ParkingLog>().AddAsync(parkingLog);
-        await _context.SaveChangesAsync();
+        await _context.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            var type = await _context.Vehicles.Where(v => v.Id == parkingLog.VehicleId).Select(v => v.VehicleType).SingleAsync();
+            if (await _context.ParkingLogs.AnyAsync(p => p.Id == parkingLog.Id))
+            {
+                _context.ChangeTracker.AcceptAllChanges();
+                return;
+            }
+            await ParkingCapacityGuard.EnsureSpaceAsync(_context, type);
+            if (await _context.ParkingLogs.AnyAsync(p => p.VehicleId == parkingLog.VehicleId && p.Status == ParkingStatus.Parked && p.ExitTime == null))
+                throw new ParkFlow.Application.Common.ParkingCapacityException("This vehicle is already inside campus.");
+            await _context.Set<ParkingLog>().AddAsync(parkingLog);
+            await _context.SaveChangesAsync(acceptAllChangesOnSuccess: false);
+            await transaction.CommitAsync();
+            _context.ChangeTracker.AcceptAllChanges();
+        });
     }
 
     public async Task<ParkingLog?> GetActiveParkingLogByVehicleIdAsync(Guid vehicleId)

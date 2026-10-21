@@ -28,7 +28,7 @@ public class Violation : BaseEntity
         ParkingLogId = parkingLogId;
         ViolationType = ViolationType.Overstay;
         PenaltyFee = penaltyFee;
-        SettlementStatus = SettlementStatus.Pending;
+        SettlementStatus = penaltyFee == 0m ? SettlementStatus.Settled : SettlementStatus.Pending;
         ReferenceNumber = $"VIO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
     }
 
@@ -41,7 +41,7 @@ public class Violation : BaseEntity
         ParkingLogId = parkingLogId;
         ViolationType = violationType;
         PenaltyFee = penaltyFee;
-        SettlementStatus = SettlementStatus.Pending;
+        SettlementStatus = penaltyFee == 0m ? SettlementStatus.Settled : SettlementStatus.Pending;
         var prefix = (violationType == ViolationType.ReservationCharge || violationType == ViolationType.ManualParkingCharge) ? "CHG" : "VIO";
         ReferenceNumber = $"{prefix}-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
     }
@@ -52,9 +52,9 @@ public class Violation : BaseEntity
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public static Violation CreateVisitorCharge(VisitSession session)
+    public static Violation CreateVisitorCharge(VisitSession session, decimal parkingFee = VisitSession.ParkingFee)
     {
-        return new Violation(session.Id, VisitSession.ParkingFee, ViolationType.ManualParkingCharge)
+        return new Violation(session.Id, parkingFee, ViolationType.ManualParkingCharge)
         {
             ParkingLogId = null,
             VisitSessionId = session.Id,

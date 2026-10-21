@@ -1,6 +1,8 @@
 using MediatR;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Application.Features.ParkingLogs.Services;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Reservations.Commands.CancelReservation;
 
@@ -25,6 +27,16 @@ public class CancelReservationHandler : IRequestHandler<CancelReservationCommand
 
         if (reservation.UserId != request.UserId)
             return Result<bool>.Failure("Unauthorized to cancel this reservation.", ErrorCode.Forbidden);
+
+        if (reservation.Status == ReservationStatus.Approved)
+        {
+            var settings = SystemSettingsStore.Current;
+            var start = reservation.Type == ReservationType.Special ? TimeSpan.Zero : reservation.StartTime;
+            var cutoff = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(reservation.ReservationDate, start)
+                .AddMinutes(settings.IsEarlyParkingAllowed ? -settings.EarlyParkingMinutes : 0);
+            if (DateTime.UtcNow >= cutoff)
+                return Result<bool>.Failure("This reservation is already valid for entry and can no longer be cancelled.", ErrorCode.BadRequest);
+        }
 
         try
         {

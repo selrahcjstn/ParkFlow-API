@@ -13,13 +13,15 @@ public class GetDashboardSummaryHandler : IRequestHandler<GetDashboardSummaryQue
 {
     private readonly IDashboardRepository _dashboardRepository;
     private readonly ICacheService? _cacheService;
+    private readonly IParkingLogRepository? _parkingLogRepository;
 
     public GetDashboardSummaryHandler(
         IDashboardRepository dashboardRepository,
-        ICacheService? cacheService = null)
+        ICacheService? cacheService = null, IParkingLogRepository? parkingLogRepository = null)
     {
         _dashboardRepository = dashboardRepository;
         _cacheService = cacheService;
+        _parkingLogRepository = parkingLogRepository;
     }
 
     public async Task<Result<DashboardSummaryResponse>> Handle(GetDashboardSummaryQuery request, CancellationToken cancellationToken)
@@ -53,6 +55,7 @@ public class GetDashboardSummaryHandler : IRequestHandler<GetDashboardSummaryQue
                     ))
                     .ToList();
 
+                var occupancy = _parkingLogRepository == null ? (Cars: 0, Motorcycles: 0) : await _parkingLogRepository.GetOccupancyAsync();
                 var response = new DashboardSummaryResponse(
                     TotalUsers: totalUsers,
                     ActiveParking: activeParking,
@@ -71,7 +74,8 @@ public class GetDashboardSummaryHandler : IRequestHandler<GetDashboardSummaryQue
                         previous.Date)
                 );
 
-                return response;
+                return response with { CarCount = occupancy.Cars, MotorcycleCount = occupancy.Motorcycles,
+                    CarCapacity = sysSettings.CarParking.TotalCapacity, MotorcycleCapacity = sysSettings.MotorcycleParking.TotalCapacity };
             }
             var response = _cacheService != null
                 ? await _cacheService.GetOrCreateAsync(cacheKey, LoadSummaryAsync, TimeSpan.FromSeconds(30), cancellationToken)

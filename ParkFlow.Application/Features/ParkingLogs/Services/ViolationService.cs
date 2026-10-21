@@ -1,4 +1,5 @@
 using ParkFlow.Application.Common;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.ParkingLogs.Services;
 
@@ -32,7 +33,16 @@ public class ViolationService : IViolationService
         return duration > TimeSpan.Zero ? duration : TimeSpan.Zero;
     }
 
-    public decimal CalculatePenalty(TimeSpan overstayDuration, decimal? customHourlyRate = null)
+    public decimal CalculatePenalty(TimeSpan overstayDuration, decimal? customHourlyRate = null) =>
+        CalculatePenalty(overstayDuration, customHourlyRate, SystemSettingsStore.Current.BaseFee);
+
+    public decimal CalculatePenaltyForVehicle(TimeSpan duration, VehicleType vehicleType)
+    {
+        var rates = SystemSettingsStore.Current.ForVehicle(vehicleType);
+        return CalculatePenalty(duration, rates.ViolationRatePerHour, rates.BaseFee);
+    }
+
+    private decimal CalculatePenalty(TimeSpan overstayDuration, decimal? customHourlyRate, decimal baseFee)
     {
         if (overstayDuration <= TimeSpan.Zero)
             return 0m;
@@ -45,7 +55,6 @@ public class ViolationService : IViolationService
 
         var hours = Math.Max(1, (int)Math.Ceiling(overstayDuration.TotalHours));
         var hourlyRate = customHourlyRate ?? settings.ViolationRatePerHour;
-        var baseFee = settings.BaseFee;
 
         return mode switch
         {

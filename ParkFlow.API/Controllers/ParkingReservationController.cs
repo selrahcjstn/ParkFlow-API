@@ -3,10 +3,8 @@ using ParkFlow.Application.Features.Reservations.Queries.GetCalendarReservations
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
-using ParkFlow.Application.Features.Reservations.Commands.ApproveReservation;
 using ParkFlow.Application.Features.Reservations.Commands.CancelReservation;
 using ParkFlow.Application.Features.Reservations.Commands.CreateReservation;
-using ParkFlow.Application.Features.Reservations.Commands.RejectReservation;
 using ParkFlow.Application.Features.Reservations.DTOs;
 using ParkFlow.Application.Features.Reservations.Queries.GetAllReservations;
 using ParkFlow.Application.Features.Reservations.Queries.GetMyReservations;
@@ -40,20 +38,20 @@ public class ParkingReservationController : ControllerBase
         string Reason,
         string? NotifyEmail = null,
         ReservationType Type = ReservationType.Normal,
-        Guid? VehicleId = null);
+        Guid? VehicleId = null,
+        VehicleType VehicleType = VehicleType.Motorcycle);
 
-    public record ReviewReservationRequest(string? Notes);
     public record VerifyScanRequest(string QrCode);
 
     [HttpGet("availability")]
     [Authorize]
     public async Task<ActionResult<Result<ReservationAvailability>>> GetAvailability(
         [FromQuery] DateTime date, [FromQuery] string startTime, [FromQuery] string endTime,
-        [FromQuery] ReservationType type = ReservationType.Normal)
+        [FromQuery] ReservationType type = ReservationType.Normal, [FromQuery] VehicleType? vehicleType = null)
     {
         if (!TimeSpan.TryParse(startTime, out var start) || !TimeSpan.TryParse(endTime, out var end))
             return BadRequest(Result<ReservationAvailability>.Failure("Choose a valid time range.", ErrorCode.BadRequest));
-        return this.ToActionResult(await _mediator.Send(new GetReservationAvailabilityQuery(date, start, end, type)));
+        return this.ToActionResult(await _mediator.Send(new GetReservationAvailabilityQuery(date, start, end, type, vehicleType)));
     }
 
     [HttpPost("verify-scan")]
@@ -89,7 +87,8 @@ public class ParkingReservationController : ControllerBase
             request.Reason,
             request.NotifyEmail,
             request.Type,
-            request.VehicleId);
+            request.VehicleId,
+            request.VehicleType);
 
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
@@ -145,24 +144,6 @@ public class ParkingReservationController : ControllerBase
             return Unauthorized(Result<bool>.Failure("User not identified.", ErrorCode.Unauthorized));
 
         var result = await _mediator.Send(new CancelReservationCommand(id, userId));
-        return this.ToActionResult(result);
-    }
-
-    [HttpPost("{id:guid}/approve")]
-    [Authorize]
-    public async Task<ActionResult<Result<bool>>> Approve(Guid id, [FromBody] ReviewReservationRequest? request)
-    {
-        var adminId = _userContext.GetUserId();
-        var result = await _mediator.Send(new ApproveReservationCommand(id, adminId, request?.Notes));
-        return this.ToActionResult(result);
-    }
-
-    [HttpPost("{id:guid}/reject")]
-    [Authorize]
-    public async Task<ActionResult<Result<bool>>> Reject(Guid id, [FromBody] ReviewReservationRequest? request)
-    {
-        var adminId = _userContext.GetUserId();
-        var result = await _mediator.Send(new RejectReservationCommand(id, adminId, request?.Notes));
         return this.ToActionResult(result);
     }
 

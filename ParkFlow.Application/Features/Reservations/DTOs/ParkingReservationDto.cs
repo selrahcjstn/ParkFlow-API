@@ -16,6 +16,7 @@ public class ParkingReservationDto
     public string Reason { get; set; } = string.Empty;
     public ReservationStatus Status { get; set; }
     public ReservationType Type { get; set; } = ReservationType.Normal;
+    public VehicleType VehicleType { get; set; }
     public Guid? VehicleId { get; set; }
     public string? PlateNumber { get; set; }
     public string? Brand { get; set; }

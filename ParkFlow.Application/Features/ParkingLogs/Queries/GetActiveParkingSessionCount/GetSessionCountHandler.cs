@@ -35,9 +35,7 @@ public class GetSessionCountHandler
         CancellationToken cancellationToken)
     {
         var sysSettings = SystemSettingsStore.Current;
-        var effectiveCapacity = request.ParkingCapacity > 0
-            ? request.ParkingCapacity
-            : (sysSettings.TotalCapacity > 0 ? sysSettings.TotalCapacity : 500);
+        var effectiveCapacity = sysSettings.TotalCapacity;
 
         var cacheKey = CacheKeys.ActiveSessionCount(effectiveCapacity);
 
@@ -75,11 +73,14 @@ public class GetSessionCountHandler
 
             var manualSessionCount = activeLogs.Count(x => x.EntryMethod == EntryMethod.Manual || x.EntryMethod == EntryMethod.ManualScheduled);
 
+            var occupancy = await _parkingLogRepository.GetOccupancyAsync();
             var response = new SessionCountResponse(
-                ActiveSessionCount: activeLogs.Count,
+                ActiveSessionCount: occupancy.Cars + occupancy.Motorcycles,
                 OverstayCount: overstayCount,
                 MaximumCapacity: effectiveCapacity,
-                ManualSessionCount: manualSessionCount);
+                ManualSessionCount: manualSessionCount,
+                CarCount: occupancy.Cars, MotorcycleCount: occupancy.Motorcycles,
+                CarCapacity: sysSettings.CarParking.TotalCapacity, MotorcycleCapacity: sysSettings.MotorcycleParking.TotalCapacity);
 
             return response;
         }

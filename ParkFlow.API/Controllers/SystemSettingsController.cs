@@ -47,24 +47,23 @@ public class SystemSettingsController : ControllerBase
         if (!isSuperAdmin) return Forbid();
         if (!ParkFlow.Application.Features.Verification.CorAcademicTerm.IsValid(request.AcademicYear, request.CurrentSemester))
             return BadRequest(Result<SystemSettingsDto>.Failure("Enter a valid school year (YYYY-YYYY) and semester (1st Semester, 2nd Semester or Summer).", ErrorCode.BadRequest));
-        if (request.TotalCapacity < 1 || request.ReservationAllocationSlots < 0 || request.ReservationAllocationSlots > request.TotalCapacity)
-            return BadRequest(Result<SystemSettingsDto>.Failure(
-                "Total parking capacity must be at least 1. Reservation spaces must be between 0 and the total parking capacity.", ErrorCode.BadRequest));
-        if (!PersonnelParkingPolicy.TryGetHours(request, out _, out _) || request.ViolationRatePerHour < 0)
-            return BadRequest(Result<SystemSettingsDto>.Failure(
-                "Enter valid faculty/staff hours with the start earlier than the end, and a non-negative hourly rate.",
-                ErrorCode.BadRequest));
-        if (request.TotalCapacity > 0)
+        if (request.CarParking == null || request.MotorcycleParking == null)
+            return BadRequest(Result<SystemSettingsDto>.Failure("Configure car and motorcycle parking settings.", ErrorCode.BadRequest));
+        foreach (var (label, parking) in new[] { ("Car", request.CarParking), ("Motorcycle", request.MotorcycleParking) })
         {
-            var activeLogs = await _parkingLogRepository.GetActiveParkingLogsAsync(10000);
-            var activeCount = activeLogs.Count;
-            if (request.TotalCapacity < activeCount)
-            {
-                return BadRequest(Result<SystemSettingsDto>.Failure(
-                    $"Cannot set total capacity to {request.TotalCapacity} slots. There are currently {activeCount} active vehicles parked on campus. Capacity cannot be lower than the active parked count.",
-                    ErrorCode.BadRequest));
-            }
+            if (parking.TotalCapacity < 0 || parking.ReservationAllocationSlots < 0 || parking.ReservationAllocationSlots > parking.TotalCapacity
+                || parking.ViolationRatePerHour < 0 || parking.BaseFee < 0 || parking.EntryFee < 0 || parking.DailyOverstayFee < 0)
+                return BadRequest(Result<SystemSettingsDto>.Failure($"{label}: enter non-negative spaces and charges. Reservation spaces cannot exceed this vehicle type's total capacity.", ErrorCode.BadRequest));
         }
+        if ((long)request.CarParking.TotalCapacity + request.MotorcycleParking.TotalCapacity is < 1 or > int.MaxValue)
+            return BadRequest(Result<SystemSettingsDto>.Failure("The campus must have at least one parking space.", ErrorCode.BadRequest));
+        request.TotalCapacity = request.CarParking.TotalCapacity + request.MotorcycleParking.TotalCapacity;
+        request.ReservationAllocationSlots = request.CarParking.ReservationAllocationSlots + request.MotorcycleParking.ReservationAllocationSlots;
+        if (!PersonnelParkingPolicy.TryGetHours(request, out _, out _))
+            return BadRequest(Result<SystemSettingsDto>.Failure("Enter valid faculty/staff hours with the start earlier than the end.", ErrorCode.BadRequest));
+        var occupied = await _parkingLogRepository.GetOccupancyAsync();
+        if (request.CarParking.TotalCapacity < occupied.Cars || request.MotorcycleParking.TotalCapacity < occupied.Motorcycles)
+            return BadRequest(Result<SystemSettingsDto>.Failure($"Capacity cannot be lower than occupied spaces: {occupied.Cars} cars and {occupied.Motorcycles} motorcycles are currently inside.", ErrorCode.BadRequest));
 
         SystemSettingsStore.Update(
             request.ViolationRatePerHour,
@@ -84,7 +83,9 @@ public class SystemSettingsController : ControllerBase
             request.EarlyParkingMinutes,
             request.PersonnelFreeParkingStart,
             request.PersonnelFreeParkingEnd,
-            request.ReservationAllocationSlots);
+            request.ReservationAllocationSlots,
+            request.CarParking,
+            request.MotorcycleParking);
 
         if (_cacheService != null)
         {

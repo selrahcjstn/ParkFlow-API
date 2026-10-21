@@ -8,6 +8,8 @@ namespace ParkFlow.Application.Interfaces;
 public interface IParkingReservationRepository
 {
     Task<int> GetReservedPeakAsync(DateTime date, TimeSpan start, TimeSpan end, CancellationToken cancellationToken = default);
+    Task<int> GetReservedPeakForVehicleAsync(DateTime date, TimeSpan start, TimeSpan end, VehicleType type, CancellationToken cancellationToken = default) =>
+        GetReservedPeakAsync(date, start, end, cancellationToken);
     Task<ReservationBookingResult> TryAddWithinCapacityAsync(ParkingReservation reservation, int capacity, CancellationToken cancellationToken = default);
     Task<CalendarReservationPage> GetCalendarPageAsync(DateTime date, DateTime month, int page,
         CancellationToken cancellationToken = default, string? search = null, bool gateOnly = false);

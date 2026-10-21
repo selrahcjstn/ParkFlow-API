@@ -85,7 +85,7 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
         }
 
         activeSession.MarkExit(guardProfileId, exitGate);
-        var charge = Violation.CreateVisitorCharge(activeSession);
+        var charge = Violation.CreateVisitorCharge(activeSession, SystemSettingsStore.Current.ForVehicle(visitor.VehicleType).EntryFee);
         if (!await _visitorRepository.CompleteVisitSessionWithChargeAsync(activeSession, charge))
         {
             return Result<VisitorExitResponse>.Failure(

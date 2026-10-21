@@ -91,6 +91,7 @@ public class GetActiveSessionByVehicleIdHandler
         DateTime? maximumExitTimeUtc = null;
         var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(activeLog.EntryTime);
         var sysSettings = SystemSettingsStore.Current;
+        var vehicleRates = sysSettings.ForVehicle(vehicle.VehicleType);
         var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
 
         var userReservations = _reservationRepository != null 
@@ -164,7 +165,7 @@ public class GetActiveSessionByVehicleIdHandler
 
         if (isPersonnelParking)
         {
-            accruedCharge = PersonnelParkingPolicy.CalculateCharge(activeLog.EntryTime, nowUtc, sysSettings);
+            accruedCharge = PersonnelParkingPolicy.CalculateCharge(activeLog.EntryTime, nowUtc, sysSettings, vehicle.VehicleType);
             overstayHours = PersonnelParkingPolicy.GetChargeDuration(activeLog.EntryTime, nowUtc, sysSettings).TotalHours;
         }
         else if (activeLog.EntryMethod == EntryMethod.Manual)
@@ -177,7 +178,7 @@ public class GetActiveSessionByVehicleIdHandler
             var overdueDays = (philippinesNow.Date - philippinesEntry.Date).Days;
             if (overdueDays < 0) overdueDays = 0;
 
-            accruedCharge = 20m + (overdueDays * 100m);
+            accruedCharge = vehicleRates.EntryFee + (overdueDays * vehicleRates.DailyOverstayFee);
             overstayHours = overdueDays > 0 ? (nowUtc - entryMidnightUtc).TotalHours : 0;
         }
         else if (entryReservation != null)
@@ -197,12 +198,12 @@ public class GetActiveSessionByVehicleIdHandler
                 }
                 else
                 {
-                    accruedCharge = 20m + 100m + (overdueDays * 100m);
+                    accruedCharge = vehicleRates.EntryFee + vehicleRates.DailyOverstayFee + (overdueDays * vehicleRates.DailyOverstayFee);
                 }
             }
             else
             {
-                accruedCharge = 20m;
+                accruedCharge = vehicleRates.EntryFee;
                 overstayHours = 0;
             }
         }
@@ -219,7 +220,7 @@ public class GetActiveSessionByVehicleIdHandler
             {
                 var overstayDuration = nowUtc - maximumExitTimeUtc.Value;
                 overstayHours = overstayDuration.TotalHours;
-                accruedCharge = _violationService.CalculatePenalty(overstayDuration);
+                accruedCharge = _violationService.CalculatePenaltyForVehicle(overstayDuration, vehicle.VehicleType);
             }
         }
 

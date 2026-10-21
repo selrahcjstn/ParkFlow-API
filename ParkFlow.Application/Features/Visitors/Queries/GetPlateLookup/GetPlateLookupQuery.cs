@@ -114,7 +114,7 @@ public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result
                 EntryTime: activeSession?.EntryTime,
                 Purpose: activeSession?.Purpose,
                 Destination: activeSession?.Destination,
-                EntryFee: VisitSession.ParkingFee
+                EntryFee: SystemSettingsStore.Current.ForVehicle(visitor.VehicleType).EntryFee
             );
 
             return Result<UnifiedPlateLookupDto>.Success(dto, "Visitor record found.");
@@ -127,7 +127,7 @@ public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result
             IsVisitor: false,
             IsInside: false,
             PlateNumber: normalizedPlate,
-            EntryFee: VisitSession.ParkingFee
+            EntryFee: null
         ), "Plate not found in system.");
     }
 }

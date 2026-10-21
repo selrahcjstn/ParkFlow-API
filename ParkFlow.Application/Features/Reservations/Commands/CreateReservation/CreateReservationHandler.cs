@@ -72,7 +72,8 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
         }
         else
         {
-            assignedVehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
+            var eligibleVehicles = userVehicles.Where(v => !isAdmin || v.VehicleType == request.VehicleType).ToList();
+            assignedVehicle = eligibleVehicles.FirstOrDefault(v => v.IsPrimary) ?? eligibleVehicles.FirstOrDefault();
             assignedVehicleId = assignedVehicle?.Id;
         }
 
@@ -110,6 +111,9 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
                     "Selected vehicle was not found.",
                     ErrorCode.NotFound);
             }
+
+            if (assignedVehicle.OwnerId != user.Id)
+                return Result<ParkingReservationDto>.Failure("Select one of your own registered vehicles.", ErrorCode.Forbidden);
 
             if (assignedVehicle.VerificationStatus != CorVerificationStatus.Verified)
             {
@@ -152,7 +156,8 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
             endTimeToUse,
             request.Reason,
             request.Type,
-            assignedVehicleId
+            assignedVehicleId,
+            assignedVehicle?.VehicleType ?? request.VehicleType
         );
 
         if (!string.IsNullOrWhiteSpace(request.NotifyEmail))
@@ -160,26 +165,22 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
             reservation.SetAdminNotes($"[NotifyEmail:{request.NotifyEmail.Trim()}]");
         }
 
-        if (isAdmin)
-        {
-            var adminId = user.Id;
-            reservation.Approve(adminId, "Auto-approved (Created by Admin)");
-        }
+        reservation.Confirm();
 
         var booking = await _reservationRepository.TryAddWithinCapacityAsync(reservation,
-            ReservationCapacityPolicy.GetCapacity(SystemSettingsStore.Current), cancellationToken);
+            ReservationCapacityPolicy.GetCapacity(SystemSettingsStore.Current, reservation.ReservedVehicleType), cancellationToken);
         if (booking != ReservationBookingResult.Created)
         {
             var message = booking switch
             {
-                ReservationBookingResult.DuplicateUser => $"You already have a reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
+                ReservationBookingResult.DuplicateUser => "You may have only one upcoming or active reservation at a time. Cancel it or wait until it ends before booking again.",
                 ReservationBookingResult.DuplicateVehicle => $"This vehicle already has a reservation for {request.ReservationDate:MMMM dd, yyyy}. Only one reservation per day is allowed.",
                 _ => "No reservation spaces are available for this time range. Please choose another time or date."
             };
             return Result<ParkingReservationDto>.Failure(message, ErrorCode.Conflict);
         }
 
-        if (isAdmin)
+        if (!string.IsNullOrWhiteSpace(request.NotifyEmail) || !string.IsNullOrWhiteSpace(user.PrimaryEmail))
         {
             try
             {
@@ -193,7 +194,7 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
 
                 if (!string.IsNullOrWhiteSpace(applicantEmail))
                 {
-                    var subject = $"✅ ParkFlow - Parking Reservation Approved ({reservation.ReferenceNumber})";
+                    var subject = $"✅ ParkFlow - Parking Reservation Confirmed ({reservation.ReferenceNumber})";
                     var reservationDateStr = reservation.ReservationDate.ToString("MMMM dd, yyyy");
                     var startTimeStr = DateTime.Today.Add(reservation.StartTime).ToString("hh:mm tt");
                     var endTimeStr = DateTime.Today.Add(reservation.EndTime).ToString("hh:mm tt");
@@ -211,7 +212,7 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
             <div style='display:inline-block;padding:4px 14px;background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.4);border-radius:20px;color:#fbbf24;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;'>
               PARKFLOW MANAGEMENT
             </div>
-            <h1 style='color:#ffffff;font-size:24px;font-weight:800;margin:0;letter-spacing:-0.5px;'>Parking Pass Approved!</h1>
+            <h1 style='color:#ffffff;font-size:24px;font-weight:800;margin:0;letter-spacing:-0.5px;'>Parking Pass Confirmed!</h1>
             <p style='color:rgba(255,255,255,0.85);font-size:13px;margin:6px 0 0;'>Official Campus Parking Entry Permit</p>
           </td>
         </tr>
@@ -219,7 +220,7 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
           <td style='padding:36px 40px;'>
             <p style='font-size:15px;line-height:1.6;color:#1e293b;margin:0 0 16px;'>Hello <strong>{applicantName}</strong>,</p>
             <p style='font-size:14px;line-height:1.6;color:#475569;margin:0 0 24px;'>
-              Your campus parking reservation request has been officially <strong style='color:#10b981;'>approved</strong>. Present the QR gate pass below to the guard scanner upon campus entry:
+              Your campus parking reservation has been automatically <strong style='color:#10b981;'>confirmed</strong>. Present the QR gate pass below to the guard scanner upon campus entry:
             </p>
             <div style='background-color:#f8fafc;border:2px dashed #cbd5e1;border-radius:14px;padding:28px 24px;text-align:center;margin-bottom:28px;'>
               <div style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;'>OFFICIAL GATE PASS QR</div>
@@ -254,8 +255,8 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
                     </tr>
                     <tr>
                       <td style='padding:8px 0;'>
-                        <span style='font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;'>Admin Remarks</span><br>
-                        <span style='font-size:14px;color:#334155;font-style:italic;'>Auto-approved (Created by Admin)</span>
+                        <span style='font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;'>Booking policy</span><br>
+                        <span style='font-size:14px;color:#334155;font-style:italic;'>First come, first served. One active reservation per user.</span>
                       </td>
                     </tr>
                   </table>
@@ -286,9 +287,9 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
         var dto = new ParkingReservationDto
         {
             Availability = ReservationCapacityPolicy.Describe(SystemSettingsStore.Current,
-                await _reservationRepository.GetReservedPeakAsync(reservation.ReservationDate,
+                await _reservationRepository.GetReservedPeakForVehicleAsync(reservation.ReservationDate,
                     reservation.Type == ReservationType.Special ? TimeSpan.Zero : reservation.StartTime,
-                    reservation.Type == ReservationType.Special ? TimeSpan.FromDays(1) : reservation.EndTime, cancellationToken)),
+                    reservation.Type == ReservationType.Special ? TimeSpan.FromDays(1) : reservation.EndTime, reservation.ReservedVehicleType, cancellationToken), reservation.ReservedVehicleType),
             Id = reservation.Id,
             UserId = reservation.UserId,
             UserFullName = user.UserProfile != null ? $"{user.UserProfile.FirstName} {user.UserProfile.LastName}".Trim() : string.Empty,
@@ -301,6 +302,7 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
             Status = reservation.Status,
             Type = reservation.Type,
             VehicleId = reservation.VehicleId,
+            VehicleType = reservation.ReservedVehicleType,
             PlateNumber = assignedVehicle?.PlateNumber,
             Brand = assignedVehicle?.Brand,
             VehicleQrCodeHash = assignedVehicle?.QrCodeHash,
@@ -330,19 +332,12 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
 
             await _notificationSender.SendToAllAsync("ReservationSubmitted", eventData);
             await _notificationSender.SendToAllAsync("ReservationUpdated", dto);
-            await _notificationSender.SendToAllAsync("ApprovalListUpdated", new
-            {
-                type = "Reservation",
-                id = reservation.Id,
-                referenceNumber = reservation.ReferenceNumber,
-                status = reservation.Status.ToString()
-            });
         }
         catch
         {
             // Ignore SignalR broadcast error to prevent request failure
         }
 
-        return Result<ParkingReservationDto>.Success(dto, "Parking reservation created successfully.");
+        return Result<ParkingReservationDto>.Success(dto, "Reservation confirmed. Your QR pass is ready.");
     }
 }

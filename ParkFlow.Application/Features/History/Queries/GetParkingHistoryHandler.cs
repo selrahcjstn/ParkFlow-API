@@ -145,7 +145,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 overstayHours = 0;
             }
 
-            var sessionCharge = existingViolation != null ? existingViolation.PenaltyFee : (log.EntryMethod == EntryMethod.Manual ? 20m : 0m);
+            var sessionCharge = existingViolation != null ? existingViolation.PenaltyFee : (log.EntryMethod == EntryMethod.Manual ? SystemSettingsStore.Current.ForVehicle(vehicle?.VehicleType ?? VehicleType.Motorcycle).EntryFee : 0m);
 
             var ownerEmail = vehicle?.Owner?.PrimaryEmail
                 ?? vehicle?.Owner?.AuthIdentities?.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Email))?.Email

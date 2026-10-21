@@ -173,8 +173,23 @@ public class VisitorRepository : IVisitorRepository
 
     public async Task AddVisitSessionAsync(VisitSession session)
     {
-        await _context.VisitSessions.AddAsync(session);
-        await _context.SaveChangesAsync();
+        await _context.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            var type = await _context.Visitors.Where(v => v.Id == session.VisitorId).Select(v => v.VehicleType).SingleAsync();
+            if (await _context.VisitSessions.AnyAsync(p => p.Id == session.Id))
+            {
+                _context.ChangeTracker.AcceptAllChanges();
+                return;
+            }
+            await ParkingCapacityGuard.EnsureSpaceAsync(_context, type);
+            if (await _context.VisitSessions.AnyAsync(p => p.VisitorId == session.VisitorId && p.Status == VisitSessionStatus.Inside))
+                throw new ParkFlow.Application.Common.ParkingCapacityException("This vehicle is already inside campus.");
+            await _context.VisitSessions.AddAsync(session);
+            await _context.SaveChangesAsync(acceptAllChangesOnSuccess: false);
+            await transaction.CommitAsync();
+            _context.ChangeTracker.AcceptAllChanges();
+        });
     }
 
     public async Task UpdateVisitSessionAsync(VisitSession session)
