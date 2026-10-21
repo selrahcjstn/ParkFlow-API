@@ -10,6 +10,7 @@ namespace ParkFlow.Persistence
         {
         }
 
+        public DbSet<SystemSettingsDocument> SystemSettingsDocuments { get; set; }
         public DbSet<UserAccount> UserAccounts { get; set; }
         public DbSet<VerificationRecord> VerificationRecords { get; set; }
         public DbSet<VerificationPolicy> VerificationPolicies { get; set; }

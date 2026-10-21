@@ -31,9 +31,7 @@ public class RegisterManualAccountValidator : AbstractValidator<RegisterManualAc
             RuleFor(x => x.LastName).MaximumLength(100);
         });
 
-        When(x => !string.IsNullOrWhiteSpace(x.PhoneNumber), () =>
-        {
-            RuleFor(x => x.PhoneNumber).MaximumLength(20);
-        });
+        RuleFor(x => x.PhoneNumber).NotEmpty().Matches(@"^09\d{9}$")
+            .WithMessage("Enter an 11-digit phone number starting with 09.");
     }
 }

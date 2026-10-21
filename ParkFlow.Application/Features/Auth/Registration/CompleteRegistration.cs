@@ -38,7 +38,7 @@ public sealed class RegistrationDetails
 }
 
 public record CompleteRegistration(Guid RegistrationId, RegistrationDetails Details, string VerifiedEmail,
-    string CorUrl, string OrcrUrl, string MotorUrl, CorFields? ExtractedFields) : IRequest<Result<string>>;
+    string CorUrl, string OrcrUrl, string MotorUrl, CorFields? ExtractedFields, string LicenseUrl = "", string ProfilePhotoUrl = "") : IRequest<Result<string>>;
 
 public class CompleteRegistrationHandler(IRegistrationWriter writer, IPasswordHasher passwords, IJwtService jwt,
     IQrCodeService qr, ISignalRNotificationSender signalR, ICacheService cache) : IRequestHandler<CompleteRegistration, Result<string>>
@@ -112,6 +112,7 @@ public class CompleteRegistrationHandler(IRegistrationWriter writer, IPasswordHa
             if (d.Department.Length > 100) errors.Add("Department must not exceed 100 characters.");
         }
         if (string.IsNullOrWhiteSpace(request.CorUrl) || string.IsNullOrWhiteSpace(request.OrcrUrl) || string.IsNullOrWhiteSpace(request.MotorUrl)) errors.Add("All registration documents are required.");
+        if (string.IsNullOrWhiteSpace(request.LicenseUrl) || string.IsNullOrWhiteSpace(request.ProfilePhotoUrl)) errors.Add("Your driver’s license and profile photo are required.");
         return errors;
     }
 }

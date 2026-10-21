@@ -2,6 +2,8 @@ namespace ParkFlow.Application.Features.ParkingLogs.DTOs;
 
 public class ExitParkingLogResponse
 {
+    public string? ProfilePictureUrl { get; set; }
+    public string? VehiclePictureUrl { get; set; }
     public string FirstName { get; set; } = null!;
     public string LastName { get; set; } = null!;
     public string? MiddleName { get; set; }

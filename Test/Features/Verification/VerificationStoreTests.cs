@@ -320,15 +320,15 @@ public class VerificationStoreTests
         Assert.Null(await store.EnqueueAsync(VerificationType.Vehicle, vehicle.Id, default));
         Assert.Empty(await db.VerificationRecords.ToListAsync()); Assert.Empty(await db.VerificationAudits.ToListAsync());
         var source = (await store.GetSubjectAsync(VerificationType.Vehicle, vehicle.Id, default))!;
-        Assert.True(await store.ReviewVehicleManuallyAsync(vehicle.Id, source.Fingerprint, VerificationState.Approved, "OR/CR and plate checked", default));
+        Assert.True(await store.ReviewVehicleManuallyAsync(vehicle.Id, source.Fingerprint, VerificationState.Approved, "OR/CR and plate checked", Guid.NewGuid(), default));
         Assert.Equal(CorVerificationStatus.Verified, (await vehicles.GetByIdAsync(vehicle.Id))!.VerificationStatus);
-        Assert.True(await store.ReviewVehicleManuallyAsync(vehicle.Id, source.Fingerprint, VerificationState.Rejected, "Plate mismatch", default));
+        Assert.True(await store.ReviewVehicleManuallyAsync(vehicle.Id, source.Fingerprint, VerificationState.Rejected, "Plate mismatch", Guid.NewGuid(), default));
         Assert.Equal(AccountStatus.Active, (await db.UserAccounts.AsNoTracking().SingleAsync()).Status);
         Assert.Empty(await db.VerificationRecords.ToListAsync()); Assert.Empty(await db.VerificationAudits.ToListAsync());
         var changed = (await vehicles.GetByIdAsync(vehicle.Id))!;
         changed.UpdateDocuments(null, "uploads/parkflow/motor-pictures/replacement.jpg"); await vehicles.UpdateAsync(changed);
         Assert.Equal(CorVerificationStatus.Pending, changed.VerificationStatus);
-        Assert.False(await store.ReviewVehicleManuallyAsync(vehicle.Id, source.Fingerprint, VerificationState.Approved, "Stale document", default));
+        Assert.False(await store.ReviewVehicleManuallyAsync(vehicle.Id, source.Fingerprint, VerificationState.Approved, "Stale document", Guid.NewGuid(), default));
         Assert.Empty(await db.VerificationRecords.ToListAsync()); Assert.Empty(await db.VerificationAudits.ToListAsync());
     }
 
@@ -345,7 +345,7 @@ public class VerificationStoreTests
             Fingerprint = source.Fingerprint, Status = VerificationState.Processing, LeaseId = Guid.NewGuid(), LeaseExpiresAt = DateTime.UtcNow.AddMinutes(-1) };
         db.Add(legacy); db.Add(new VerificationAudit { VerificationRecordId = legacy.Id, Action = "LegacyVehicleReview" }); await db.SaveChangesAsync();
         Assert.Null(await store.ClaimAsync(TimeSpan.FromMinutes(1), default));
-        Assert.True(await store.ReviewVehicleManuallyAsync(vehicle.Id, source.Fingerprint, VerificationState.Approved, "Checked manually", default));
+        Assert.True(await store.ReviewVehicleManuallyAsync(vehicle.Id, source.Fingerprint, VerificationState.Approved, "Checked manually", Guid.NewGuid(), default));
         Assert.False(await store.CompleteAsync(legacy, new(VerificationState.Rejected, "Old worker result") { PolicyVersion = 0 }, default));
         Assert.False((await store.FindAsync(legacy.Id, default))!.IsCurrent);
         Assert.Single(await db.VerificationAudits.ToListAsync());

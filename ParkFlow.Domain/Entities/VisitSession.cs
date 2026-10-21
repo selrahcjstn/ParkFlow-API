@@ -16,6 +16,11 @@ public class VisitSession : BaseEntity
     public Guid VisitorId { get; set; }
     public Visitor Visitor { get; set; } = null!;
 
+    public string? DriversLicenseUrl { get; set; }
+    public string? ProfilePictureUrl { get; set; }
+    public string? VehiclePictureUrl { get; set; }
+    public Guid? LicenseVerifiedBy { get; set; }
+    public DateTime? LicenseVerifiedAt { get; set; }
     public DateTime EntryTime { get; set; }
     public DateTime? ExitTime { get; set; }
 

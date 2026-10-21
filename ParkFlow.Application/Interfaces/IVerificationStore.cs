@@ -11,6 +11,10 @@ public record VerificationSubject(Guid Id, Guid UserId, VerificationType Type, s
 {
     public bool Suspended { get; init; }
     public string? Email { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? DriversLicenseUrl { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? ProfilePictureUrl { get; init; }
     public string? OrcrUrl { get; init; }
     public string? VehiclePictureUrl { get; init; }
     public string? Section { get; init; }
@@ -43,7 +47,7 @@ public interface IVerificationStore
     Task<List<VerificationAudit>> AuditAsync(Guid? recordId, CancellationToken ct);
     Task<bool> ConfirmExtractedSchedulesAsync(Guid recordId, int version, Guid owner, CancellationToken ct, List<VerificationSchedule>? corrected = null)
         => throw new NotSupportedException();
-    Task<bool> ReviewVehicleManuallyAsync(Guid id, string fingerprint, VerificationState status, string reason, CancellationToken ct)
+    Task<bool> ReviewVehicleManuallyAsync(Guid id, string fingerprint, VerificationState status, string reason, Guid actor, CancellationToken ct)
         => throw new NotSupportedException();
     Task<VerificationRecord?> FindCorExtractionByDocumentAsync(Guid owner, string documentUrl, CancellationToken ct)
         => Task.FromResult<VerificationRecord?>(null);

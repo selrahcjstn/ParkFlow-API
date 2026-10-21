@@ -31,11 +31,12 @@ public class VehicleController : ControllerBase
         _userContext = userContext;
     }
 
-    [Authorize]
+    [Authorize(Policy = "AdminOrSuperAdmin")]
     [HttpGet]
     public async Task<ActionResult<Result<IEnumerable<ParkFlow.Application.Features.Vehicles.Queries.GetAllVehicles.AdminVehicleDto>>>> GetAll()
     {
         var result = await _mediator.Send(new ParkFlow.Application.Features.Vehicles.Queries.GetAllVehicles.GetAllVehiclesQuery());
+        Response.Headers.CacheControl = "no-store";
         return this.ToActionResult(result);
     }
 

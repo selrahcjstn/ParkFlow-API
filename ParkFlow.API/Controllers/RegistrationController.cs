@@ -27,15 +27,15 @@ public class RegistrationController(IRegistrationDraftService drafts) : Controll
     [HttpPost("cor/fetch")]
     public Task<ActionResult<Result<CorSchedulePreview>>> Fetch(FetchRequest request, CancellationToken ct) =>
         Run(async () => Result<CorSchedulePreview>.Success(await drafts.FetchAsync(Token, request.RecordId, request.Version, ct)));
-    [HttpPost("complete"), RequestSizeLimit(17 * 1024 * 1024)]
-    public Task<ActionResult<Result<string>>> Complete([FromForm] string details, IFormFile? cor, IFormFile orcr, IFormFile motor, CancellationToken ct) =>
+    [HttpPost("complete"), RequestSizeLimit(29 * 1024 * 1024)]
+    public Task<ActionResult<Result<string>>> Complete([FromForm] string details, IFormFile? cor, IFormFile orcr, IFormFile motor, IFormFile license, IFormFile profilePhoto, CancellationToken ct) =>
         Run(async () =>
         {
             RegistrationDetails? data;
             try { data = JsonSerializer.Deserialize<RegistrationDetails>(details, new JsonSerializerOptions(JsonSerializerDefaults.Web)); }
             catch (JsonException) { return Result<string>.Failure("Check the registration details and try again.", ErrorCode.BadRequest); }
             if (data == null) return Result<string>.Failure("Registration details are required.", ErrorCode.BadRequest);
-            return await drafts.CompleteAsync(Token, data, cor, orcr, motor, ct);
+            return await drafts.CompleteAsync(Token, data, cor, orcr, motor, license, profilePhoto, ct);
         });
     [HttpDelete("session")]
     public Task<ActionResult<Result<bool>>> Cancel(CancellationToken ct) => Run(async () =>

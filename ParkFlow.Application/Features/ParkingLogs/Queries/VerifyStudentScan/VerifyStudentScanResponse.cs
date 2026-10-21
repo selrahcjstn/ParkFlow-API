@@ -12,6 +12,7 @@ public class VerifyStudentScanResponse
     public string Program { get; set; } = string.Empty;
     public string? Section { get; set; }
     public int? YearLevel { get; set; }
+    public string? VehiclePictureUrl { get; set; }
     public string? ProfilePictureUrl { get; set; }
 
     // Schedule Information

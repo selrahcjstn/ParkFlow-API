@@ -510,6 +510,26 @@ namespace ParkFlow.Persistence.Migrations
                     b.ToTable("SystemAnnouncements");
                 });
 
+            modelBuilder.Entity("ParkFlow.Domain.Entities.SystemSettingsDocument", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Json")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SystemSettingsDocuments");
+                });
+
             modelBuilder.Entity("ParkFlow.Domain.Entities.UserNotification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -841,6 +861,9 @@ namespace ParkFlow.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<string>("DriversLicenseUrl")
+                        .HasColumnType("text");
+
                     b.Property<string>("EntryGate")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -861,6 +884,15 @@ namespace ParkFlow.Persistence.Migrations
                     b.Property<DateTime?>("ExitTime")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("LicenseVerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("LicenseVerifiedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProfilePictureUrl")
+                        .HasColumnType("text");
+
                     b.Property<string>("Purpose")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
@@ -871,6 +903,9 @@ namespace ParkFlow.Persistence.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VehiclePictureUrl")
+                        .HasColumnType("text");
 
                     b.Property<Guid>("VisitorId")
                         .HasColumnType("uuid");
@@ -907,6 +942,9 @@ namespace ParkFlow.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                    b.Property<string>("DriversLicenseUrl")
+                        .HasColumnType("text");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -917,8 +955,14 @@ namespace ParkFlow.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<string>("ProfilePictureUrl")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VehiclePictureUrl")
+                        .HasColumnType("text");
 
                     b.Property<int>("VehicleType")
                         .HasColumnType("integer");
@@ -1028,6 +1072,10 @@ namespace ParkFlow.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                    b.Property<string>("DriversLicenseUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -1037,6 +1085,19 @@ namespace ParkFlow.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("LicenseRejectionReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("LicenseReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("LicenseReviewedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("LicenseStatus")
+                        .HasColumnType("integer");
 
                     b.Property<string>("MiddleName")
                         .HasMaxLength(100)

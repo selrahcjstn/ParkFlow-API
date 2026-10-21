@@ -9,6 +9,8 @@ namespace ParkFlow.Application.Features.ParkingLogs.Services;
 // belongs to the entry date: an unclosed session never gets another free day.
 public static class PersonnelParkingPolicy
 {
+    public static bool IsFaculty(Personnel? personnel) => personnel?.Role == Roles.UniversityStaff;
+
     public static bool AppliesTo(Personnel? personnel) => personnel?.Role is
         Roles.UniversityStaff or Roles.NonAcademicPersonnel;
 

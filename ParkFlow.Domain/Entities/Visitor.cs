@@ -9,6 +9,9 @@ public class Visitor : BaseEntity
     public string PlateNumber { get; set; } = string.Empty;
     public VehicleType VehicleType { get; set; }
     public string Brand { get; set; } = string.Empty;
+    public string? DriversLicenseUrl { get; set; }
+    public string? ProfilePictureUrl { get; set; }
+    public string? VehiclePictureUrl { get; set; }
 
     public ICollection<VisitSession> VisitSessions { get; set; } = new List<VisitSession>();
 

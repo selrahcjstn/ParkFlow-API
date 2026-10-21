@@ -139,7 +139,8 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
         var exitTime = DateTime.UtcNow;
 
         _parkingService.MarkExit(active);
-        await _parkingLogRepository.UpdateParkingLogAsync(active);
+        Violation? pendingCharge = null;
+        var completedReservations = new List<ParkingReservation>();
 
         var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
         var verifiedCor = corSubmissions.FirstOrDefault(c => c.UserAccountId == vehicle.OwnerId && c.VerificationStatus == CorVerificationStatus.Verified);
@@ -185,7 +186,20 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
         var vehicleRates = systemSettings.ForVehicle(vehicle.VehicleType);
         var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
 
-        if (isPersonnelParking)
+        var savedCharge = await _violationRepository.GetByLogIdAsync(active.Id);
+        if (savedCharge != null)
+        {
+            penaltyFee = savedCharge.PenaltyFee;
+            violationId = savedCharge.Id; violationType = savedCharge.ViolationType.ToString();
+            settlementStatus = savedCharge.SettlementStatus.ToString(); referenceNumber = savedCharge.ReferenceNumber;
+            isViolation = true;
+        }
+        else if (PersonnelParkingPolicy.IsFaculty(employeePersonnel))
+        {
+            // Faculty are exempt from all new parking charges, including overstay.
+            maximumExitTime = null;
+        }
+        else if (isPersonnelParking)
         {
             maximumExitTime = PersonnelParkingPolicy.GetDeadlineUtc(active.EntryTime, systemSettings);
             overstayTime = PersonnelParkingPolicy.GetChargeDuration(active.EntryTime, exitTime, systemSettings).TotalHours;
@@ -193,7 +207,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
             if (penaltyFee > 0m)
             {
                 var violation = new Violation(active.Id, penaltyFee, ViolationType.Overstay);
-                await _violationRepository.AddAsync(violation);
+                pendingCharge = violation;
                 isViolation = true;
                 violationId = violation.Id;
                 violationType = violation.ViolationType.ToString();
@@ -215,7 +229,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
                 overstayTime = (exitTime - entryMidnightUtc).TotalHours;
                 violationType = "Manual Parking Overstay";
                 var violation = new Violation(active.Id, penaltyFee, ViolationType.Overstay);
-                await _violationRepository.AddAsync(violation);
+                pendingCharge = violation;
                 isViolation = true;
                 violationId = violation.Id;
                 settlementStatus = violation.SettlementStatus.ToString();
@@ -227,7 +241,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
                 overstayTime = 0;
                 violationType = "Manual Parking Charge";
                 var violation = new Violation(active.Id, penaltyFee, ViolationType.ManualParkingCharge);
-                await _violationRepository.AddAsync(violation);
+                pendingCharge = violation;
                 isViolation = true;
                 violationId = violation.Id;
                 settlementStatus = violation.SettlementStatus.ToString();
@@ -258,7 +272,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
                     penaltyFee = vehicleRates.EntryFee + vehicleRates.DailyOverstayFee + (overdueDays * vehicleRates.DailyOverstayFee);
                     violationType = "Reservation Overstay";
                     var violation = new Violation(active.Id, penaltyFee, ViolationType.Overstay);
-                    await _violationRepository.AddAsync(violation);
+                    pendingCharge = violation;
                     isViolation = true;
                     violationId = violation.Id;
                     settlementStatus = violation.SettlementStatus.ToString();
@@ -270,7 +284,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
                     overstayTime = 0;
                     violationType = "Reservation Parking Charge";
                     var violation = new Violation(active.Id, penaltyFee, ViolationType.ReservationCharge);
-                    await _violationRepository.AddAsync(violation);
+                    pendingCharge = violation;
                     isViolation = true;
                     violationId = violation.Id;
                     settlementStatus = violation.SettlementStatus.ToString();
@@ -310,7 +324,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
                     var violation = new Violation(
                         active.Id,
                         penaltyFee);
-                    await _violationRepository.AddAsync(violation);
+                    pendingCharge = violation;
                     isViolation = true;
                     violationId = violation.Id;
                     violationType = violation.ViolationType.ToString();
@@ -320,7 +334,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
             }
         }
 
-        if (!isViolation && entryReservation?.Type != ReservationType.Special)
+        if (!PersonnelParkingPolicy.IsFaculty(employeePersonnel) && !isViolation && entryReservation?.Type != ReservationType.Special)
         {
             var existingViolation = await _violationRepository.GetByLogIdAsync(active.Id);
             if (existingViolation != null)
@@ -353,36 +367,28 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
             foreach (var res in activeTodayReservations)
             {
                 res.MarkCompleted();
-                await _reservationRepository.UpdateAsync(res);
+                completedReservations.Add(res);
             }
 
-            if (activeTodayReservations.Any())
+        }
+
+        var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
+        if (ownerProfile == null)
+            return Result<ExitParkingLogResponse>.Failure("Owner profile not found.", ErrorCode.NotFound);
+        if (!await _parkingLogRepository.CompleteExitAsync(active, pendingCharge, completedReservations, cancellationToken))
+            return Result<ExitParkingLogResponse>.Failure("This session has already exited. Refresh the parking history.", ErrorCode.Conflict);
+        if (completedReservations.Count > 0)
+        {
+            try
             {
-                await _reservationRepository.SaveChangesAsync();
-                try
-                {
-                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReservationStatusChanged", new
-                    {
-                        status = "Completed",
-                        userId = vehicle.OwnerId
-                    });
-                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReservationUpdated", new
-                    {
-                        status = "Completed",
-                        userId = vehicle.OwnerId
-                    });
-                    await _notificationSender.SendToAllAsync("ReservationListUpdated", new { });
-                }
-                catch { }
+                await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReservationStatusChanged", new { status = "Completed", userId = vehicle.OwnerId });
+                await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReservationUpdated", new { status = "Completed", userId = vehicle.OwnerId });
+                await _notificationSender.SendToAllAsync("ReservationListUpdated", new { });
             }
+            catch { }
         }
 
         var actualExitTime = active.ExitTime ?? exitTime;
-
-        var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
-
-        if (ownerProfile == null)
-            return Result<ExitParkingLogResponse>.Failure("Owner profile not found.", ErrorCode.NotFound);
 
         var student = await _studentRepository.GetByUserProfileIdAsync(ownerProfile.Id);
         var personnel = await _personnelRepository.GetByUserProfileIdAsync(ownerProfile.Id);
@@ -397,6 +403,8 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
 
         var response = new ExitParkingLogResponse
         {
+            ProfilePictureUrl = ownerProfile.ProfilePictureUrl,
+            VehiclePictureUrl = vehicle.VehiclePictureUrl,
             FirstName = ownerProfile.FirstName,
             LastName = ownerProfile.LastName,
             MiddleName = ownerProfile.MiddleName,
@@ -447,7 +455,9 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
                 IsViolation = isViolation,
                 SettlementStatus = isViolation ? settlementStatus : "Settled",
                 IsPaid = !isViolation || settlementStatus == "Settled",
-                FirstName = ownerProfile.FirstName,
+                ProfilePictureUrl = ownerProfile.ProfilePictureUrl,
+            VehiclePictureUrl = vehicle.VehiclePictureUrl,
+            FirstName = ownerProfile.FirstName,
                 LastName = ownerProfile.LastName,
                 MiddleName = ownerProfile.MiddleName,
                 DriverName = $"{ownerProfile.FirstName} {ownerProfile.LastName}".Trim(),

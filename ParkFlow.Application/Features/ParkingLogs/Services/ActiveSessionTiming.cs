@@ -68,6 +68,7 @@ public static class ActiveSessionTiming
 
     public static double GetOverstayHours(ParkingLog log, DateTime nowUtc, SystemSettingsDto settings, DateTime deadlineUtc)
     {
+        if (PersonnelParkingPolicy.IsFaculty(log.Vehicle.Owner?.UserProfile?.Personnel)) return 0;
         if (PersonnelParkingPolicy.AppliesTo(log.Vehicle.Owner?.UserProfile?.Personnel))
             return PersonnelParkingPolicy.GetChargeDuration(log.EntryTime, nowUtc, settings).TotalHours;
         if (log.EntryMethod == EntryMethod.Manual &&

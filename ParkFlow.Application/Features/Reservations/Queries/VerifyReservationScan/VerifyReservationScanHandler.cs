@@ -9,18 +9,21 @@ namespace ParkFlow.Application.Features.Reservations.Queries.VerifyReservationSc
 
 public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationScanQuery, Result<VerifyReservationScanResponse>>
 {
+    private readonly IParkingLogRepository _parkingLogs;
     private readonly IParkingReservationRepository _reservationRepository;
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IUserProfileRepository _userProfileRepository;
     private readonly IViolationRepository? _violationRepository;
 
     public VerifyReservationScanHandler(
+        IParkingLogRepository parkingLogs,
         IParkingReservationRepository reservationRepository,
         IVehicleRepository vehicleRepository,
         IUserProfileRepository userProfileRepository,
         IViolationRepository? violationRepository = null)
     {
         _reservationRepository = reservationRepository;
+        _parkingLogs = parkingLogs;
         _vehicleRepository = vehicleRepository;
         _userProfileRepository = userProfileRepository;
         _violationRepository = violationRepository;
@@ -45,7 +48,8 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
             else
             {
                 var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(reservation.UserId);
-                vehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
+                var matchingVehicles = userVehicles.Where(v => (v.VehicleType == VehicleType.Car ? VehicleType.Car : VehicleType.Motorcycle) == reservation.ReservedVehicleType).ToList();
+                    vehicle = matchingVehicles.FirstOrDefault(v => v.IsPrimary) ?? matchingVehicles.FirstOrDefault();
             }
         }
         else
@@ -133,8 +137,14 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
                 : "Verified Standard Reservation Pass";
         }
 
+        if (driverProfile == null) { isValid = false; statusMessage = "Driver profile is missing."; }
+        else if (DriverEntryPolicy.MissingRequirement(driverProfile) is { } restriction)
+        { isValid = false; statusMessage = restriction; }
+        if (vehicle == null || vehicle.VerificationStatus != CorVerificationStatus.Verified)
+        { isValid = false; statusMessage = "Vehicle documents require admin approval."; }
         var response = new VerifyReservationScanResponse
         {
+            IsCurrentlyParked = vehicle != null && await _parkingLogs.GetActiveParkingLogByVehicleIdAsync(vehicle.Id) != null,
             IsValid = isValid,
             StatusMessage = statusMessage,
             ReservationId = reservation.Id,
@@ -145,6 +155,9 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
             ReservationDate = reservation.ReservationDate,
             StartTime = reservation.StartTime.ToString(@"hh\:mm"),
             EndTime = reservation.EndTime.ToString(@"hh\:mm"),
+            ProfilePictureUrl = driverProfile?.ProfilePictureUrl,
+            VehiclePictureUrl = vehicle?.VehiclePictureUrl,
+            VehicleType = vehicle?.VehicleType.ToString() ?? "",
             DriverName = driverName,
             DriverEmail = driverEmail,
             VehicleId = vehicle?.Id ?? reservation.VehicleId,

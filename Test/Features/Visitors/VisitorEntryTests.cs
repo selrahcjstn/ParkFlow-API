@@ -114,7 +114,7 @@ public class VisitorEntryTests
     }
 
     private static CreateVisitorEntryHandler CreateHandler(VisitorRepositoryFake visitors, FakeVehicleRepository vehicles) =>
-        new(visitors, vehicles, new FakeUserProfileRepository(), new FakeGuardRepository(), new Test.Features.ParkingLogs.FakeAdminRepository());
+        new(visitors, new Test.Features.Files.FakeCloudinaryService(), vehicles, new FakeUserProfileRepository(), new FakeGuardRepository(), new Test.Features.ParkingLogs.FakeAdminRepository());
 
     [Fact]
     public async Task VisitorExit_CreatesPendingTwentyPesoCharge_AndDoesNotChargeTwice()

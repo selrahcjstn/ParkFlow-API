@@ -31,13 +31,20 @@ public class FilesController : ControllerBase
 
     [HttpGet("document")]
     [HttpHead("document")]
-    public async Task<IActionResult> GetDocument([FromQuery] string url, [FromQuery] bool download = false)
+    public async Task<IActionResult> GetDocument([FromQuery] string url, [FromQuery] bool download = false, string? ticket = null)
     {
         if (string.IsNullOrWhiteSpace(url))
         {
             return BadRequest("Document URL or identifier is required.");
         }
 
+        if (ParkFlow.API.Security.PrivateDocumentLinks.IsPrivate(url))
+        {
+            var links = HttpContext.RequestServices.GetRequiredService<ParkFlow.API.Security.PrivateDocumentLinks>();
+            if (!links.Valid(url, ticket) && !await CanReadPrivateAsync(url)) return Unauthorized();
+            Response.Headers.CacheControl = "private, no-store";
+            Response.Headers["Referrer-Policy"] = "no-referrer";
+        }
         var result = await _cloudinaryService.GetDocumentStreamAsync(url, download);
         if (result == null)
         {
@@ -56,13 +63,20 @@ public class FilesController : ControllerBase
     }
 
     [HttpGet("document/url")]
-    public IActionResult GetDocumentUrl([FromQuery] string url, [FromQuery] bool download = false)
+    public async Task<IActionResult> GetDocumentUrl([FromQuery] string url, [FromQuery] bool download = false)
     {
         if (string.IsNullOrWhiteSpace(url))
         {
             return BadRequest("Document URL or identifier is required.");
         }
 
+        if (ParkFlow.API.Security.PrivateDocumentLinks.IsPrivate(url))
+        {
+            if (!await CanReadPrivateAsync(url)) return Unauthorized();
+            var links = HttpContext.RequestServices.GetRequiredService<ParkFlow.API.Security.PrivateDocumentLinks>();
+            Response.Headers.CacheControl = "no-store";
+            return Ok(new { url = links.Create(url) });
+        }
         var authUrl = _cloudinaryService.GetAuthenticatedDownloadUrl(url, download);
         if (string.IsNullOrWhiteSpace(authUrl))
         {
@@ -70,6 +84,16 @@ public class FilesController : ControllerBase
         }
 
         return Ok(new { url = authUrl });
+    }
+
+    private async Task<bool> CanReadPrivateAsync(string url)
+    {
+        if (User.Identity?.IsAuthenticated != true) return false;
+        var authorization = HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Authorization.IAuthorizationService>();
+        if ((await authorization.AuthorizeAsync(User, null, "GuardOrAdmin")).Succeeded) return true;
+        var owner = HttpContext.RequestServices.GetRequiredService<IUserContext>().GetUserId();
+        var profile = await HttpContext.RequestServices.GetRequiredService<IUserProfileRepository>().GetByUserIdAsync(owner);
+        return profile?.DriversLicenseUrl == url;
     }
 
     [HttpPost("upload/profile-picture")]

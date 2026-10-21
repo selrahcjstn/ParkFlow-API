@@ -20,6 +20,13 @@ public class UserProfileController : ControllerBase
         _mediator = mediator;
     }
 
+    [Authorize, HttpPost("driver-documents"), RequestSizeLimit(11 * 1024 * 1024)]
+    public async Task<ActionResult<Result<bool>>> SubmitDriverDocuments(IFormFile? license, IFormFile? profilePhoto, CancellationToken ct)
+    {
+        var owner = HttpContext.RequestServices.GetRequiredService<ParkFlow.Application.Interfaces.IUserContext>().GetUserId();
+        return this.ToActionResult(await _mediator.Send(new ParkFlow.Application.Features.Profiles.Commands.SubmitDriverDocuments(owner, license, profilePhoto), ct));
+    }
+
     [HttpPost("create")]
     public async Task<ActionResult<Result<Guid>>> Create(CreateUserProfileCommand command)
     {

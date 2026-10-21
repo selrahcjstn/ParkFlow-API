@@ -113,7 +113,8 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
                 else
                 {
                     var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(reservationPass.UserId);
-                    vehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
+                    var matchingVehicles = userVehicles.Where(v => (v.VehicleType == VehicleType.Car ? VehicleType.Car : VehicleType.Motorcycle) == reservationPass.ReservedVehicleType).ToList();
+                    vehicle = matchingVehicles.FirstOrDefault(v => v.IsPrimary) ?? matchingVehicles.FirstOrDefault();
                 }
             }
         }
@@ -147,6 +148,10 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
 
         if (ownerProfile == null)
             return Result<CreateParkingLogResponse>.Failure("Owner profile not found.", ErrorCode.NotFound);
+        var missingDriverDocument = DriverEntryPolicy.MissingRequirement(ownerProfile);
+        if (missingDriverDocument != null)
+            return Result<CreateParkingLogResponse>.Failure(missingDriverDocument, ErrorCode.Forbidden);
+
 
         var activeParkingLog = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id);
 
@@ -154,6 +159,8 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         {
             var conflictResponse = new CreateParkingLogResponse
             {
+                ProfilePictureUrl = ownerProfile.ProfilePictureUrl,
+                VehiclePictureUrl = vehicle.VehiclePictureUrl,
                 FirstName = ownerProfile.FirstName,
                 LastName = ownerProfile.LastName,
                 MiddleName = ownerProfile.MiddleName,
@@ -356,6 +363,8 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
 
         var response = new CreateParkingLogResponse
         {
+            ProfilePictureUrl = ownerProfile.ProfilePictureUrl,
+            VehiclePictureUrl = vehicle.VehiclePictureUrl,
             FirstName = ownerProfile.FirstName,
             LastName = ownerProfile.LastName,
             MiddleName = ownerProfile.MiddleName,
@@ -368,7 +377,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             VehicleType = vehicle.VehicleType.ToString(),
             EntryTime = parkingLog.EntryTime,
             EntryDate = parkingLog.EntryTime.Date,
-            MaximumExitTime = maximumExitTimeUtc,
+            MaximumExitTime = PersonnelParkingPolicy.IsFaculty(personnel) ? null : maximumExitTimeUtc,
             EntryMethod = parkingLog.EntryMethod.ToString(),
             GuardName = guardName,
             IssuedBy = guardName

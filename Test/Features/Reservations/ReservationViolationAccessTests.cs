@@ -29,7 +29,7 @@ public class ReservationViolationAccessTests
             new TimeSpan(23, 59, 59), "Campus visit", type, vehicle.Id);
         reservation.Approve(Guid.NewGuid());
         await reservations.AddAsync(reservation);
-        var handler = new VerifyReservationScanHandler(reservations, vehicles, profiles, violations);
+        var handler = new VerifyReservationScanHandler(new FakeParkingLogRepositoryWithActiveLogs([]), reservations, vehicles, profiles, violations);
         var query = new VerifyReservationScanQuery("RES-TEST");
 
         var denied = await handler.Handle(query, default);

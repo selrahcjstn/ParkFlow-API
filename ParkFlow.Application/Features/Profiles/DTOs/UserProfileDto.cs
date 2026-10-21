@@ -23,6 +23,9 @@ public record UserProfileDto(
     string? Status = null,
     string? Role = null,
     string? Email = null,
-    CorVerificationStatus? ScheduleVerificationStatus = null
+    CorVerificationStatus? ScheduleVerificationStatus = null,
+    string? DriversLicenseUrl = null,
+    CorVerificationStatus LicenseStatus = ParkFlow.Domain.Enums.CorVerificationStatus.NotSubmitted,
+    string? LicenseRejectionReason = null
 );
 

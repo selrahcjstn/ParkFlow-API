@@ -117,7 +117,8 @@ public class GetActiveSessionByVehicleIdHandler
                 IsReservationDateMatch(r) &&
                 r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.Rejected);
 
-        if (isPersonnelParking)
+        if (PersonnelParkingPolicy.IsFaculty(personnel ?? vehicle.Owner?.UserProfile?.Personnel)) { accruedCharge = 0m; overstayHours = 0; scheduleDeadlineUtc = null; }
+        else if (isPersonnelParking)
         {
             scheduleDeadlineUtc = PersonnelParkingPolicy.GetDeadlineUtc(activeLog.EntryTime, sysSettings);
             maximumExitTimeUtc = scheduleDeadlineUtc;
@@ -163,7 +164,8 @@ public class GetActiveSessionByVehicleIdHandler
             }
         }
 
-        if (isPersonnelParking)
+        if (PersonnelParkingPolicy.IsFaculty(personnel ?? vehicle.Owner?.UserProfile?.Personnel)) { accruedCharge = 0m; overstayHours = 0; scheduleDeadlineUtc = null; maximumExitTimeUtc = null; }
+        else if (isPersonnelParking)
         {
             accruedCharge = PersonnelParkingPolicy.CalculateCharge(activeLog.EntryTime, nowUtc, sysSettings, vehicle.VehicleType);
             overstayHours = PersonnelParkingPolicy.GetChargeDuration(activeLog.EntryTime, nowUtc, sysSettings).TotalHours;

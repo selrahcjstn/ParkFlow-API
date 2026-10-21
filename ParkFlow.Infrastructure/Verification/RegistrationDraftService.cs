@@ -136,7 +136,7 @@ public sealed class RegistrationDraftService(IServiceScopeFactory scopes, ILogge
             finally { job.Draft.Gate.Release(); }
         }
     }
-    public async Task<Result<string>> CompleteAsync(string token, RegistrationDetails details, IFormFile? cor, IFormFile orcr, IFormFile motor, CancellationToken ct)
+    public async Task<Result<string>> CompleteAsync(string token, RegistrationDetails details, IFormFile? cor, IFormFile orcr, IFormFile motor, IFormFile license, IFormFile profilePhoto, CancellationToken ct)
     {
         var draft = Get(token); await draft.Gate.WaitAsync(ct);
         try
@@ -146,13 +146,15 @@ public sealed class RegistrationDraftService(IServiceScopeFactory scopes, ILogge
             var services = scope.ServiceProvider;
             using var corStream = details.Role == Roles.Student && draft.Bytes != null ? new MemoryStream(draft.Bytes, writable: false) : null;
             var corFile = corStream == null ? cor : new FormFile(corStream, 0, corStream.Length, "cor", draft.FileName);
-            if (corFile == null || orcr == null || motor == null) throw new DocumentValidationException("All registration documents are required.");
-            var command = new CompleteRegistration(draft.Id, details, draft.Email, "staged", "staged", "staged", draft.Fields);
+            if (corFile == null || orcr == null || motor == null || license == null || profilePhoto == null) throw new DocumentValidationException("All registration documents are required.");
+            var command = new CompleteRegistration(draft.Id, details, draft.Email, "staged", "staged", "staged", draft.Fields, "staged", "staged");
             var errors = await CompleteRegistrationHandler.ValidateAsync(command, ct);
             if (errors.Count > 0) return Result<string>.Failure(string.Join(" ", errors.Distinct()), ErrorCode.BadRequest);
             await ValidateFileAsync(corFile, "cor", services, ct);
             await ValidateFileAsync(orcr, "orcr", services, ct);
             await ValidateFileAsync(motor, "motor", services, ct);
+            await ValidateFileAsync(license, "orcr", services, ct);
+            await ValidateFileAsync(profilePhoto, "motor", services, ct);
             var cloud = services.GetRequiredService<ICloudinaryService>();
             async Task<string> Upload(IFormFile file, string folder)
             {
@@ -167,7 +169,9 @@ public sealed class RegistrationDraftService(IServiceScopeFactory scopes, ILogge
             var corUrl = await Upload(corFile, "parkflow/cor");
             var orcrUrl = await Upload(orcr, "parkflow/orcr");
             var motorUrl = await Upload(motor, "parkflow/motor-pictures");
-            var result = await services.GetRequiredService<IMediator>().Send(command with { CorUrl = corUrl, OrcrUrl = orcrUrl, MotorUrl = motorUrl }, ct);
+            var licenseUrl = await Upload(license, "parkflow/licenses");
+            var profilePhotoUrl = await Upload(profilePhoto, "parkflow/profile-pictures");
+            var result = await services.GetRequiredService<IMediator>().Send(command with { CorUrl = corUrl, OrcrUrl = orcrUrl, MotorUrl = motorUrl, LicenseUrl = licenseUrl, ProfilePhotoUrl = profilePhotoUrl }, ct);
             if (result.IsSuccess)
             {
                 draft.Bytes = null; draft.Fields = null; draft.Preview = null; draft.FileName = "";
@@ -212,6 +216,14 @@ public sealed class RegistrationDraftService(IServiceScopeFactory scopes, ILogge
     }
     private static async Task DeleteUploadAsync(StoredUpload upload, ICloudinaryService cloud)
     {
+        if (upload.Url.StartsWith("private-uploads/parkflow/licenses/", StringComparison.Ordinal))
+        {
+            var licenseRoot = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "App_Data", "private-uploads", "parkflow", "licenses")) + Path.DirectorySeparatorChar;
+            var licensePath = Path.GetFullPath(Path.Combine(licenseRoot, Path.GetFileName(upload.Url)));
+            if (licensePath.StartsWith(licenseRoot, StringComparison.OrdinalIgnoreCase))
+                try { File.Delete(licensePath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            return;
+        }
         if (!upload.Url.StartsWith("uploads/parkflow/", StringComparison.Ordinal))
         { await cloud.DeleteFileAsync(upload.PublicId, upload.IsImage); return; }
         // Only delete the exact server-generated file inside the local upload root.

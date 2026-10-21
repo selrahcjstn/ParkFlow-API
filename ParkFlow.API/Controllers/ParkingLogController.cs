@@ -28,7 +28,16 @@ public class ParkingLogController : ControllerBase
         _userContext = userContext;
     }
 
+    [HttpPost("preview"), Microsoft.AspNetCore.Authorization.Authorize(Policy = "GuardOrAdmin")]
+    public async Task<ActionResult<Result<ParkFlow.Application.Features.ParkingLogs.Queries.VehicleScanPreview>>> Preview(
+        ParkFlow.Application.Features.ParkingLogs.Queries.PreviewVehicleScan query, CancellationToken ct)
+    {
+        Response.Headers.CacheControl = "no-store";
+        return this.ToActionResult(await _mediator.Send(query, ct));
+    }
+
     // VERIFY STUDENT SCAN
+    [Microsoft.AspNetCore.Authorization.Authorize(Policy = "GuardOrAdmin")]
     [HttpPost("verify-student-scan")]
     public async Task<ActionResult<Result<VerifyStudentScanResponse>>> VerifyStudentScan([FromBody] VerifyStudentScanQuery query)
     {
@@ -37,37 +46,42 @@ public class ParkingLogController : ControllerBase
     }
 
     // ENTRY
+    [Microsoft.AspNetCore.Authorization.Authorize(Policy = "GuardOrAdmin")]
     [HttpPost("entry")]
     public async Task<ActionResult<Result<CreateParkingLogResponse>>> LogEntry([FromBody] CreateParkingLogCommand command)
     {
+        command = command with { UserId = _userContext?.GetUserId() ?? Guid.Empty };
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }
 
     // MANUAL ENTRY
+    [Microsoft.AspNetCore.Authorization.Authorize(Policy = "GuardOrAdmin")]
     [HttpPost("manual-entry")]
     public async Task<ActionResult<Result<CreateParkingLogResponse>>> LogManualEntry([FromBody] CreateManualParkingLogCommand command)
     {
+        command = command with { UserId = _userContext?.GetUserId() ?? Guid.Empty };
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }
 
     // EXIT
+    [Microsoft.AspNetCore.Authorization.Authorize(Policy = "GuardOrAdmin")]
     [HttpPatch("exit")]
     public async Task<ActionResult<Result<ExitParkingLogResponse>>> LogExit([FromBody] ExitParkingLogCommand command)
     {
+        command = command with { UserId = _userContext?.GetUserId() ?? Guid.Empty };
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }
 
     // MANUAL EXIT
+    [Microsoft.AspNetCore.Authorization.Authorize(Policy = "GuardOrAdmin")]
     [HttpPatch("manual-exit")]
     public async Task<ActionResult<Result<ExitParkingLogResponse>>> LogManualExit([FromBody] ExitManualParkingLogCommand command)
     {
         var callerUserId = _userContext?.GetUserId() ?? Guid.Empty;
-        var effectiveUserId = command.UserId.HasValue && command.UserId.Value != Guid.Empty
-            ? command.UserId.Value
-            : (callerUserId != Guid.Empty ? callerUserId : (Guid?)null);
+        Guid? effectiveUserId = callerUserId;
 
         var effectiveCommand = command with { UserId = effectiveUserId };
         var result = await _mediator.Send(effectiveCommand);

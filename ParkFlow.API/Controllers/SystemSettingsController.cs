@@ -18,17 +18,20 @@ public class SystemSettingsController : ControllerBase
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IParkingLogRepository _parkingLogRepository;
     private readonly ICacheService? _cacheService;
+    private readonly ISystemSettingsRepository _settingsRepository;
 
     public SystemSettingsController(
         ISignalRNotificationSender notificationSender,
         ICorSubmissionRepository corSubmissionRepository,
         IParkingLogRepository parkingLogRepository,
+        ISystemSettingsRepository settingsRepository,
         ICacheService? cacheService = null)
     {
         _notificationSender = notificationSender;
         _corSubmissionRepository = corSubmissionRepository;
         _parkingLogRepository = parkingLogRepository;
         _cacheService = cacheService;
+        _settingsRepository = settingsRepository;
     }
 
     [HttpGet]
@@ -65,27 +68,8 @@ public class SystemSettingsController : ControllerBase
         if (request.CarParking.TotalCapacity < occupied.Cars || request.MotorcycleParking.TotalCapacity < occupied.Motorcycles)
             return BadRequest(Result<SystemSettingsDto>.Failure($"Capacity cannot be lower than occupied spaces: {occupied.Cars} cars and {occupied.Motorcycles} motorcycles are currently inside.", ErrorCode.BadRequest));
 
-        SystemSettingsStore.Update(
-            request.ViolationRatePerHour,
-            request.GracePeriodMinutes,
-            request.AcademicYear,
-            request.CurrentSemester,
-            request.MaxParkingHours,
-            request.TotalCapacity,
-            request.MaxVehiclesPerUser,
-            request.MaintenanceMode,
-            request.RfidInstantScanEnabled,
-            request.AutoApproveVerification,
-            request.FeeCalculationMode,
-            request.BaseFee,
-            request.IsGracePeriodEnabled,
-            request.IsEarlyParkingAllowed,
-            request.EarlyParkingMinutes,
-            request.PersonnelFreeParkingStart,
-            request.PersonnelFreeParkingEnd,
-            request.ReservationAllocationSlots,
-            request.CarParking,
-            request.MotorcycleParking);
+        request.LastResetDate = SystemSettingsStore.Current.LastResetDate;
+        await _settingsRepository.SaveAsync(request, HttpContext.RequestAborted);
 
         if (_cacheService != null)
         {
@@ -116,7 +100,9 @@ public class SystemSettingsController : ControllerBase
         [FromServices] ParkFlow.Application.Features.Verification.VerificationService verificationService)
     {
         // 1. Record reset timestamp in settings
-        SystemSettingsStore.RecordReset();
+        var resetSettings = SystemSettingsStore.Current;
+        resetSettings.LastResetDate = DateTime.UtcNow;
+        await _settingsRepository.SaveAsync(resetSettings, HttpContext.RequestAborted);
 
         // 2. Fetch all COR submissions & reset verification status so all students re-upload schedule & COR for new semester
         try

@@ -37,6 +37,8 @@ public class CloudinaryService : ICloudinaryService
         if (file == null || file.Length == 0)
             throw new ArgumentException("File is empty or null.", nameof(file));
 
+        if (folder == "parkflow/licenses") return await SavePrivateLicenseAsync(file);
+
         if (_isCloudinaryConfigured && _cloudinary != null)
         {
             try
@@ -70,6 +72,8 @@ public class CloudinaryService : ICloudinaryService
         if (file == null || file.Length == 0)
             throw new ArgumentException("File is empty or null.", nameof(file));
 
+        if (folder == "parkflow/licenses") return await SavePrivateLicenseAsync(file);
+
         if (_isCloudinaryConfigured && _cloudinary != null)
         {
             try
@@ -96,6 +100,16 @@ public class CloudinaryService : ICloudinaryService
 
         // Fallback to local storage on server
         return await SaveLocalFileAsync(file, folder);
+    }
+
+    private static async Task<(string SecureUrl, string PublicId)> SavePrivateLicenseAsync(IFormFile file)
+    {
+        var name = Guid.NewGuid().ToString("N") + Path.GetExtension(file.FileName).ToLowerInvariant();
+        var directory = Path.Combine(Directory.GetCurrentDirectory(), "App_Data", "private-uploads", "parkflow", "licenses");
+        Directory.CreateDirectory(directory);
+        await using var output = new FileStream(Path.Combine(directory, name), FileMode.CreateNew);
+        await file.CopyToAsync(output);
+        return ($"private-uploads/parkflow/licenses/{name}", name);
     }
 
     private async Task<(string SecureUrl, string PublicId)> SaveLocalFileAsync(IFormFile file, string folder)
@@ -186,11 +200,23 @@ public class CloudinaryService : ICloudinaryService
         if (string.IsNullOrWhiteSpace(fileUrlOrPublicId))
             return null;
 
+        if (fileUrlOrPublicId.StartsWith("private-uploads/parkflow/licenses/", StringComparison.Ordinal))
+        {
+            var name = fileUrlOrPublicId["private-uploads/parkflow/licenses/".Length..];
+            if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-f0-9]{32}\.(pdf|jpg|jpeg|png)$")) return null;
+            var path = Path.Combine(Directory.GetCurrentDirectory(), "App_Data", "private-uploads", "parkflow", "licenses", name);
+            if (!File.Exists(path)) return null;
+            var type = Path.GetExtension(name) switch { ".pdf" => "application/pdf", ".png" => "image/png", _ => "image/jpeg" };
+            return (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read), type, name);
+        }
+
         // 1. Check if it's a local file in wwwroot
         var trimmed = fileUrlOrPublicId.Trim().TrimStart('/');
         if (trimmed.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
         {
-            var localPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", trimmed.Replace('/', Path.DirectorySeparatorChar));
+            var publicRoot = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads")) + Path.DirectorySeparatorChar;
+            var localPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", trimmed.Replace('/', Path.DirectorySeparatorChar)));
+            if (!localPath.StartsWith(publicRoot, StringComparison.OrdinalIgnoreCase)) return null;
             if (File.Exists(localPath))
             {
                 var stream = new FileStream(localPath, FileMode.Open, FileAccess.Read, FileShare.Read);

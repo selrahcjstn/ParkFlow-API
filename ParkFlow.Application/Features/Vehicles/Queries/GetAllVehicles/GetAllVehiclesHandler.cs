@@ -74,7 +74,9 @@ public class GetAllVehiclesHandler : IRequestHandler<GetAllVehiclesQuery, Result
                 orcrDocUrl,
                 vehiclePicUrl,
                 vehicle.VerificationStatus,
-                vehicle.CreatedAt
+                vehicle.CreatedAt,
+                vehicle.Owner?.UserProfile?.DriversLicenseUrl, vehicle.Owner?.UserProfile?.ProfilePictureUrl,
+                vehicle.Owner?.UserProfile?.LicenseStatus ?? CorVerificationStatus.NotSubmitted, vehicle.Owner?.UserProfile?.LicenseRejectionReason
             ));
         }
 

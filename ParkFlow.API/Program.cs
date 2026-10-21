@@ -42,6 +42,8 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllers();
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<ParkFlow.API.Security.PrivateDocumentLinks>();
 
 // Swagger configuration:
 builder.Services.AddEndpointsApiExplorer();
@@ -138,6 +140,8 @@ app.MapHub<NotificationHub>("/hubs/notifications");
 
 // Seed default SuperAdmin account
 await ParkFlow.Persistence.SuperAdminSeeder.SeedSuperAdminAsync(app.Services);
+await using (var scope = app.Services.CreateAsyncScope())
+    await scope.ServiceProvider.GetRequiredService<ParkFlow.Application.Interfaces.ISystemSettingsRepository>().LoadAsync();
 
 app.Logger.LogInformation("==================================================");
 app.Logger.LogInformation("🚀 ParkFlow API server started and listening!");

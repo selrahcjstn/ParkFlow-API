@@ -12,6 +12,9 @@ public class CreateVisitorEntryValidator : AbstractValidator<CreateVisitorEntryC
 {
     public CreateVisitorEntryValidator()
     {
+        RuleFor(x => x.ContactNumber).NotEmpty().Matches(@"^09\d{9}$")
+            .WithMessage("Enter an 11-digit phone number starting with 09.");
+        RuleFor(x => x.LicenseVerified).Equal(true).WithMessage("Verify the driver's valid license at the gate before entry.");
         RuleFor(x => x.PlateNumber)
             .NotEmpty().WithMessage("Plate number is required.")
             .MaximumLength(20).WithMessage("Plate number must not exceed 20 characters.");
@@ -28,6 +31,7 @@ public class CreateVisitorEntryValidator : AbstractValidator<CreateVisitorEntryC
 public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryCommand, Result<VisitorEntryResponse>>
 {
     private readonly IVisitorRepository _visitorRepository;
+    private readonly ICloudinaryService _cloud;
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IUserProfileRepository _userProfileRepository;
     private readonly IGuardRepository _guardRepository;
@@ -36,6 +40,7 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
 
     public CreateVisitorEntryHandler(
         IVisitorRepository visitorRepository,
+        ICloudinaryService cloud,
         IVehicleRepository vehicleRepository,
         IUserProfileRepository userProfileRepository,
         IGuardRepository guardRepository,
@@ -43,6 +48,7 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
         ISignalRNotificationSender? signalRNotificationSender = null)
     {
         _visitorRepository = visitorRepository;
+        _cloud = cloud;
         _vehicleRepository = vehicleRepository;
         _userProfileRepository = userProfileRepository;
         _guardRepository = guardRepository;
@@ -63,30 +69,13 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
                 ErrorCode.Conflict);
         }
 
-        // 2. Check if Visitor profile exists or create new
+        var validation = await new CreateVisitorEntryValidator().ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid) return Result<VisitorEntryResponse>.Failure(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)), ErrorCode.BadRequest);
+        if (request.VehicleType is not (VehicleType.Motorcycle or VehicleType.Car))
+            return Result<VisitorEntryResponse>.Failure("Please select Motorcycle or Car.", ErrorCode.BadRequest);
         var visitor = await _visitorRepository.GetByPlateNumberAsync(normalizedPlate);
-        bool isReturning = false;
-        var effectiveFullName = string.IsNullOrWhiteSpace(request.FullName) ? "Visitor" : request.FullName.Trim();
-
-        if (visitor == null)
-        {
-            if (request.VehicleType is not (VehicleType.Motorcycle or VehicleType.Car))
-                return Result<VisitorEntryResponse>.Failure("Please select Motorcycle or Car.", ErrorCode.BadRequest);
-
-            visitor = new Visitor(
-                effectiveFullName,
-                request.ContactNumber,
-                normalizedPlate,
-                request.VehicleType,
-                request.Brand);
-
-            await _visitorRepository.AddAsync(visitor);
-        }
-        else
-        {
-            // A returning visit reuses the saved profile; it does not overwrite it.
-            isReturning = true;
-        }
+        var isReturning = visitor != null;
+        visitor ??= new Visitor(request.FullName, request.ContactNumber, normalizedPlate, request.VehicleType, request.Brand);
 
         // 3. BACKEND DUPLICATE PROTECTION: Only ONE active visit session allowed
         var activeSession = await _visitorRepository.GetActiveVisitSessionByVisitorIdAsync(visitor.Id);
@@ -127,6 +116,21 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
             }
         }
 
+        if (!request.GuardUserId.HasValue || guardProfileId == null)
+            return Result<VisitorEntryResponse>.Failure("Only an authorized guard can verify visitor licenses at entry.", ErrorCode.Forbidden);
+        try
+        {
+            if (request.License != null) visitor.DriversLicenseUrl = await ParkFlow.Application.Features.Profiles.DriverDocumentUpload.UploadAsync(request.License, true, _cloud, cancellationToken);
+            if (request.ProfilePhoto != null) visitor.ProfilePictureUrl = await ParkFlow.Application.Features.Profiles.DriverDocumentUpload.UploadAsync(request.ProfilePhoto, false, _cloud, cancellationToken);
+            if (request.VehiclePhoto != null) visitor.VehiclePictureUrl = await ParkFlow.Application.Features.Profiles.DriverDocumentUpload.UploadAsync(request.VehiclePhoto, false, _cloud, cancellationToken);
+        }
+        catch (DocumentValidationException e) { return Result<VisitorEntryResponse>.Failure(e.Message, ErrorCode.BadRequest); }
+        if (string.IsNullOrWhiteSpace(visitor.DriversLicenseUrl) || string.IsNullOrWhiteSpace(visitor.ProfilePictureUrl) || string.IsNullOrWhiteSpace(visitor.VehiclePictureUrl))
+            return Result<VisitorEntryResponse>.Failure("Capture the driver's license, driver photo and vehicle photo before entry.", ErrorCode.BadRequest);
+        visitor.UpdateProfile(isReturning ? null : request.FullName, request.ContactNumber, visitor.VehicleType, null);
+        if (isReturning) await _visitorRepository.UpdateAsync(visitor);
+        else await _visitorRepository.AddAsync(visitor);
+
         // 5. Create new Visit Session
         var newSession = new VisitSession(
             visitor.Id,
@@ -135,6 +139,11 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
             guardProfileId,
             entryGate);
 
+        newSession.DriversLicenseUrl = visitor.DriversLicenseUrl;
+        newSession.ProfilePictureUrl = visitor.ProfilePictureUrl;
+        newSession.VehiclePictureUrl = visitor.VehiclePictureUrl;
+        newSession.LicenseVerifiedBy = request.GuardUserId;
+        newSession.LicenseVerifiedAt = DateTime.UtcNow;
         await _visitorRepository.AddVisitSessionAsync(newSession);
 
         // 6. SignalR live notification

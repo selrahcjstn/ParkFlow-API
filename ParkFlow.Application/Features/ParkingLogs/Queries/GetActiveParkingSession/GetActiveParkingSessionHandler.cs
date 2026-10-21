@@ -90,7 +90,8 @@ public class GetActiveParkingSessionHandler
                 var maximumExitTimeUtc = timing.DeadlineUtc;
                 var overstayHours = ActiveSessionTiming.GetOverstayHours(log, nowUtc, sysSettings, maximumExitTimeUtc);
 
-                if (isPersonnelParking)
+                if (PersonnelParkingPolicy.IsFaculty(log.Vehicle.Owner?.UserProfile?.Personnel)) { amount = 0m; overstayHours = 0; }
+                else if (isPersonnelParking)
                 {
                     amount = PersonnelParkingPolicy.CalculateCharge(log.EntryTime, nowUtc, sysSettings, log.Vehicle.VehicleType);
                 }
@@ -161,7 +162,7 @@ public class GetActiveParkingSessionHandler
                     VehicleType: log.Vehicle.VehicleType.ToString(),
 
                     EntryTime: log.EntryTime,
-                    MaximumExitTime: maximumExitTimeUtc,
+                    MaximumExitTime: PersonnelParkingPolicy.IsFaculty(personnel) ? null : maximumExitTimeUtc,
                     OverstayHours: overstayHours,
                     Amount: amount,
 

@@ -19,7 +19,9 @@ public record AdminVehicleDto(
     string? OrcrDocumentUrl = null,
     string? VehiclePictureUrl = null,
     CorVerificationStatus VerificationStatus = CorVerificationStatus.Pending,
-    DateTime CreatedAt = default
+    DateTime CreatedAt = default,
+    string? DriversLicenseUrl = null, string? ProfilePictureUrl = null,
+    CorVerificationStatus LicenseStatus = CorVerificationStatus.NotSubmitted, string? LicenseRejectionReason = null
 );
 
 public record GetAllVehiclesQuery() : IRequest<Result<IEnumerable<AdminVehicleDto>>>;

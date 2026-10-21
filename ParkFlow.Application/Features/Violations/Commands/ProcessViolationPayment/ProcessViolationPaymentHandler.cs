@@ -104,8 +104,7 @@ public class ProcessViolationPaymentHandler : IRequestHandler<ProcessViolationPa
                 violation = await _violationRepository.GetByLogIdAsync(matchingLog.Id);
                 if (violation == null)
                 {
-                    violation = new Violation(matchingLog.Id, 100.00m);
-                    await _violationRepository.AddAsync(violation);
+                    return Result<ViolationPaymentReceiptDto>.Failure("No saved checkout charge exists for this session. Record checkout before collecting payment.", ErrorCode.NotFound);
                 }
             }
         }

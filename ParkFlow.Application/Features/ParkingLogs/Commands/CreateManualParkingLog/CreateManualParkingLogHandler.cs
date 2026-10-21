@@ -84,6 +84,10 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
         if (ownerProfile == null)
             return Result<CreateParkingLogResponse>.Failure("Owner profile not found.", ErrorCode.NotFound);
+        var missingDriverDocument = DriverEntryPolicy.MissingRequirement(ownerProfile);
+        if (missingDriverDocument != null)
+            return Result<CreateParkingLogResponse>.Failure(missingDriverDocument, ErrorCode.Forbidden);
+
 
         // 3. Check duplicate active parking session
         var activeParkingLog = await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id);
@@ -91,6 +95,8 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         {
             var conflictResponse = new CreateParkingLogResponse
             {
+                ProfilePictureUrl = ownerProfile.ProfilePictureUrl,
+                VehiclePictureUrl = vehicle.VehiclePictureUrl,
                 FirstName = ownerProfile.FirstName,
                 LastName = ownerProfile.LastName,
                 MiddleName = ownerProfile.MiddleName,
@@ -347,6 +353,8 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
 
         var response = new CreateParkingLogResponse
         {
+            ProfilePictureUrl = ownerProfile.ProfilePictureUrl,
+            VehiclePictureUrl = vehicle.VehiclePictureUrl,
             FirstName = ownerProfile.FirstName,
             LastName = ownerProfile.LastName,
             MiddleName = ownerProfile.MiddleName,
@@ -359,10 +367,10 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             VehicleType = vehicle.VehicleType.ToString(),
             EntryTime = parkingLog.EntryTime,
             EntryDate = parkingLog.EntryTime.Date,
-            MaximumExitTime = maximumExitTimeUtc,
+            MaximumExitTime = PersonnelParkingPolicy.IsFaculty(personnel) ? null : maximumExitTimeUtc,
             EntryMethod = parkingLog.EntryMethod.ToString(),
             GuardName = guardName,
-            EntryFee = chargeUnscheduledFee || isGuest ? vehicleRates.EntryFee : 0m,
+            EntryFee = !PersonnelParkingPolicy.IsFaculty(personnel) && (chargeUnscheduledFee || isGuest) ? vehicleRates.EntryFee : 0m,
             IssuedBy = guardName
         };
 

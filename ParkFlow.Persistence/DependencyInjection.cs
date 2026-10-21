@@ -26,6 +26,8 @@ namespace ParkFlow.Persistence
                 options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
             });
 
+            services.AddScoped<IDriverDocumentRepository, DriverDocumentRepository>();
+            services.AddScoped<ISystemSettingsRepository, SystemSettingsRepository>();
             services.AddScoped<IUserAccountRepository, UserAccountRepository>();
             services.AddScoped<IVerificationStore, VerificationStore>();
             services.AddScoped<IRegistrationWriter, RegistrationWriter>();

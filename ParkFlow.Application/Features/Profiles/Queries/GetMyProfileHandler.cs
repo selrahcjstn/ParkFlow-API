@@ -120,7 +120,8 @@ public class GetMyProfileHandler
             Status: profile.UserAccount?.Status.ToString(),
             Role: roleStr,
             Email: profile.UserAccount?.PrimaryEmail,
-            ScheduleVerificationStatus: latestCor?.ScheduleVerificationStatus);
+            ScheduleVerificationStatus: latestCor?.ScheduleVerificationStatus,
+            DriversLicenseUrl: profile.DriversLicenseUrl, LicenseStatus: profile.LicenseStatus, LicenseRejectionReason: profile.LicenseRejectionReason);
         dto = await ApplyVehicleApprovalAsync(dto);
 
         if (_cacheService != null && userId != Guid.Empty)
@@ -134,6 +135,8 @@ public class GetMyProfileHandler
     {
         // Existing accounts created by the previous flow must not appear verified
         // merely because their old status was Active. This does not write on GET.
+        if (dto.Role == "Student" && dto.Status == "Active" && (dto.LicenseStatus != CorVerificationStatus.Verified || string.IsNullOrWhiteSpace(dto.ProfilePictureUrl)))
+            return dto with { Status = AccountStatus.PendingVerification.ToString() };
         if (dto.Role == "Student" && dto.Status == "Active" && _vehicleRepository != null &&
             !(await _vehicleRepository.GetByOwnerIdAsync(dto.UserAccountId)).Any(v => v.VerificationStatus == CorVerificationStatus.Verified &&
                 !string.IsNullOrWhiteSpace(v.OrcrDocumentUrl) && !string.IsNullOrWhiteSpace(v.VehiclePictureUrl)))

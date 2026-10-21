@@ -85,7 +85,8 @@ public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result
                 VehicleTypeValue: (int)vehicle.VehicleType,
                 ActiveSessionId: activeLog?.Id,
                 EntryTime: activeLog?.EntryTime,
-                EntryMethod: activeLog?.EntryMethod.ToString()
+                EntryMethod: activeLog?.EntryMethod.ToString(),
+                ProfilePictureUrl: profile?.ProfilePictureUrl, VehiclePictureUrl: vehicle.VehiclePictureUrl
             );
 
             return Result<UnifiedPlateLookupDto>.Success(dto, "Registered vehicle found.");
@@ -114,7 +115,8 @@ public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result
                 EntryTime: activeSession?.EntryTime,
                 Purpose: activeSession?.Purpose,
                 Destination: activeSession?.Destination,
-                EntryFee: SystemSettingsStore.Current.ForVehicle(visitor.VehicleType).EntryFee
+                EntryFee: SystemSettingsStore.Current.ForVehicle(visitor.VehicleType).EntryFee,
+                DriversLicenseUrl: activeSession?.DriversLicenseUrl ?? visitor.DriversLicenseUrl, ProfilePictureUrl: activeSession?.ProfilePictureUrl ?? visitor.ProfilePictureUrl, VehiclePictureUrl: activeSession?.VehiclePictureUrl ?? visitor.VehiclePictureUrl
             );
 
             return Result<UnifiedPlateLookupDto>.Success(dto, "Visitor record found.");

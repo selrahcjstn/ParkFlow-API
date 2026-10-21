@@ -54,6 +54,7 @@ public class ParkingReservationController : ControllerBase
         return this.ToActionResult(await _mediator.Send(new GetReservationAvailabilityQuery(date, start, end, type, vehicleType)));
     }
 
+    [Authorize(Policy = "GuardOrAdmin")]
     [HttpPost("verify-scan")]
     public async Task<ActionResult<Result<VerifyReservationScanResponse>>> VerifyScan([FromBody] VerifyScanRequest request)
     {

@@ -146,6 +146,15 @@ namespace ParkFlow.Application.Common
             }
         }
 
+        public static void Replace(SystemSettingsDto settings)
+        {
+            lock (_lock)
+            {
+                _settings = System.Text.Json.JsonSerializer.Deserialize<SystemSettingsDto>(
+                    System.Text.Json.JsonSerializer.Serialize(settings))!;
+            }
+        }
+
         public static void RecordReset()
         {
             lock (_lock)

@@ -89,7 +89,7 @@ public class ExitManualParkingLogTests
         var vehicleProperty = typeof(ParkingLog).GetProperty("Vehicle");
         vehicleProperty?.SetValue(activeLog, vehicle);
 
-        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog);
+        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog, _violationRepository);
         var fakeNotificationSender = new FakeSignalRNotificationSender();
 
         var cor = new CorSubmission(ownerId, "term", "document");
@@ -169,7 +169,7 @@ public class ExitManualParkingLogTests
         var vehicleProperty = typeof(ParkingLog).GetProperty("Vehicle");
         vehicleProperty?.SetValue(activeLog, vehicle);
 
-        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog);
+        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog, _violationRepository);
         var fakeNotificationSender = new FakeSignalRNotificationSender();
 
         var handler = new ExitManualParkingLogHandler(
@@ -234,7 +234,7 @@ public class ExitManualParkingLogTests
         var vehicleProperty = typeof(ParkingLog).GetProperty("Vehicle");
         vehicleProperty?.SetValue(activeLog, vehicle);
 
-        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog);
+        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog, _violationRepository);
         var fakeNotificationSender = new FakeSignalRNotificationSender();
 
         var handler = new ExitManualParkingLogHandler(
@@ -273,12 +273,20 @@ public class ExitManualParkingLogTests
 public class FakeParkingLogRepositoryForExit : IParkingLogRepository
 {
     private readonly ParkingLog _activeLog;
+    private readonly IViolationRepository? _charges;
 
-    public FakeParkingLogRepositoryForExit(ParkingLog activeLog)
+    public FakeParkingLogRepositoryForExit(ParkingLog activeLog, IViolationRepository? charges = null)
     {
         _activeLog = activeLog;
+        _charges = charges;
     }
 
+    public async Task<bool> CompleteExitAsync(ParkingLog log, Violation? charge, IReadOnlyCollection<ParkingReservation> reservations, CancellationToken ct = default)
+    {
+        if (charge != null && _charges != null) await _charges.AddAsync(charge);
+        await UpdateParkingLogAsync(log);
+        return true;
+    }
     public Task AddParkingLogAsync(ParkingLog parkingLog) => Task.CompletedTask;
     public Task<ParkingLog?> GetActiveParkingLogByVehicleIdAsync(Guid vehicleId) => Task.FromResult<ParkingLog?>(_activeLog);
     public Task<bool> HasActiveParkingLogByUserIdAsync(Guid userId) => Task.FromResult(_activeLog != null);

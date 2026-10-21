@@ -4,6 +4,7 @@ namespace ParkFlow.Application.Features.Reservations.Queries.VerifyReservationSc
 
 public class VerifyReservationScanResponse
 {
+    public bool IsCurrentlyParked { get; set; }
     public bool IsValid { get; set; }
     public string StatusMessage { get; set; } = string.Empty;
     public Guid ReservationId { get; set; }
@@ -14,6 +15,9 @@ public class VerifyReservationScanResponse
     public DateTime ReservationDate { get; set; }
     public string StartTime { get; set; } = string.Empty;
     public string EndTime { get; set; } = string.Empty;
+    public string? ProfilePictureUrl { get; set; }
+    public string? VehiclePictureUrl { get; set; }
+    public string VehicleType { get; set; } = "";
     public string DriverName { get; set; } = string.Empty;
     public string DriverEmail { get; set; } = string.Empty;
     public Guid? VehicleId { get; set; }

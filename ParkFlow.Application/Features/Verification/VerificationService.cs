@@ -41,7 +41,7 @@ public class VerificationService(IVerificationStore store, ICorDocumentReader re
             if (!Regex.IsMatch(CorTextVerification.Compact(subject.PlateNumber), @"^[A-Z0-9]{4,10}$")) issues.Add("Enter a valid plate number.");
             if (string.IsNullOrWhiteSpace(subject.Brand)) issues.Add("Vehicle brand is required.");
             if (subject.DuplicateIdentifier) issues.Add("The plate number is already registered.");
-            if (!subject.OwnershipDocumentsPresent) issues.Add("Upload the OR/CR and a vehicle picture for ownership review.");
+            if (!subject.OwnershipDocumentsPresent) issues.Add("Upload OR/CR, vehicle photo, driver’s license and profile photo for review.");
         }
         if (subject.Type == VerificationType.Schedule)
         {
@@ -213,7 +213,7 @@ public class VerificationService(IVerificationStore store, ICorDocumentReader re
                 var issues = MandatoryChecks(subject, await store.GetPolicyAsync(ct));
                 if (issues.Count > 0) throw new DocumentValidationException(string.Join(" ", issues));
             }
-            if (!await store.ReviewVehicleManuallyAsync(subjectId, subject.Fingerprint, status, reason.Trim(), ct)) return false;
+            if (!await store.ReviewVehicleManuallyAsync(subjectId, subject.Fingerprint, status, reason.Trim(), actor, ct)) return false;
             await cache.RemoveByPrefixAsync(ParkFlow.Application.Common.CacheKeys.VehiclePrefix, ct);
             await cache.RemoveByPrefixAsync(ParkFlow.Application.Common.CacheKeys.UserPrefix, ct);
             await cache.RemoveByPrefixAsync(ParkFlow.Application.Common.CacheKeys.DashboardPrefix, ct);

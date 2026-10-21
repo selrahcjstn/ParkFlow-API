@@ -140,7 +140,7 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         if (cor != null) { cor.UpdateScheduleVerification(CorVerificationStatus.Verified); await db.SaveChangesAsync(ct); }
     }
 
-    public Task<bool> ReviewVehicleManuallyAsync(Guid id, string fingerprint, VerificationState status, string reason, CancellationToken ct) => Transaction(async () =>
+    public Task<bool> ReviewVehicleManuallyAsync(Guid id, string fingerprint, VerificationState status, string reason, Guid actor, CancellationToken ct) => Transaction(async () =>
     {
         if (status is not (VerificationState.Approved or VerificationState.Rejected) || string.IsNullOrWhiteSpace(reason)) return false;
         var owner = await db.Vehicles.Where(v => v.Id == id).Select(v => (Guid?)v.OwnerId).SingleOrDefaultAsync(ct);
@@ -154,6 +154,10 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         var vehicle = await db.Vehicles.FindAsync([id], ct);
         if (vehicle == null) return false;
         await db.Entry(vehicle).ReloadAsync(ct);
+        var driver = await db.UserProfiles.SingleAsync(p => p.UserAccountId == owner.Value, ct);
+        if (status == VerificationState.Approved && (string.IsNullOrWhiteSpace(driver.DriversLicenseUrl) || string.IsNullOrWhiteSpace(driver.ProfilePictureUrl))) return false;
+        if (status == VerificationState.Approved || driver.LicenseStatus != CorVerificationStatus.Verified)
+            driver.ReviewLicense(status == VerificationState.Approved, actor, reason);
         vehicle.UpdateVerificationStatus(status == VerificationState.Approved ? CorVerificationStatus.Verified : CorVerificationStatus.Rejected, reason);
         await db.SaveChangesAsync(ct);
         if (await db.UserProfiles.AnyAsync(p => p.UserAccountId == owner.Value && p.Student != null, ct))
@@ -274,13 +278,18 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         var subject = new VerificationSubject(id, ownerId, type, "", user.AuthIdentities.Any(x => x.IsVerified), duplicate,
             identifier, profile?.FirstName ?? "", profile?.LastName ?? "", profile?.Student?.Course, profile?.Personnel != null,
             ValidDocument(cor?.CorDocumentUrl) ? cor!.CorDocumentUrl : null, cor?.AcademicTerm, vehicle?.PlateNumber,
-            vehicle?.Brand, ValidDocument(vehicle?.OrcrDocumentUrl) && ValidDocument(vehicle?.VehiclePictureUrl),
+            vehicle?.Brand, ValidDocument(vehicle?.OrcrDocumentUrl) && ValidDocument(vehicle?.VehiclePictureUrl) && ValidDocument(profile?.DriversLicenseUrl) && ValidDocument(profile?.ProfilePictureUrl),
             type == VerificationType.Schedule && cor?.VerificationStatus == CorVerificationStatus.Verified, schedules)
         { Suspended = user.Status == AccountStatus.Suspended, Email = user.PrimaryEmail,
+            DriversLicenseUrl = profile?.DriversLicenseUrl, ProfilePictureUrl = profile?.ProfilePictureUrl,
             OrcrUrl = vehicle?.OrcrDocumentUrl, VehiclePictureUrl = vehicle?.VehiclePictureUrl,
             Section = profile?.Student?.Section, YearLevel = profile?.Student?.YearLevel };
         // Approval statuses do not change the fingerprint of an account/COR/vehicle source.
-        var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(subject));
+        // Driver document changes invalidate vehicle review, without invalidating an already confirmed COR/schedule.
+        var source = JsonSerializer.Serialize(subject);
+        if (type == VerificationType.Vehicle)
+            source += JsonSerializer.Serialize(new { License = profile?.DriversLicenseUrl, Photo = profile?.ProfilePictureUrl });
+        var bytes = Encoding.UTF8.GetBytes(source);
         return subject with { Fingerprint = Convert.ToHexString(SHA256.HashData(bytes)) };
     }
 
@@ -307,7 +316,8 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
                 {
                     var approvedVehicle = await db.Vehicles.AnyAsync(v => v.OwnerId == id && v.VerificationStatus == CorVerificationStatus.Verified &&
                         v.OrcrDocumentUrl != null && v.OrcrDocumentUrl != "" && v.VehiclePictureUrl != null && v.VehiclePictureUrl != "", ct);
-                    var ready = approvedVehicle && subject.EmailVerified && VerificationService.MandatoryChecks(subject, await GetPolicyAsync(ct)).Count == 0;
+                    var driverReady = await db.UserProfiles.AnyAsync(p => p.UserAccountId == id && p.LicenseStatus == CorVerificationStatus.Verified && p.DriversLicenseUrl != null && p.ProfilePictureUrl != null, ct);
+                    var ready = driverReady && approvedVehicle && subject.EmailVerified && VerificationService.MandatoryChecks(subject, await GetPolicyAsync(ct)).Count == 0;
                     account.UpdateStatus(ready ? AccountStatus.Active : AccountStatus.PendingVerification);
                     await db.SaveChangesAsync(ct);
                 }

@@ -49,7 +49,8 @@ public class RegistrationWriter(AppDbContext db) : IRegistrationWriter
                 var identity = AuthIdentity.CreateManual(account.Id, d.Email, passwordHash, isPrimary: true);
                 identity.MarkVerified(); account.AuthIdentities.Add(identity);
                 account.PasswordHistories.Add(new PasswordHistory(account.Id, passwordHash));
-                var profile = new UserProfile(account.Id, d.FirstName, d.LastName, d.MiddleName, null);
+                var profile = new UserProfile(account.Id, d.FirstName, d.LastName, d.MiddleName, r.ProfilePhotoUrl);
+                profile.SubmitLicense(r.LicenseUrl);
                 account.UserProfile = profile;
                 if (d.Role == Roles.Student) profile.Student = new Student(profile.Id, identifier, d.Course?.Trim(), d.Section, d.YearLevel);
                 else profile.Personnel = new Personnel(profile.Id, identifier, d.Department.Trim(), d.Role);

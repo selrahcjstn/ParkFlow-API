@@ -10,6 +10,7 @@ public interface IParkingLogRepository
         return (logs.Count(p => p.Vehicle?.VehicleType == ParkFlow.Domain.Enums.VehicleType.Car),
             logs.Count(p => p.Vehicle?.VehicleType != ParkFlow.Domain.Enums.VehicleType.Car));
     }
+    Task<bool> CompleteExitAsync(ParkingLog log, Violation? charge, IReadOnlyCollection<ParkingReservation> reservations, CancellationToken ct = default);
     Task AddParkingLogAsync(ParkingLog parkingLog);
     Task<ParkingLog?> GetActiveParkingLogByVehicleIdAsync(Guid vehicleId);
     Task<bool> HasActiveParkingLogByUserIdAsync(Guid userId);

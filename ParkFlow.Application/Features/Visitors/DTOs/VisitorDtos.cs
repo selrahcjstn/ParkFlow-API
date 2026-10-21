@@ -52,7 +52,11 @@ public record CreateVisitorEntryCommand(
     string? Purpose = null,
     string? Destination = null,
     Guid? GuardUserId = null,
-    string? EntryGate = null
+    string? EntryGate = null,
+    Microsoft.AspNetCore.Http.IFormFile? License = null,
+    Microsoft.AspNetCore.Http.IFormFile? ProfilePhoto = null,
+    Microsoft.AspNetCore.Http.IFormFile? VehiclePhoto = null,
+    bool LicenseVerified = false
 ) : MediatR.IRequest<Common.Result<VisitorEntryResponse>>;
 
 public record VisitorEntryResponse(
@@ -118,5 +122,8 @@ public record UnifiedPlateLookupDto(
     string? Purpose = null,
     string? Destination = null,
     string? EntryMethod = null,
-    decimal? EntryFee = null
+    decimal? EntryFee = null,
+    string? DriversLicenseUrl = null,
+    string? ProfilePictureUrl = null,
+    string? VehiclePictureUrl = null
 );

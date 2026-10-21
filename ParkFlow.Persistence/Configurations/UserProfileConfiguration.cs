@@ -35,6 +35,8 @@ public class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
             .HasMaxLength(2048);
 
 
+        entity.Property(e => e.DriversLicenseUrl).HasMaxLength(2048);
+        entity.Property(e => e.LicenseRejectionReason).HasMaxLength(2000);
         // One-to-One Relationship
         entity.HasOne(e => e.UserAccount)
             .WithOne(e => e.UserProfile)

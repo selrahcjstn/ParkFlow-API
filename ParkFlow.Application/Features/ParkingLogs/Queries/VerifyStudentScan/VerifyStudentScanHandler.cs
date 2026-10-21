@@ -394,6 +394,10 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
             statusMessage = $"Entry denied: Vehicle is unverified or pending admin approval.{reasonSuffix}";
         }
 
+        if (!isCurrentlyParked && profile != null && DriverEntryPolicy.MissingRequirement(profile) is { } restriction)
+        {
+            isValid = false; entryStatus = "DriverDocumentsRequired"; statusMessage = restriction;
+        }
         var response = new VerifyStudentScanResponse
         {
             IsValid = isValid,
@@ -405,6 +409,7 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
             Section = student.Section,
             YearLevel = student.YearLevel,
             ProfilePictureUrl = profile?.ProfilePictureUrl,
+            VehiclePictureUrl = primaryVehicle?.VehiclePictureUrl,
             TodaySchedule = todaySchedule,
             AllowedEntryWindow = allowedEntryWindow,
             CorStatus = corStatus,

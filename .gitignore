@@ -38,3 +38,6 @@ publish/
 # Local tools and disposable databases used for verification testing.
 .artifacts/verification-native/
 .artifacts/verification-tools/
+
+# Runtime private driver documents (never commit identity files).
+**/App_Data/
