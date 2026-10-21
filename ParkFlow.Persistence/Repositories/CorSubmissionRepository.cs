@@ -1,5 +1,7 @@
 using ParkFlow.Application.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using ParkFlow.Application.Features.Verification;
 
 namespace ParkFlow.Persistence.Repositories;
 
@@ -14,9 +16,43 @@ public class CorSubmissionRepository : ICorSubmissionRepository
     
     public async Task AddCorSubmissionAsync(CorSubmission corSubmission)
     {
-        await _appDbContext.CorSubmissions.AddAsync(corSubmission);
-        await _appDbContext.SaveChangesAsync();
+        await VerificationMutation.RunAsync(_appDbContext, ParkFlow.Domain.Entities.VerificationType.Cor, corSubmission.Id, async () =>
+        {
+            await _appDbContext.CorSubmissions.AddAsync(corSubmission);
+            await _appDbContext.SaveChangesAsync();
+        });
     }
+
+    public Task SaveUploadedAsync(CorSubmission submission, bool create, CorFields? fields, string? outcome, CancellationToken ct) =>
+        VerificationMutation.RunAsync(_appDbContext, ParkFlow.Domain.Entities.VerificationType.Cor, submission.Id, async () =>
+        {
+            if (create) await _appDbContext.CorSubmissions.AddAsync(submission, ct);
+            else
+            {
+                var entry = _appDbContext.Entry(submission);
+                if (entry.State == EntityState.Detached) _appDbContext.CorSubmissions.Update(submission);
+                entry.Property(x => x.ScheduleVerificationStatus).IsModified = false;
+            }
+            await _appDbContext.SaveChangesAsync(ct);
+        }, async record =>
+        {
+            if (record == null || record.Status != ParkFlow.Domain.Entities.VerificationState.Pending) return;
+            // Check the persisted role; a client token cannot opt Personnel into
+            // Student extraction or change its employee-ID review behavior.
+            var personnel = await _appDbContext.UserProfiles.AnyAsync(p => p.UserAccountId == submission.UserAccountId && p.Personnel != null, ct);
+            if (personnel) return;
+            if (outcome == VerificationRequests.AwaitingInformationFetch)
+            {
+                record.OcrOutcome = outcome;
+                record.Reason = "COR uploaded. Tap Fetch Information to read its contents.";
+                await _appDbContext.SaveChangesAsync(ct);
+                return;
+            }
+            if (fields == null) return;
+            record.ExtractedFieldsJson = JsonSerializer.Serialize(fields with { SourceDocumentUrl = submission.CorDocumentUrl });
+            record.OcrOutcome = outcome;
+            await _appDbContext.SaveChangesAsync(ct);
+        }, ct);
 
     public async Task DeleteCorSubmissionAsync(CorSubmission corSubmission)
     {
@@ -70,11 +106,13 @@ public class CorSubmissionRepository : ICorSubmissionRepository
 
     public async Task UpdateCorSubmissionAsync(CorSubmission corSubmission)
     {
-        var entry = _appDbContext.Entry(corSubmission);
-        if (entry.State == EntityState.Detached)
+        await VerificationMutation.RunAsync(_appDbContext, ParkFlow.Domain.Entities.VerificationType.Cor, corSubmission.Id, async () =>
         {
-            _appDbContext.CorSubmissions.Update(corSubmission);
-        }
-        await _appDbContext.SaveChangesAsync();
+            var entry = _appDbContext.Entry(corSubmission);
+            if (entry.State == EntityState.Detached) _appDbContext.CorSubmissions.Update(corSubmission);
+            // COR edits cannot overwrite an independently reviewed schedule.
+            _appDbContext.Entry(corSubmission).Property(x => x.ScheduleVerificationStatus).IsModified = false;
+            await _appDbContext.SaveChangesAsync();
+        });
     }
 }

@@ -50,14 +50,14 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
         if (_authIdentityRepository != null)
         {
             var existingIdentity = await _authIdentityRepository.GetByEmailAsync(normalizedEmail);
-            if (existingIdentity != null)
+            if (existingIdentity != null && existingIdentity.UserAccountId != request.RequestingUserId)
                 return Result<bool>.Failure(false, "This email is already registered in ParkFlow. Please use a different email.", ErrorCode.Conflict);
         }
 
         if (_userAccountRepository != null)
         {
             var existingUser = await _userAccountRepository.GetByEmailAsync(normalizedEmail);
-            if (existingUser != null)
+            if (existingUser != null && existingUser.Id != request.RequestingUserId)
                 return Result<bool>.Failure(false, "This email is already registered in ParkFlow. Please use a different email.", ErrorCode.Conflict);
         }
 

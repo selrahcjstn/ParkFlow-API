@@ -26,6 +26,9 @@ public class ParkingScheduleController : ControllerBase
     [Authorize]
     public async Task<ActionResult<Result<Guid>>> Create(CreateParkingScheduleCommand command)
     {
+        var submission = await HttpContext.RequestServices.GetRequiredService<ICorSubmissionRepository>().GetCorSubmissionAsync(command.SubmissionId);
+        if (submission == null) return NotFound();
+        if (submission.UserAccountId != _userContext.GetUserId()) return Forbid();
         var result = await _mediator.Send(command);
 
         if (result.IsSuccess)

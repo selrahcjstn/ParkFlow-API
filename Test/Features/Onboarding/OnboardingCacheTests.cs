@@ -97,6 +97,7 @@ public class OnboardingCacheTests
         var profile = new UserProfile(user.Id, "Juan", "Cruz", null, null) { UserAccount = user };
         await profiles.AddAsync(profile);
         var submissions = new InMemoryCorSubmissionRepository();
+        await submissions.AddCorSubmissionAsync(new CorSubmission(user.Id, "2026-2027", "https://example.test/cor.pdf"));
         var query = new GetMyProfileHandler(profiles, new FakeUserContext { UserId = user.Id }, submissions, cacheService: cache);
 
         // The app reads the profile before the role is saved and caches this snapshot.

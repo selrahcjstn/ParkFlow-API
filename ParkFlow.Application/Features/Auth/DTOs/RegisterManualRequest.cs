@@ -12,7 +12,8 @@ public record RegisterManualRequest(
     RegisterStudentDto? Student = null,
     RegisterPersonnelDto? Personnel = null,
     RegisterGuardDto? Guard = null,
-    bool IsAdminCreated = false);
+    bool IsAdminCreated = false,
+    string? EmailVerificationToken = null);
 
 public record RegisterStudentDto(
     string? StudentNumber,

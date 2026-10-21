@@ -14,7 +14,7 @@ public class ValidateCorSubmissionValidator : AbstractValidator<ValidateCorSubmi
         RuleFor(x => x.VerificationStatus)
             .IsInEnum()
             .WithMessage("Verification status must be a valid value.")
-            .Must(status => status != CorVerificationStatus.NotSubmitted)
-            .WithMessage("Verification status cannot be set to NotSubmitted.");
+            .Must(status => status is CorVerificationStatus.Verified or CorVerificationStatus.Rejected)
+            .WithMessage("Manual review must approve or reject the document.");
     }
 }

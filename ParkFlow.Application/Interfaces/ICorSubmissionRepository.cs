@@ -14,5 +14,9 @@ public interface ICorSubmissionRepository
     Task<IEnumerable<CorSubmission>> ListCorSubmissionsAsync();
     Task AddCorSubmissionAsync(CorSubmission corSubmission);
     Task UpdateCorSubmissionAsync(CorSubmission corSubmission);
+    // Commit the uploaded source and extraction state together so workers respect
+    // the explicit Fetch Information action and any reusable extraction.
+    Task SaveUploadedAsync(CorSubmission submission, bool create, ParkFlow.Application.Features.Verification.CorFields? fields,
+        string? outcome, CancellationToken ct) => create ? AddCorSubmissionAsync(submission) : UpdateCorSubmissionAsync(submission);
     Task DeleteCorSubmissionAsync(CorSubmission corSubmission);
 }

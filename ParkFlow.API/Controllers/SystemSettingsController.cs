@@ -39,7 +39,7 @@ public class SystemSettingsController : ControllerBase
     }
 
     [HttpPut]
-    [Authorize]
+    [Authorize(Policy = "SuperAdminOnly")]
     public async Task<ActionResult<Result<SystemSettingsDto>>> UpdateSettings([FromBody] SystemSettingsDto request)
     {
         var isSuperAdmin = User.IsInRole("SuperAdmin") || User.HasClaim("role", "SuperAdmin")
@@ -107,8 +107,10 @@ public class SystemSettingsController : ControllerBase
         return Ok(Result<SystemSettingsDto>.Success(updated, "Violation rate per hour and system settings updated successfully."));
     }
 
+    [Authorize(Policy = "SuperAdminOnly")]
     [HttpPost("reset-student-schedules")]
-    public async Task<ActionResult<Result<bool>>> ResetStudentSchedules()
+    public async Task<ActionResult<Result<bool>>> ResetStudentSchedules(
+        [FromServices] ParkFlow.Application.Features.Verification.VerificationService verificationService)
     {
         // 1. Record reset timestamp in settings
         SystemSettingsStore.RecordReset();
@@ -121,17 +123,18 @@ public class SystemSettingsController : ControllerBase
             {
                 // An employee ID is not a semester schedule and must remain approved.
                 if (PersonnelParkingPolicy.AppliesTo(sub.UserAccount?.UserProfile?.Personnel)) continue;
-                sub.UpdateSubmission(
-                    academicTerm: null,
-                    corDocumentUrl: null,
-                    verificationStatus: CorVerificationStatus.Rejected,
-                    rejectionReason: "Semester cycle reset. Please upload your Certificate of Registration (COR) and class schedule for the new semester.");
-                await _corSubmissionRepository.UpdateCorSubmissionAsync(sub);
+                var actor = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!);
+                const string reason = "Semester cycle reset. Please upload your Certificate of Registration (COR) and class schedule for the new semester.";
+                if (!await verificationService.ReviewSubjectAsync(ParkFlow.Domain.Entities.VerificationType.Cor, sub.Id,
+                    ParkFlow.Domain.Entities.VerificationState.Rejected, reason, actor, HttpContext.RequestAborted) ||
+                    !await verificationService.ReviewSubjectAsync(ParkFlow.Domain.Entities.VerificationType.Schedule, sub.Id,
+                    ParkFlow.Domain.Entities.VerificationState.Rejected, reason, actor, HttpContext.RequestAborted))
+                    return Conflict(Result<bool>.Failure("A submission changed during the semester reset. Refresh and retry to reset the remaining records.", ErrorCode.Conflict));
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"[SystemSettingsController] Reset submissions warning: {ex.Message}");
+            return StatusCode(503, Result<bool>.Failure("Semester reset could not finish. Refresh the approval records and retry.", ErrorCode.BadRequest));
         }
 
         // 3. Notify mobile app clients and admin dashboards via SignalR that new semester reset occurred

@@ -91,9 +91,7 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
 
                 if (latestCor.VerificationStatus != CorVerificationStatus.Verified)
                 {
-                    var corMsg = latestCor.VerificationStatus == CorVerificationStatus.Pending
-                        ? "Your Certificate of Registration (COR) / ID document is pending verification. You cannot create a reservation until it is approved."
-                        : "Your Certificate of Registration (COR) / ID document was rejected. You cannot create a reservation.";
+                    var corMsg = "Your document or schedule is awaiting approval. Review your verification status before creating reservations.";
                     return Result<ParkingReservationDto>.Failure(corMsg, ErrorCode.Forbidden);
                 }
             }

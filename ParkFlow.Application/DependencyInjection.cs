@@ -11,12 +11,16 @@ namespace ParkFlow.Application
         {
             // Register MediatR handlers from the assembly
             services.AddMediatR(cfg =>
-                cfg.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly));
+            {
+                cfg.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly);
+                cfg.AddOpenBehavior(typeof(ParkFlow.Application.Features.Verification.VerificationSubmissionBehavior<,>));
+            });
 
             // Register all validators from the assembly
             services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
             services.AddScoped<IParkingService, ParkingService>();
+            services.AddScoped<ParkFlow.Application.Features.Verification.VerificationService>();
             services.AddScoped<IViolationService, ViolationService>();
             services.AddScoped<IScheduleService, ScheduleService>();
             services.AddScoped<IParkingLogRoleService, ParkingLogRoleService>();

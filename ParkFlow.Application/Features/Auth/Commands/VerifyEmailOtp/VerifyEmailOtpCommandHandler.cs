@@ -76,23 +76,8 @@ public class VerifyEmailOtpCommandHandler : IRequestHandler<VerifyEmailOtpComman
                     await _authIdentityRepository.UpdateAsync(authIdentity);
                 }
 
-                // Also flip core UserAccount status to Verified
-                var user = await _userAccountRepository.GetByIdAsync(authIdentity.UserAccountId);
-                if (user != null && user.Status != AccountStatus.Active)
-                {
-                    user.Verify();
-                    await _userAccountRepository.UpdateAsync(user);
-                }
             }
-            else
-            {
-                var user = await _userAccountRepository.GetByEmailAsync(request.Email);
-                if (user != null && user.Status != AccountStatus.Active)
-                {
-                    user.Verify();
-                    await _userAccountRepository.UpdateAsync(user);
-                }
-            }
+
         }
 
         return Result<bool>.Success(true, "Email verified successfully.");

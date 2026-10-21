@@ -58,8 +58,8 @@ public class UpdateVehicleHandler : IRequestHandler<UpdateVehicleCommand, Result
             !(request.VehicleType == VehicleType.ElectricBike && vehicle.VehicleType == VehicleType.ElectricBike))
             return Result<Guid>.Failure("Please select Motorcycle or Car.", ErrorCode.BadRequest);
 
-        var existingVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.OwnerId);
-        var plateExists = existingVehicles.Any(v => v.Id != request.VehicleId && v.PlateNumber.Equals(request.PlateNumber, StringComparison.OrdinalIgnoreCase));
+        var registeredVehicle = await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber);
+        var plateExists = registeredVehicle != null && registeredVehicle.Id != request.VehicleId;
         if (plateExists)
         {
             return Result<Guid>.Failure("A vehicle with this plate number already exists.", ErrorCode.Conflict);

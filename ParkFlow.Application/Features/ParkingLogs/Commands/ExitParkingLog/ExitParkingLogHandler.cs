@@ -315,7 +315,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             if (verifiedCor != null)
             {
                 var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-                var entrySchedule = schedules.FirstOrDefault(s => s.DayOfWeek == philippinesEntry.DayOfWeek);
+                var entrySchedule = ScheduleService.FindEntrySchedule(schedules, philippinesEntry);
 
                 if (entrySchedule != null)
                 {

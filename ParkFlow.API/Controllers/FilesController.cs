@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.Files.Commands.UploadProfilePicture;
@@ -8,6 +9,8 @@ using ParkFlow.Application.Features.Files.Commands.UploadMotorPicture;
 using ParkFlow.Application.Features.Files.DTOs;
 using ParkFlow.Application.Interfaces;
 using System.Threading.Tasks;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace ParkFlow.API.Controllers;
 
@@ -17,11 +20,13 @@ public class FilesController : ControllerBase
 {
     private readonly IMediator _mediator;
     private readonly ICloudinaryService _cloudinaryService;
+    private readonly ILogger<FilesController>? _logger;
 
-    public FilesController(IMediator mediator, ICloudinaryService cloudinaryService)
+    public FilesController(IMediator mediator, ICloudinaryService cloudinaryService, ILogger<FilesController>? logger = null)
     {
         _mediator = mediator;
         _cloudinaryService = cloudinaryService;
+        _logger = logger;
     }
 
     [HttpGet("document")]
@@ -76,14 +81,18 @@ public class FilesController : ControllerBase
     }
 
     [HttpPost("upload/cor")]
+    [Authorize]
+    [RequestSizeLimit(6 * 1024 * 1024)]
     [Consumes("multipart/form-data")]
-    public async Task<ActionResult<Result<UploadFileResponse>>> UploadCorDocument([FromForm] UploadCorDocumentCommand command)
+    public async Task<ActionResult<Result<UploadFileResponse>>> UploadCorDocument([FromForm] UploadCorDocumentCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command);
-        return this.ToActionResult(result);
+        var watch = Stopwatch.StartNew();
+        try { return this.ToActionResult(await _mediator.Send(command, ct)); }
+        finally { _logger?.LogInformation("COR upload API in {DurationMs} ms", watch.Elapsed.TotalMilliseconds); }
     }
 
     [HttpPost("upload/orcr")]
+    [Authorize]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<Result<UploadFileResponse>>> UploadOrcrDocument([FromForm] UploadOrcrDocumentCommand command)
     {
@@ -92,6 +101,7 @@ public class FilesController : ControllerBase
     }
 
     [HttpPost("upload/motor-picture")]
+    [Authorize]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<Result<UploadFileResponse>>> UploadMotorPicture([FromForm] UploadMotorPictureCommand command)
     {

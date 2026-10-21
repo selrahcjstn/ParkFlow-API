@@ -43,6 +43,7 @@ public class DuplicateRegistrationIdTests
             if (duplicate) await personnel.AddAsync(new Personnel(Guid.NewGuid(), " emp-123 ", "Office"));
         }
         var submissions = new InMemoryCorSubmissionRepository();
+        if (!duplicate) await submissions.AddCorSubmissionAsync(new CorSubmission(user.Id, "2026-2027", "https://example.test/cor.pdf"));
         var handler = new UpdateOnboardingCorHandler(submissions, users, new UpdateOnboardingCorValidator(), profiles, students, personnel);
         var result = await handler.Handle(new UpdateOnboardingCorCommand(user.Id, "2026-2027",
             "https://example.test/cor.pdf", "https://example.test/orcr.pdf", "https://example.test/motor.jpg"), default);
@@ -124,11 +125,9 @@ public class DuplicateRegistrationIdTests
     }
 
     [Theory]
-    [InlineData(true, false)]
-    [InlineData(false, false)]
-    [InlineData(true, true)]
-    [InlineData(false, true)]
-    public async Task DatabaseIdConflictHasAReadableErrorOnInsertAndUpdate(bool student, bool update)
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DatabaseIdConstraintFailureHasAReadableError(bool student)
     {
         using var context = new ConstraintFailureContext(student ? "IX_Students_StudentNumber" : "IX_Personnel_IdCardNumber");
         var conflict = await Assert.ThrowsAsync<RegistrationIdConflictException>(async () =>
@@ -136,16 +135,12 @@ public class DuplicateRegistrationIdTests
             if (student)
             {
                 var repository = new StudentRepository(context);
-                var record = new Student(Guid.NewGuid(), "202600123", "BSIT", "1A", 1);
-                if (update) await repository.UpdateAsync(record);
-                else await repository.AddAsync(record);
+                await InvokeIdSave(repository);
             }
             else
             {
                 var repository = new PersonnelRepository(context);
-                var record = new Personnel(Guid.NewGuid(), "EMP-123", "Office");
-                if (update) await repository.UpdateAsync(record);
-                else await repository.AddAsync(record);
+                await InvokeIdSave(repository);
             }
         });
         Assert.Contains(student ? "student ID number" : "employee ID number", conflict.Message);
@@ -157,9 +152,13 @@ public class DuplicateRegistrationIdTests
     public async Task UnrelatedDatabaseErrorsAreNotMisreportedAsDuplicateIds()
     {
         using var context = new ConstraintFailureContext("PK_Students");
-        await Assert.ThrowsAsync<DbUpdateException>(() => new StudentRepository(context)
-            .AddAsync(new Student(Guid.NewGuid(), "202600123", "BSIT", "1A", 1)));
+        await Assert.ThrowsAsync<DbUpdateException>(() => InvokeIdSave(new StudentRepository(context)));
     }
+
+    // Exercise exception translation without replacing the real transactional workflow
+    // with a fake database. Inserts and updates are covered by PostgreSQL integration.
+    private static Task InvokeIdSave(object repository) => (Task)repository.GetType().GetMethod("SaveIdChangesAsync",
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(repository, null)!;
 
     [Fact]
     public void StudentAndEmployeeIdsStillHaveDatabaseUniqueConstraints()

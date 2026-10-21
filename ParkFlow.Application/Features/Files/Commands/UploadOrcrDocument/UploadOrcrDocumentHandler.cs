@@ -45,6 +45,15 @@ public class UploadOrcrDocumentHandler : IRequestHandler<UploadOrcrDocumentComma
             }
         }
 
+        if (_userContext.GetUserId() == Guid.Empty)
+            return Result<UploadFileResponse>.Failure("Sign in before uploading documents.", ErrorCode.Unauthorized);
+        if (request.CorSubmissionId.HasValue)
+        {
+            var subject = await _corSubmissionRepository.GetCorSubmissionAsync(request.CorSubmissionId.Value);
+            if (subject == null) return Result<UploadFileResponse>.Failure("Submission not found.", ErrorCode.NotFound);
+            if (subject.UserAccountId != _userContext.GetUserId())
+                return Result<UploadFileResponse>.Failure("This submission belongs to another account.", ErrorCode.Forbidden);
+        }
         try
         {
             var isPdf = request.File.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
@@ -65,9 +74,9 @@ public class UploadOrcrDocumentHandler : IRequestHandler<UploadOrcrDocumentComma
             var response = new UploadFileResponse(secureUrl, publicId);
             return Result<UploadFileResponse>.Success(response, "OR/CR document uploaded successfully.");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return Result<UploadFileResponse>.Failure($"OR/CR document upload failed: {ex.Message}", ErrorCode.BadRequest);
+            return Result<UploadFileResponse>.Failure("Document upload failed. Please try again.", ErrorCode.BadRequest);
         }
     }
 }

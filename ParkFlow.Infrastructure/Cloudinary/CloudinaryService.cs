@@ -55,9 +55,9 @@ public class CloudinaryService : ICloudinaryService
                     return (result.SecureUrl.ToString(), result.PublicId);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"[CloudinaryService] Cloudinary image upload warning, falling back to local storage: {ex.Message}");
+                Console.WriteLine("[CloudinaryService] Document storage operation failed.");
             }
         }
 
@@ -88,9 +88,9 @@ public class CloudinaryService : ICloudinaryService
                     return (result.SecureUrl.ToString(), result.PublicId);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"[CloudinaryService] Cloudinary PDF upload warning, falling back to local storage: {ex.Message}");
+                Console.WriteLine("[CloudinaryService] Document storage operation failed.");
             }
         }
 
@@ -172,9 +172,9 @@ public class CloudinaryService : ICloudinaryService
                     resourceType: resourceType == ResourceType.Raw ? "raw" : "image"
                 );
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"[CloudinaryService] Warning generating authenticated URL: {ex.Message}");
+                Console.WriteLine("[CloudinaryService] Document storage operation failed.");
             }
         }
 
@@ -231,9 +231,9 @@ public class CloudinaryService : ICloudinaryService
                     return (stream, contentType, fileName);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"[CloudinaryService] Warning fetching document stream from Cloudinary: {ex.Message}");
+                Console.WriteLine("[CloudinaryService] Document storage operation failed.");
             }
         }
 

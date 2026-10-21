@@ -74,7 +74,13 @@ public class AdminController : ControllerBase
 			effectiveKey = _configuration["AdminSettings:RegistrationKey"];
 		}
 
-		// Bind secure parameters from HTTP context
+        if (!User.HasClaim("parkflow_authentication_method", "pwd"))
+        {
+            currentUserId = null;
+            if (string.IsNullOrWhiteSpace(registrationKey) && string.IsNullOrWhiteSpace(command.RegistrationKey)) return Forbid();
+            effectiveKey = registrationKey ?? command.RegistrationKey;
+        }
+        // Bind secure parameters from HTTP context
 		var secureCommand = command with 
 		{ 
 			RegistrationKey = effectiveKey,

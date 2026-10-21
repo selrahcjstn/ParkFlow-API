@@ -38,6 +38,9 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
             return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
         }
 
+        var registeredPlate = await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber);
+        if (registeredPlate != null && registeredPlate.OwnerId != request.UserId)
+            return Result<Guid>.Failure("This plate number is already registered.", ErrorCode.Conflict);
         var existingVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.UserId);
         
         Vehicle existingVehicle;
@@ -62,6 +65,7 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
             var qrCodeHash = HashQrBytes(qrBytes);
             
             vehicleToUpdate.Update(request.PlateNumber, request.Brand, request.VehicleType, qrCodeHash);
+            vehicleToUpdate.UpdateVerificationStatus(CorVerificationStatus.Pending);
             await _vehicleRepository.UpdateAsync(vehicleToUpdate);
             existingVehicle = vehicleToUpdate;
         }

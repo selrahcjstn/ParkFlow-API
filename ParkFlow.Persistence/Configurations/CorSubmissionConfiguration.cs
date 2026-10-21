@@ -31,6 +31,7 @@ public class CorSubmissionConfiguration : IEntityTypeConfiguration<CorSubmission
 
         entity.Property(e => e.RejectionReason)
             .HasMaxLength(1000);
+        entity.Ignore(e => e.HasApprovedSchedule);
 
         entity.HasOne(e => e.UserAccount)
             .WithOne()

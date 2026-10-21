@@ -205,6 +205,7 @@ public class UpdateUserAccountAdminTests
         // Arrange
         var userId = Guid.NewGuid();
         var user = new UserAccount("hash", "+639123456789");
+        user.Verify();
         var idProp = typeof(BaseEntity).GetProperty("Id");
         idProp?.SetValue(user, userId);
 
@@ -247,6 +248,7 @@ public class UpdateUserAccountAdminTests
         // Arrange
         var userId = Guid.NewGuid();
         var user = new UserAccount("hash", "+639123456789");
+        user.Verify();
         var idProp = typeof(BaseEntity).GetProperty("Id");
         idProp?.SetValue(user, userId);
 

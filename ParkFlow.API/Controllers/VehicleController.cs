@@ -39,9 +39,11 @@ public class VehicleController : ControllerBase
         return this.ToActionResult(result);
     }
 
+    [Authorize]
     [HttpPost("create")]
     public async Task<ActionResult<Result<Guid>>> Create(CreateVehicleCommand command)
     {
+        if (command.OwnerId != _userContext.GetUserId()) return Forbid();
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
     }
@@ -91,7 +93,7 @@ public class VehicleController : ControllerBase
         return this.ToActionResult(result);
     }
 
-    [Authorize]
+    [Authorize(Policy = "AdminOrSuperAdmin")]
     [HttpDelete("admin/{id:guid}")]
     public async Task<ActionResult<Result<Guid>>> DeleteAdmin(Guid id)
     {
@@ -145,163 +147,16 @@ public record ValidateVehicleRequest(
         return this.ToActionResult(result);
     }
 
-    [Authorize]
+    [Authorize(Policy = "AdminOrSuperAdmin")]
     [HttpPatch("{id:guid}/validate")]
-    public async Task<ActionResult<Result<Guid>>> ValidateVehicle(
-        Guid id,
-        [FromBody] ValidateVehicleRequest request,
-        [FromServices] IVehicleRepository vehicleRepository,
-        [FromServices] IUserAccountRepository userAccountRepository,
-        [FromServices] ICorSubmissionRepository corSubmissionRepository,
-        [FromServices] INotificationService? notificationService = null,
-        [FromServices] IEmailService? emailService = null,
-        [FromServices] ISignalRNotificationSender? signalRNotificationSender = null)
-    {
-        var vehicle = await vehicleRepository.GetByIdAsync(id);
-        if (vehicle == null)
-            return NotFound(Result<Guid>.Failure("Vehicle not found.", ErrorCode.NotFound));
-
-        vehicle.UpdateVerificationStatus(request.VerificationStatus, request.RejectionReason);
-        await vehicleRepository.UpdateAsync(vehicle);
-
-        var user = await userAccountRepository.GetByIdAsync(vehicle.OwnerId);
-        if (user != null)
-        {
-            if (request.VerificationStatus == CorVerificationStatus.Verified)
-            {
-                var submission = await corSubmissionRepository.GetLatestByUserIdAsync(vehicle.OwnerId);
-                if (submission == null || submission.VerificationStatus == CorVerificationStatus.Verified)
-                {
-                    user.Verify();
-                    await userAccountRepository.UpdateAsync(user);
-                }
-            }
-
-            var isApproved = request.VerificationStatus == CorVerificationStatus.Verified;
-
-            if (signalRNotificationSender != null)
-            {
-                var eventData = new
-                {
-                    userId = user.Id,
-                    vehicleId = vehicle.Id,
-                    type = isApproved ? "vehicle_approved" : "vehicle_rejected",
-                    title = isApproved ? "Vehicle Approved" : "Vehicle Registration Rejected",
-                    body = isApproved
-                        ? "Your vehicle information has been verified and approved."
-                        : (request.RejectionReason ?? "Your vehicle registration was rejected.")
-                };
-                try
-                {
-                    await signalRNotificationSender.SendToUserAsync(user.Id.ToString(), "VerificationStatusChanged", eventData);
-                    await signalRNotificationSender.SendToAllAsync("VerificationStatusChanged", eventData);
-                    await signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", eventData);
-                }
-                catch
-                {
-                    // Ignore transient SignalR send failures
-                }
-            }
-
-            if (notificationService != null)
-            {
-                var title = isApproved ? "Vehicle Approved" : "Vehicle Registration Rejected";
-                var subtitle = isApproved ? "Vehicle Verified" : "Action Required";
-                var body = isApproved
-                    ? "Your vehicle information has been verified and approved."
-                    : string.IsNullOrWhiteSpace(request.RejectionReason)
-                        ? "Your vehicle registration was rejected. Please review the reason and update/re-upload your vehicle documents."
-                        : $"Your vehicle registration was rejected. Reason: {request.RejectionReason}. Please update/re-upload your vehicle documents.";
-                var actionRoute = "/(settings)/vehicle";
-                var actionText = isApproved ? "View Vehicle" : "Fix Vehicle Info";
-                var type = isApproved ? "vehicle_approved" : "vehicle_rejected";
-
-                await notificationService.CreateAndSendNotificationAsync(
-                    user.Id,
-                    title,
-                    body,
-                    type: type,
-                    subtitle: subtitle,
-                    actionRoute: actionRoute,
-                    actionText: actionText,
-                    priority: "high",
-                    issuer: "ParkFlow Vehicle Desk"
-                );
-            }
-
-            if (emailService != null && !string.IsNullOrWhiteSpace(user.PrimaryEmail))
-            {
-                try
-                {
-                    var emailSubject = isApproved
-                        ? "ParkFlow - Vehicle Approved"
-                        : "ParkFlow - Vehicle Registration Rejected";
-
-                    var reasonBlock = !isApproved && !string.IsNullOrWhiteSpace(request.RejectionReason)
-                        ? $"<div style='background-color:#FEF2F2; border-left:4px solid #EF4444; padding:12px; margin:16px 0; font-family:sans-serif;'><strong>Rejection Reason:</strong> {request.RejectionReason}</div>"
-                        : "";
-
-                    var emailBody = isApproved
-                        ? $@"
-                            <div style='font-family:sans-serif; max-width:600px; margin:0 auto; padding:20px; border:1px solid #E2E8F0; border-radius:12px;'>
-                              <h2 style='color:#10B981; margin-top:0;'>Vehicle Approved</h2>
-                              <p>Hello,</p>
-                              <p>Your vehicle registration has been approved by ParkFlow Security Administration.</p>
-                              <p style='color:#64748B; font-size:12px; margin-top:24px;'>ParkFlow Security Administration</p>
-                            </div>"
-                        : $@"
-                            <div style='font-family:sans-serif; max-width:600px; margin:0 auto; padding:20px; border:1px solid #E2E8F0; border-radius:12px;'>
-                              <h2 style='color:#EF4444; margin-top:0;'>Vehicle Registration Rejected</h2>
-                              <p>Hello,</p>
-                              <p>Your vehicle registration was rejected. Please review the reason and update/re-upload your required vehicle documents.</p>
-                              {reasonBlock}
-                              <p>Please log in to the ParkFlow mobile app to update your vehicle information.</p>
-                              <p style='color:#64748B; font-size:12px; margin-top:24px;'>ParkFlow Security Administration</p>
-                            </div>";
-
-                    await emailService.SendEmailAsync(user.PrimaryEmail, emailSubject, emailBody);
-                }
-                catch
-                {
-                    // Ignore email dispatch failure
-                }
-            }
-        }
-
-        if (signalRNotificationSender != null)
-        {
-            try
-            {
-                await signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", new
-                {
-                    type = "vehicle",
-                    vehicleId = vehicle.Id,
-                    ownerId = vehicle.OwnerId,
-                    status = request.VerificationStatus.ToString()
-                });
-            }
-            catch
-            {
-                // Silently ignore realtime dispatch failure
-            }
-        }
-
-        return Ok(Result<Guid>.Success(vehicle.Id, $"Vehicle verification status updated to {request.VerificationStatus}."));
-    }
-
-    [Authorize]
     [HttpPost("{id:guid}/validate")]
-    public async Task<ActionResult<Result<Guid>>> ValidateVehiclePost(
-        Guid id,
-        [FromBody] ValidateVehicleRequest request,
-        [FromServices] IVehicleRepository vehicleRepository,
-        [FromServices] IUserAccountRepository userAccountRepository,
-        [FromServices] ICorSubmissionRepository corSubmissionRepository,
-        [FromServices] INotificationService? notificationService = null,
-        [FromServices] IEmailService? emailService = null,
-        [FromServices] ISignalRNotificationSender? signalRNotificationSender = null)
+    public async Task<ActionResult<Result<Guid>>> ValidateVehicle(Guid id, [FromBody] ValidateVehicleRequest request)
     {
-        return await ValidateVehicle(id, request, vehicleRepository, userAccountRepository, corSubmissionRepository, notificationService, emailService, signalRNotificationSender);
+        if (request.VerificationStatus is not (CorVerificationStatus.Verified or CorVerificationStatus.Rejected)) return BadRequest("Choose approve or reject.");
+        var status = request.VerificationStatus == CorVerificationStatus.Verified ? "Approved" : "Rejected";
+        var result = await _mediator.Send(new ParkFlow.Application.Features.Verification.ReviewVerificationSubject("Vehicle", id,
+            status, request.RejectionReason ?? (status == "Approved" ? "Ownership documents reviewed by an administrator." : "Vehicle submission rejected by an administrator."), _userContext.GetUserId()));
+        return this.ToActionResult(result.IsSuccess ? Result<Guid>.Success(id, result.Message) : Result<Guid>.Failure(result.Message, result.ErrorCode));
     }
 
     [Authorize]

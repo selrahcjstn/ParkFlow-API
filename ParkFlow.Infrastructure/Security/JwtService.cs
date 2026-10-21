@@ -12,6 +12,9 @@ namespace ParkFlow.Infrastructure.Security
         private readonly IConfiguration _configuration = configuration;
 
         public string GenerateToken(UserAccount user, string profileType)
+            => GenerateToken(user, profileType, "unverified");
+
+        public string GenerateToken(UserAccount user, string profileType, string authenticationMethod)
         {
             var jwtKey = _configuration["Jwt:Key"]
                 ?? throw new InvalidOperationException("JWT key is missing.");
@@ -31,6 +34,7 @@ namespace ParkFlow.Infrastructure.Security
                 new Claim(JwtRegisteredClaimNames.Email, user.PrimaryEmail ?? string.Empty),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim("user_id", user.Id.ToString()),
+                new Claim("parkflow_authentication_method", authenticationMethod),
                 new Claim("profile_type", profileType)
             };
 

@@ -1,0 +1,27 @@
+name: Verification and OCR
+on:
+  push:
+  pull_request:
+jobs:
+  verification:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: parkflow_verification_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      PARKFLOW_NATIVE_OCR_TESTS: '1'
+      PARKFLOW_VERIFICATION_TEST_CONNECTION: Host=localhost;Database=parkflow_verification_test;Username=postgres;Password=test-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-eng poppler-utils
+      - run: dotnet test Test/Test.csproj -c Release

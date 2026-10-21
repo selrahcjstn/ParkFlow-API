@@ -56,6 +56,9 @@ public class Vehicle : BaseEntity
 
     public void UpdateDocuments(string? orcrDocumentUrl, string? vehiclePictureUrl)
     {
+        if ((orcrDocumentUrl != null && orcrDocumentUrl != OrcrDocumentUrl) ||
+            (vehiclePictureUrl != null && vehiclePictureUrl != VehiclePictureUrl))
+            UpdateVerificationStatus(CorVerificationStatus.Pending);
         if (orcrDocumentUrl != null)
             OrcrDocumentUrl = orcrDocumentUrl;
         if (vehiclePictureUrl != null)

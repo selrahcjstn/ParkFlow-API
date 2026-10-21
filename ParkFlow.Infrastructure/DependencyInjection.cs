@@ -18,9 +18,20 @@ public static class DependencyInjection
     {
         services.AddScoped<IPasswordHasher, PasswordHasherService>();
         services.AddScoped<IJwtService, JwtService>();
+        services.AddScoped<IEmailVerificationReceipt, EmailVerificationReceipt>();
         services.AddScoped<IQrCodeService, QrCodeService>();
         services.AddHttpContextAccessor();
         services.AddScoped<IUserContext, UserContext>();
+        services.AddOptions<ParkFlow.Infrastructure.Verification.OcrOptions>()
+            .Bind(configuration.GetSection("Ocr"))
+            .Validate(o => o.MaxFileBytes is > 0 and <= 5 * 1024 * 1024 && o.MaxPages is > 0 and <= 10 &&
+                o.MaxImagePixels is > 0 and <= 20_000_000 && o.MaxTextCharacters is > 0 and <= 100_000 &&
+                o.MaxProcessMemoryMb is >= 32 and <= 512 &&
+                o.JobTimeoutSeconds is >= 10 and <= 300 && o.ProcessTimeoutSeconds is >= 1 and <= 60 &&
+                o.PollSeconds is >= 1 and <= 60 && o.MaxAttempts is >= 1 and <= 5, "Invalid OCR resource limits.").ValidateOnStart();
+        services.AddScoped<ICorDocumentReader, ParkFlow.Infrastructure.Verification.CorDocumentReader>();
+        services.AddScoped<IInstitutionalVerificationProvider, ParkFlow.Infrastructure.Verification.UnavailableInstitutionalVerificationProvider>();
+        services.AddHostedService<ParkFlow.Infrastructure.Verification.VerificationWorker>();
         services.AddSingleton<IOtpRateLimiter, ParkFlow.Infrastructure.Services.OtpRateLimiter>();
 
         // Caching

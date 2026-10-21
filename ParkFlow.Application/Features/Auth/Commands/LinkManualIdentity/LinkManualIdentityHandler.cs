@@ -61,10 +61,6 @@ public class LinkManualIdentityHandler : IRequestHandler<LinkManualIdentityComma
         if (latestOtp?.IsUsed == true)
         {
             identity.MarkVerified();
-            if (user.Status != ParkFlow.Domain.Enums.AccountStatus.Active)
-            {
-                user.Verify();
-            }
         }
 
         user.PasswordHistories.Add(new PasswordHistory(user.Id, hashedPassword));

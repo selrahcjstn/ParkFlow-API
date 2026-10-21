@@ -5,5 +5,8 @@ public enum CorVerificationStatus
     NotSubmitted,
     Pending,
     Verified,
-    Rejected
+    Rejected,
+    Processing,
+    PreVerified,
+    NeedsReview
 }

@@ -279,7 +279,7 @@ public class RegistrationRoleTests
 
         var createdUser = await userRepo.GetByEmailAsync("student2@parkflow.app");
         Assert.NotNull(createdUser);
-        Assert.Equal(AccountStatus.Active, createdUser.Status);
+        Assert.Equal(AccountStatus.PendingVerification, createdUser.Status);
         Assert.Equal(OnboardingStep.Done, createdUser.OnboardingStep);
 
         var createdProfile = await profileRepo.GetByUserIdAsync(createdUser.Id);

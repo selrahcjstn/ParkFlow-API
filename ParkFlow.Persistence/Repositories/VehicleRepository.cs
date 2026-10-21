@@ -15,8 +15,11 @@ public class VehicleRepository : IVehicleRepository
 
     public async Task AddAsync(Vehicle vehicle)
     {
-        await _appDbContext.Set<Vehicle>().AddAsync(vehicle);
-        await _appDbContext.SaveChangesAsync();
+        await VerificationMutation.RunAsync(_appDbContext, VerificationType.Vehicle, vehicle.Id, async () =>
+        {
+            await _appDbContext.Set<Vehicle>().AddAsync(vehicle);
+            await _appDbContext.SaveChangesAsync();
+        });
     }
 
     public async Task DeleteAsync(Vehicle vehicle)
@@ -89,11 +92,11 @@ public class VehicleRepository : IVehicleRepository
 
     public async Task UpdateAsync(Vehicle vehicle)
     {
-        var entry = _appDbContext.Entry(vehicle);
-        if (entry.State == EntityState.Detached)
+        await VerificationMutation.RunAsync(_appDbContext, VerificationType.Vehicle, vehicle.Id, async () =>
         {
-            _appDbContext.Set<Vehicle>().Update(vehicle);
-        }
-        await _appDbContext.SaveChangesAsync();
+            var entry = _appDbContext.Entry(vehicle);
+            if (entry.State == EntityState.Detached) _appDbContext.Set<Vehicle>().Update(vehicle);
+            await _appDbContext.SaveChangesAsync();
+        });
     }
 }

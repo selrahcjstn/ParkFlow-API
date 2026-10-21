@@ -19,10 +19,12 @@
     <ProjectReference Include="..\ParkFlow.Domain\ParkFlow.Domain.csproj" />
     <ProjectReference Include="..\ParkFlow.Infrastructure\ParkFlow.Infrastructure.csproj" />
     <ProjectReference Include="..\ParkFlow.Persistence\ParkFlow.Persistence.csproj" />
+    <ProjectReference Include="..\ParkFlow.API\ParkFlow.API.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Features\Users\Commands\" />
+    <Content Include="..\docs\automated-verification-migration.sql" Link="Fixtures\automated-verification-migration.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

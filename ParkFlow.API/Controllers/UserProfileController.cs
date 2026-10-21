@@ -36,8 +36,10 @@ public class UserProfileController : ControllerBase
     }
 
     [HttpPatch("{userId:guid}")]
+    [Authorize]
     public async Task<ActionResult<Result<Guid>>> Update(Guid userId, UpdateUserProfileRequest request)
     {
+        if (userId != HttpContext.RequestServices.GetRequiredService<ParkFlow.Application.Interfaces.IUserContext>().GetUserId()) return Forbid();
         var command = new UpdateUserProfileCommand(
             userId,
             request.FirstName,

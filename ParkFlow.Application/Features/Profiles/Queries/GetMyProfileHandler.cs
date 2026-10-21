@@ -14,19 +14,22 @@ public class GetMyProfileHandler
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IVehicleRepository? _vehicleRepository;
     private readonly ICacheService? _cacheService;
+    private readonly IUserAccountRepository? _userAccountRepository;
 
     public GetMyProfileHandler(
         IUserProfileRepository userProfileRepository,
         IUserContext userContext,
         ICorSubmissionRepository corSubmissionRepository,
         IVehicleRepository? vehicleRepository = null,
-        ICacheService? cacheService = null)
+        ICacheService? cacheService = null,
+        IUserAccountRepository? userAccountRepository = null)
     {
         _userProfileRepository = userProfileRepository;
         _userContext = userContext;
         _corSubmissionRepository = corSubmissionRepository;
         _vehicleRepository = vehicleRepository;
         _cacheService = cacheService;
+        _userAccountRepository = userAccountRepository;
     }
 
     public async Task<Result<UserProfileDto>> Handle(
@@ -34,6 +37,11 @@ public class GetMyProfileHandler
         CancellationToken cancellationToken)
     {
         var userId = _userContext.GetUserId();
+
+        // A deleted account's JWT may still be cryptographically valid. Do not return
+        // its cached profile or mistake it for an account that has not created a profile yet.
+        if (userId == Guid.Empty || _userAccountRepository != null && !await _userAccountRepository.ExistsAsync(userId))
+            return Result<UserProfileDto>.Failure("This account no longer exists. Sign in or create a new account.", ErrorCode.Unauthorized);
 
         var cacheKey = CacheKeys.UserProfile(userId);
 
@@ -57,7 +65,7 @@ public class GetMyProfileHandler
         }
 
         var latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(profile.UserAccountId);
-        var corStatus = latestCor?.VerificationStatus ?? (profile.Student == null || profile.UserAccount?.Status == AccountStatus.Active
+        var corStatus = latestCor?.VerificationStatus ?? (profile.Admin != null || profile.Guard != null
             ? CorVerificationStatus.Verified
             : CorVerificationStatus.NotSubmitted);
 
@@ -111,7 +119,8 @@ public class GetMyProfileHandler
             RejectedTarget: rejectedTarget,
             Status: profile.UserAccount?.Status.ToString(),
             Role: roleStr,
-            Email: profile.UserAccount?.PrimaryEmail);
+            Email: profile.UserAccount?.PrimaryEmail,
+            ScheduleVerificationStatus: latestCor?.ScheduleVerificationStatus);
 
         if (_cacheService != null && userId != Guid.Empty)
         {

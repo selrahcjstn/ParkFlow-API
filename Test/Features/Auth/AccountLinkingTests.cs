@@ -119,7 +119,7 @@ public class AccountLinkingTests
         Assert.True(linkedIdentity.IsVerified);
 
         var updatedUser = Assert.Single(_userAccountRepository.Users);
-        Assert.Equal(AccountStatus.Active, updatedUser.Status);
+        Assert.Equal(AccountStatus.PendingVerification, updatedUser.Status);
     }
 
     [Fact]

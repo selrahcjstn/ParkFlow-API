@@ -96,7 +96,7 @@ public class LoginUserAccountHandler : IRequestHandler<LoginUserAccountCommand, 
             }
         }
 
-        var token = _jwtService.GenerateToken(user, profileType);
+        var token = _jwtService.GenerateToken(user, profileType, "pwd");
 
         var isNewAccount = user.OnboardingStep != OnboardingStep.Done;
         var currentOnboardingStep = user.OnboardingStep;

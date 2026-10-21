@@ -36,6 +36,8 @@ public class AuthController : ControllerBase
     [HttpPost("register-manual")]
     public async Task<ActionResult<Result<string>>> Register(RegisterManualRequest request)
     {
+        if (request.IsAdminCreated && (!User.HasClaim("parkflow_authentication_method", "pwd") || !(User.IsInRole("Admin") || User.IsInRole("SuperAdmin") || User.HasClaim("profile_type", "admin") || User.HasClaim("profile_type", "superadmin"))))
+            return Forbid();
         var command = new RegisterManualAccountCommand(
             request.Email,
             request.Password,
@@ -48,7 +50,8 @@ public class AuthController : ControllerBase
             request.Student,
             request.Personnel,
             request.Guard,
-            request.IsAdminCreated);
+            request.IsAdminCreated,
+            request.EmailVerificationToken);
 
         var result = await _mediator.Send(command);
         return this.ToActionResult(result);
@@ -139,7 +142,20 @@ public class AuthController : ControllerBase
     {
         var command = new VerifyEmailOtpCommand(request.Email, request.OtpCode, request.Purpose);
         var result = await _mediator.Send(command);
+        if (result.IsSuccess && (string.IsNullOrEmpty(request.Purpose) || request.Purpose.Equals("Verification", StringComparison.OrdinalIgnoreCase)))
+            return Ok(new { result.IsSuccess, result.Data, result.Message, result.ErrorCode,
+                emailVerificationToken = HttpContext.RequestServices.GetRequiredService<IEmailVerificationReceipt>().Issue(request.Email) });
         return this.ToActionResult(result);
+    }
+
+    [Authorize]
+    [HttpPost("email-verification/send")]
+    public async Task<ActionResult<Result<bool>>> SendOwnedEmailOtp(SendEmailOtpRequest request,
+        [FromServices] IAuthIdentityRepository identities)
+    {
+        var identity = await identities.GetByEmailAsync(request.Email);
+        if (identity?.UserAccountId != _userContext.GetUserId()) return Forbid();
+        return this.ToActionResult(await _mediator.Send(new SendEmailOtpCommand(request.Email, RequestingUserId: _userContext.GetUserId())));
     }
 
     [Authorize]

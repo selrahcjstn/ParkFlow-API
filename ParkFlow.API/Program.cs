@@ -90,20 +90,7 @@ builder.Services.AddAuthentication(option =>
     };
 });
 
-builder.Services.AddAuthorizationBuilder()
-    .AddPolicy("StudentOnly", policy =>
-        policy.RequireClaim("profile_type", "student"))
-    .AddPolicy("PersonnelOnly", policy =>
-        policy.RequireClaim("profile_type", "personnel"))
-    .AddPolicy("AdminOrSuperAdmin", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.IsInRole("Admin") ||
-            ctx.User.IsInRole("SuperAdmin") ||
-            ctx.User.HasClaim("profile_type", "admin") ||
-            ctx.User.HasClaim("profile_type", "superadmin") ||
-            ctx.User.HasClaim("role", "Admin") ||
-            ctx.User.HasClaim("role", "SuperAdmin")
-        ));
+builder.Services.AddAuthorization(ParkFlow.API.Security.AuthorizationPolicies.Configure);
 
 builder.Services.AddSignalR();
 
@@ -122,6 +109,12 @@ app.UseCors("AllowFrontend");
 app.Use(async (context, next) =>
 {
     try { await next(context); }
+    catch (Microsoft.EntityFrameworkCore.DbUpdateException ex) when (!context.Response.HasStarted &&
+        ex.InnerException is Npgsql.PostgresException { SqlState: "23505", ConstraintName: "IX_Vehicles_NormalizedPlate" })
+    {
+        context.Response.StatusCode = StatusCodes.Status409Conflict;
+        await context.Response.WriteAsJsonAsync(Result<object>.Failure("This plate number is already registered.", ErrorCode.Conflict));
+    }
     catch (RegistrationIdConflictException ex) when (!context.Response.HasStarted)
     {
         context.Response.StatusCode = StatusCodes.Status409Conflict;

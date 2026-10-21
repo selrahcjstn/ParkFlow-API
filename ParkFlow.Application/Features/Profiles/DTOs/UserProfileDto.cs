@@ -22,6 +22,7 @@ public record UserProfileDto(
     string? RejectedTarget = null,
     string? Status = null,
     string? Role = null,
-    string? Email = null
+    string? Email = null,
+    CorVerificationStatus? ScheduleVerificationStatus = null
 );
 

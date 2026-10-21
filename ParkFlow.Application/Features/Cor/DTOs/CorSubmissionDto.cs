@@ -23,5 +23,8 @@ public record CorSubmissionDto(
     string VehicleType,
     DateTime CreatedAt,
     List<CorScheduleItemDto>? Schedules = null,
-    string Brand = "—"
+    string Brand = "—",
+    CorVerificationStatus? ScheduleVerificationStatus = null,
+    string? RejectionReason = null,
+    bool RequiresAdminReview = true
 );

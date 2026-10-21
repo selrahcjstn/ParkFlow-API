@@ -11,8 +11,11 @@ public class AuthIdentityRepository(AppDbContext appDbContext) : IAuthIdentityRe
 
     public async Task AddAsync(AuthIdentity identity)
     {
-        await _appDbContext.AuthIdentities.AddAsync(identity);
-        await _appDbContext.SaveChangesAsync();
+        await VerificationMutation.RunAsync(_appDbContext, VerificationType.Account, identity.UserAccountId, async () =>
+        {
+            await _appDbContext.AuthIdentities.AddAsync(identity);
+            await _appDbContext.SaveChangesAsync();
+        });
     }
 
     public async Task<AuthIdentity?> GetByProviderIdAsync(AuthProvider provider, string providerId)
@@ -65,13 +68,19 @@ public class AuthIdentityRepository(AppDbContext appDbContext) : IAuthIdentityRe
 
     public Task UpdateAsync(AuthIdentity identity)
     {
-        _appDbContext.AuthIdentities.Update(identity);
-        return _appDbContext.SaveChangesAsync();
+        return VerificationMutation.RunAsync(_appDbContext, VerificationType.Account, identity.UserAccountId, async () =>
+        {
+            _appDbContext.Entry(identity).State = EntityState.Modified;
+            await _appDbContext.SaveChangesAsync();
+        });
     }
 
     public Task DeleteAsync(AuthIdentity identity)
     {
-        _appDbContext.AuthIdentities.Remove(identity);
-        return _appDbContext.SaveChangesAsync();
+        return VerificationMutation.RunAsync(_appDbContext, VerificationType.Account, identity.UserAccountId, async () =>
+        {
+            _appDbContext.AuthIdentities.Remove(identity);
+            await _appDbContext.SaveChangesAsync();
+        });
     }
 }

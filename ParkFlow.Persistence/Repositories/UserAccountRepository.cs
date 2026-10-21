@@ -42,6 +42,8 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
                 u.ExternalProviderId == externalProviderId);
     }
 
+    public Task<bool> ExistsAsync(Guid id) => _appDbContext.UserAccounts.AnyAsync(u => u.Id == id);
+
     public async Task<UserAccount?> GetByIdAsync(Guid id)
     {
         return await _appDbContext.UserAccounts

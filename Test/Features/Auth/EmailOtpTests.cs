@@ -236,7 +236,7 @@ public class EmailOtpTests
 
         // Check that user status got flipped to active
         var updatedUser = Assert.Single(_userAccountRepository.Users);
-        Assert.Equal(AccountStatus.Active, updatedUser.Status);
+        Assert.Equal(AccountStatus.PendingVerification, updatedUser.Status);
     }
 
     [Fact]

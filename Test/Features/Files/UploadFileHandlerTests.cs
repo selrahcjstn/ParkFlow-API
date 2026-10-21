@@ -171,7 +171,7 @@ public class UploadFileSpecificHandlersTests
     }
 
     [Fact]
-    public async Task UploadCorDocumentHandler_ShouldSuccessfullyUpload_AndUpdateCorSubmission_AndAutoDeletePrevious()
+    public async Task UploadCorDocumentHandler_UpdatesOwnedSubmission_ThenRemovesPreviousBlob()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -185,7 +185,7 @@ public class UploadFileSpecificHandlersTests
 
         await _corSubmissionRepository.AddCorSubmissionAsync(corSubmission);
 
-        var userContext = new FakeUserContext();
+        var userContext = new FakeUserContext { UserId = userId };
         var file = CreateMockFile("new_cor.pdf", "fake-pdf-bytes");
         var command = new UploadCorDocumentCommand(file, submissionId);
         var handler = new UploadCorDocumentHandler(_corSubmissionRepository, _cloudinaryService, userContext);
@@ -224,7 +224,7 @@ public class UploadFileSpecificHandlersTests
     }
 
     [Fact]
-    public async Task UploadCorDocumentHandler_ShouldSucceedEvenIfSubmissionDoesNotExist()
+    public async Task UploadCorDocumentHandler_RejectsAnonymousUpload()
     {
         // Arrange
         var emptyUserContext = new FakeUserContext { UserId = Guid.Empty };
@@ -236,7 +236,8 @@ public class UploadFileSpecificHandlersTests
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assert
-        Assert.True(result.IsSuccess);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.Unauthorized, result.ErrorCode);
     }
 
     [Fact]

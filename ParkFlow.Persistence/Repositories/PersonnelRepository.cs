@@ -17,19 +17,27 @@ public class PersonnelRepository : IPersonnelRepository
 
     public async Task AddAsync(Personnel personnel)
     {
-        await _context.Personnel.AddAsync(personnel);
-        await SaveIdChangesAsync();
+        var ownerId = await _context.UserProfiles.Where(p => p.Id == personnel.UserProfileId).Select(p => p.UserAccountId).SingleAsync();
+        await VerificationMutation.RunAsync(_context, ParkFlow.Domain.Entities.VerificationType.Account, ownerId, async () =>
+        {
+            await _context.Personnel.AddAsync(personnel);
+            await SaveIdChangesAsync();
+        });
     }
 
     public async Task UpdateAsync(Personnel personnel)
     {
-        var entry = _context.Entry(personnel);
-        if (entry.State == EntityState.Detached)
+        var ownerId = await _context.UserProfiles.Where(p => p.Id == personnel.UserProfileId).Select(p => p.UserAccountId).SingleAsync();
+        await VerificationMutation.RunAsync(_context, ParkFlow.Domain.Entities.VerificationType.Account, ownerId, async () =>
         {
-            personnel.UserProfile = null!;
-            _context.Personnel.Update(personnel);
-        }
-        await SaveIdChangesAsync();
+            var entry = _context.Entry(personnel);
+            if (entry.State == EntityState.Detached)
+            {
+                personnel.UserProfile = null!;
+                _context.Personnel.Update(personnel);
+            }
+            await SaveIdChangesAsync();
+        });
     }
 
     public async Task DeleteAsync(Personnel personnel)

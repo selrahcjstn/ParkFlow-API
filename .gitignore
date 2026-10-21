@@ -35,3 +35,6 @@ Thumbs.db
 
 # Publish output
 publish/
+# Local tools and disposable databases used for verification testing.
+.artifacts/verification-native/
+.artifacts/verification-tools/

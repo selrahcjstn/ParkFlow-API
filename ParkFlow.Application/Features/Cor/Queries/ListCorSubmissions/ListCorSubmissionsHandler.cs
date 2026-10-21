@@ -84,7 +84,10 @@ public class ListCorSubmissionsHandler : IRequestHandler<ListCorSubmissionsQuery
                 vehicleType,
                 s.CreatedAt,
                 scheduleDtos,
-                vehicleBrand
+                vehicleBrand,
+                s.ScheduleVerificationStatus,
+                s.RejectionReason,
+                RequiresAdminReview: userProfile?.Personnel != null
             ));
         }
 

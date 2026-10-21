@@ -67,7 +67,9 @@ public class GetMyCorSubmissionHandler : IRequestHandler<GetMyCorSubmissionQuery
             email,
             vehiclePlate,
             vehicleType,
-            submission.CreatedAt);
+            submission.CreatedAt,
+            ScheduleVerificationStatus: submission.ScheduleVerificationStatus,
+            RejectionReason: submission.RejectionReason);
 
         return Result<CorSubmissionDto?>.Success(dto, "Latest COR submission retrieved.");
     }

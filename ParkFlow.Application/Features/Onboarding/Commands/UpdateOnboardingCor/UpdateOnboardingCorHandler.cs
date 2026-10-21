@@ -72,6 +72,9 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
 
         var existing = await _corSubmissionRepository.GetLatestByUserIdAsync(request.UserId);
 
+        if (existing == null || !string.Equals(existing.CorDocumentUrl, request.CorDocumentUrl, StringComparison.Ordinal))
+            return Result<Guid>.Failure("Upload your document using ParkFlow before submitting it.", ErrorCode.BadRequest);
+
         var corUrl = !string.IsNullOrWhiteSpace(request.CorDocumentUrl) && !string.Equals(request.CorDocumentUrl.Trim(), "pending", StringComparison.OrdinalIgnoreCase)
             ? request.CorDocumentUrl
             : existing?.CorDocumentUrl;
@@ -89,14 +92,6 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
             return Result<Guid>.Failure("COR document is required.", ErrorCode.BadRequest);
         }
 
-        orcrUrl = string.IsNullOrWhiteSpace(orcrUrl) || string.Equals(orcrUrl.Trim(), "pending", StringComparison.OrdinalIgnoreCase)
-            ? corUrl
-            : orcrUrl;
-
-        motorUrl = string.IsNullOrWhiteSpace(motorUrl) || string.Equals(motorUrl.Trim(), "pending", StringComparison.OrdinalIgnoreCase)
-            ? corUrl
-            : motorUrl;
-
         if (existing == null)
         {
             var submission = new CorSubmission(request.UserId, request.AcademicTerm, corUrl, orcrUrl, motorUrl, CorVerificationStatus.Pending);
@@ -105,7 +100,8 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
         }
         else
         {
-            existing.UpdateSubmission(request.AcademicTerm, corUrl, CorVerificationStatus.Pending, orcrUrl, motorUrl);
+            var documentStatus = existing.VerificationStatus == CorVerificationStatus.NotSubmitted ? CorVerificationStatus.Pending : existing.VerificationStatus;
+            existing.UpdateSubmission(request.AcademicTerm, corUrl, documentStatus, orcrUrl, motorUrl);
             await _corSubmissionRepository.UpdateCorSubmissionAsync(existing);
         }
 
@@ -115,7 +111,9 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
             {
                 var userVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.UserId);
                 var primaryVehicle = userVehicles.FirstOrDefault(v => v.IsPrimary) ?? userVehicles.FirstOrDefault();
-                if (primaryVehicle != null)
+                if (primaryVehicle != null &&
+                    ((!string.IsNullOrWhiteSpace(orcrUrl) && orcrUrl != "pending" && orcrUrl != primaryVehicle.OrcrDocumentUrl) ||
+                     (!string.IsNullOrWhiteSpace(motorUrl) && motorUrl != "pending" && motorUrl != primaryVehicle.VehiclePictureUrl)))
                 {
                     primaryVehicle.UpdateDocuments(orcrUrl, motorUrl);
                     await _vehicleRepository.UpdateAsync(primaryVehicle);
@@ -145,21 +143,15 @@ public class UpdateOnboardingCorHandler : IRequestHandler<UpdateOnboardingCorCom
         {
             try
             {
-                var userName = user?.UserProfile != null
-                    ? $"{user.UserProfile.FirstName} {user.UserProfile.LastName}".Trim()
-                    : (user?.PrimaryEmail ?? "New User");
-
-                await _signalRNotificationSender.SendToAllAsync("RegistrationSubmitted", new
+                if (student == null) await _signalRNotificationSender.SendToAllAsync("RegistrationSubmitted", new
                 {
                     userId = request.UserId,
-                    userName = userName,
-                    academicTerm = request.AcademicTerm,
-                    corUrl = corUrl
+                    academicTerm = request.AcademicTerm
                 });
 
                 await _signalRNotificationSender.SendToAllAsync("ApprovalListUpdated", new
                 {
-                    type = "registration",
+                    type = student != null ? "Vehicle" : "registration",
                     userId = request.UserId
                 });
             }

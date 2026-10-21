@@ -44,6 +44,8 @@ public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result
             return Result<Guid>.Failure("Cannot register or add a vehicle while you have an ongoing parking session.", ErrorCode.BadRequest);
         }
 
+        if (await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber) != null)
+            return Result<Guid>.Failure("This plate number is already registered.", ErrorCode.Conflict);
         var existingVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.OwnerId);
         var maxAllowed = SystemSettingsStore.Current.MaxVehiclesPerUser > 0 
             ? SystemSettingsStore.Current.MaxVehiclesPerUser 

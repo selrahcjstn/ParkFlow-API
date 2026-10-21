@@ -15,6 +15,10 @@ public class CorSubmission : BaseEntity
 
     public CorVerificationStatus VerificationStatus { get; private set; }
     public string? RejectionReason { get; private set; }
+    // Null preserves the existing COR/schedule approval for pre-migration records.
+    public CorVerificationStatus? ScheduleVerificationStatus { get; private set; }
+    public bool HasApprovedSchedule => (ScheduleVerificationStatus ?? VerificationStatus) == CorVerificationStatus.Verified;
+    public void UpdateScheduleVerification(CorVerificationStatus status) => ScheduleVerificationStatus = status;
 
     private CorSubmission() { }
 

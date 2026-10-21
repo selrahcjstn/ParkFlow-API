@@ -16,4 +16,5 @@ public record RegisterManualAccountCommand(
     RegisterStudentDto? Student = null,
     RegisterPersonnelDto? Personnel = null,
     RegisterGuardDto? Guard = null,
-    bool IsAdminCreated = false) : IRequest<Result<string>>;
+    bool IsAdminCreated = false,
+    string? EmailVerificationToken = null) : IRequest<Result<string>>;

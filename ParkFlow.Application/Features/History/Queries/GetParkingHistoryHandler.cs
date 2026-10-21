@@ -102,7 +102,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 if (verifiedCor != null)
                 {
                     var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-                    var schedule = schedules.FirstOrDefault(s => s.DayOfWeek == entryLocal.DayOfWeek);
+                    var schedule = ScheduleService.FindEntrySchedule(schedules, entryLocal);
                     if (schedule != null)
                     {
                         mustExitBy = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entryLocal, schedule.EndTime);

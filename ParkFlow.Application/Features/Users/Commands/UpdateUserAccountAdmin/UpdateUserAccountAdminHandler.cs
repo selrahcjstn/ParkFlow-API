@@ -70,6 +70,8 @@ public class UpdateUserAccountAdminHandler : IRequestHandler<UpdateUserAccountAd
             {
                 if (Enum.TryParse<AccountStatus>(request.Request.Status.Trim(), true, out var status))
                 {
+                    if (status == AccountStatus.Active && user.Status != AccountStatus.Active)
+                        return Result<Guid>.Failure("Approve the account through Verification before activating it.", ErrorCode.BadRequest);
                     user.UpdateStatus(status);
                 }
             }

@@ -25,6 +25,7 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
     private readonly IJwtService _jwtService;
     private readonly IValidator<RegisterManualAccountCommand> _validator;
     private readonly IEmailService? _emailService;
+    private readonly IEmailVerificationReceipt? _emailVerificationReceipt;
 
     public RegisterManualAccountHandler(
         IUserAccountRepository userAccountRepository,
@@ -38,7 +39,8 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
         IValidator<RegisterManualAccountCommand> validator,
         ICorSubmissionRepository? corSubmissionRepository = null,
         IParkingScheduleRepository? parkingScheduleRepository = null,
-        IEmailService? emailService = null)
+        IEmailService? emailService = null,
+        IEmailVerificationReceipt? emailVerificationReceipt = null)
     {
         _userAccountRepository = userAccountRepository;
         _authIdentityRepository = authIdentityRepository;
@@ -52,6 +54,7 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
         _jwtService = jwtService;
         _validator = validator;
         _emailService = emailService;
+        _emailVerificationReceipt = emailVerificationReceipt;
     }
 
     public async Task<Result<string>> Handle(RegisterManualAccountCommand request, CancellationToken cancellationToken)
@@ -64,6 +67,10 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
         }
 
         var normalizedEmail = request.Email.Trim().ToLower();
+        var emailVerified = !string.IsNullOrWhiteSpace(request.EmailVerificationToken) &&
+            _emailVerificationReceipt?.Validate(normalizedEmail, request.EmailVerificationToken) == true;
+        if (!string.IsNullOrWhiteSpace(request.EmailVerificationToken) && !emailVerified)
+            return Result<string>.Failure("Email verification expired or is invalid. Request a new verification code.", ErrorCode.BadRequest);
 
         var existingIdentity = await _authIdentityRepository.GetByEmailAsync(normalizedEmail);
         if (existingIdentity != null)
@@ -94,7 +101,6 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
 
         if (isFullRegistration)
         {
-            user.Verify();
             user.UpdateOnboardingStep(OnboardingStep.Done);
         }
 
@@ -107,6 +113,7 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
         await _userAccountRepository.AddAsync(user);
 
         var identity = AuthIdentity.CreateManual(user.Id, normalizedEmail, hashedPassword, isPrimary: true);
+        if (emailVerified) identity.MarkVerified();
         await _authIdentityRepository.AddAsync(identity);
         user.AuthIdentities.Add(identity);
 

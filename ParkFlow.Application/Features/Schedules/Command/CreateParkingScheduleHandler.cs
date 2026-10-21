@@ -30,50 +30,6 @@ public class CreateParkingScheduleHandler : IRequestHandler<CreateParkingSchedul
         _userAccountRepository = userAccountRepository;
     }
 
-    public async Task<Result<Guid>> Handle(CreateParkingScheduleCommand request, CancellationToken cancellationToken)
-    {
-        var validationResult = await _validator.ValidateAsync(request, cancellationToken);
-
-        if (!validationResult.IsValid)
-        {
-            var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
-            return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
-        }
-
-        var submission = await _corSubmissionRepository.GetCorSubmissionAsync(request.SubmissionId);
-        if (submission == null)
-            return Result<Guid>.Failure("Submission not found.", ErrorCode.NotFound);
-        var user = await _userAccountRepository.GetByIdAsync(submission.UserAccountId);
-        if (PersonnelParkingPolicy.AppliesTo(user?.UserProfile?.Personnel))
-            return Result<Guid>.Failure(
-                "Faculty and university staff parking hours are managed by the Super Admin. No personal schedule is required.",
-                ErrorCode.Forbidden);
-
-        var schedules = new List<ParkingSchedule>();
-
-        foreach (var item in request.Schedules)
-        {
-            schedules.Add(new ParkingSchedule(
-                request.SubmissionId,
-                item.DayOfWeek,
-                item.StartTime,
-                item.EndTime
-            ));
-        }
-
-        foreach (var schedule in schedules)
-        {
-            await _parkingScheduleRepository.AddAsync(schedule);
-        }
-
-        if (_cacheService != null)
-        {
-            await _cacheService.RemoveByPrefixAsync(CacheKeys.SchedulePrefix, cancellationToken);
-            await _cacheService.RemoveByPrefixAsync(CacheKeys.UserPrefix, cancellationToken);
-            await _cacheService.RemoveByPrefixAsync(CacheKeys.SessionPrefix, cancellationToken);
-            await _cacheService.RemoveByPrefixAsync(CacheKeys.DashboardPrefix, cancellationToken);
-        }
-
-        return Result<Guid>.Success(Guid.NewGuid(), "Parking schedules created.");
-    }
+    public Task<Result<Guid>> Handle(CreateParkingScheduleCommand request, CancellationToken cancellationToken) =>
+        Task.FromResult(Result<Guid>.Failure("Schedules are read-only. Students must confirm the extracted COR schedule or upload a clearer COR.", ErrorCode.Forbidden));
 }

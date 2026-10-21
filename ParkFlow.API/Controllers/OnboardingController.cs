@@ -11,6 +11,7 @@ using ParkFlow.Application.Features.Onboarding.Commands.UpdateOnboardingVehicle;
 using ParkFlow.Application.Features.Onboarding.DTOs;
 using ParkFlow.Application.Features.Onboarding.Queries.CheckRegistrationId;
 using ParkFlow.Application.Interfaces;
+using ParkFlow.Application.Features.Verification;
 
 namespace ParkFlow.API.Controllers;
 
@@ -35,6 +36,17 @@ public class OnboardingController : ControllerBase
         Response.Headers.CacheControl = "no-store";
         return this.ToActionResult(result);
     }
+
+    [HttpGet("student/cor-preview")]
+    public async Task<IActionResult> StudentCorPreview(CancellationToken ct)
+    {
+        Response.Headers.CacheControl = "no-store";
+        return Ok(await _mediator.Send(new GetCorSchedulePreview(_userContext.GetUserId()), ct));
+    }
+
+    [HttpPost("student/cor-confirm")]
+    public async Task<ActionResult<Result<bool>>> ConfirmStudentCor(CorStudentConfirmation request, CancellationToken ct) =>
+        this.ToActionResult(await _mediator.Send(new ConfirmStudentFromCor(_userContext.GetUserId(), request), ct));
 
     [HttpPatch("profile")]
     public async Task<ActionResult<Result<Guid>>> UpdateProfile(OnboardingProfileRequest request)

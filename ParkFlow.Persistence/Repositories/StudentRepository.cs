@@ -17,19 +17,27 @@ public class StudentRepository : IStudentRepository
 
     public async Task AddAsync(Student student)
     {
-        await _context.Students.AddAsync(student);
-        await SaveIdChangesAsync();
+        var ownerId = await _context.UserProfiles.Where(p => p.Id == student.UserProfileId).Select(p => p.UserAccountId).SingleAsync();
+        await VerificationMutation.RunAsync(_context, ParkFlow.Domain.Entities.VerificationType.Account, ownerId, async () =>
+        {
+            await _context.Students.AddAsync(student);
+            await SaveIdChangesAsync();
+        });
     }
 
     public async Task UpdateAsync(Student student)
     {
-        var entry = _context.Entry(student);
-        if (entry.State == EntityState.Detached)
+        var ownerId = await _context.UserProfiles.Where(p => p.Id == student.UserProfileId).Select(p => p.UserAccountId).SingleAsync();
+        await VerificationMutation.RunAsync(_context, ParkFlow.Domain.Entities.VerificationType.Account, ownerId, async () =>
         {
-            student.UserProfile = null!;
-            _context.Students.Update(student);
-        }
-        await SaveIdChangesAsync();
+            var entry = _context.Entry(student);
+            if (entry.State == EntityState.Detached)
+            {
+                student.UserProfile = null!;
+                _context.Students.Update(student);
+            }
+            await SaveIdChangesAsync();
+        });
     }
 
     public async Task DeleteAsync(Student student)

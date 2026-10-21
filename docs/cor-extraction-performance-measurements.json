@@ -1,0 +1,126 @@
+{
+  "date": "2026-10-13",
+  "environment": "Local Windows, .NET 10 Release, native Tesseract/Poppler, local disposable PostgreSQL",
+  "before": {
+    "digital": [
+      {
+        "Kind": "SyntheticDigital",
+        "Runs": 20,
+        "ValidationMedianMs": 0.105,
+        "ReadMedianMs": 0.692,
+        "ParseAndPreviewMedianMs": 0.307,
+        "ReadParsePreviewMedianMs": 1.014,
+        "ReadParsePreviewP95Ms": 2.104
+      },
+      {
+        "Kind": "ReferenceDigital",
+        "Runs": 20,
+        "ValidationMedianMs": 1.184,
+        "ReadMedianMs": 14.114,
+        "ParseAndPreviewMedianMs": 0.491,
+        "ReadParsePreviewMedianMs": 14.84,
+        "ReadParsePreviewP95Ms": 16.997
+      },
+      {
+        "Kind": "ParserAndAggregation",
+        "Runs": 2000,
+        "MedianMs": 0.414
+      }
+    ],
+    "native": [
+      {
+        "Kind": "Render2500px",
+        "Milliseconds": 286.256
+      },
+      {
+        "Kind": "Png",
+        "Runs": 3,
+        "MedianMs": 388.636
+      },
+      {
+        "Kind": "Jpg",
+        "Runs": 3,
+        "MedianMs": 341.795
+      },
+      {
+        "Kind": "ScannedPdf",
+        "Runs": 3,
+        "MedianMs": 766.704
+      },
+      {
+        "Kind": "ScannedPdfWithBlankPage",
+        "Runs": 3,
+        "MedianMs": 1273.702
+      }
+    ],
+    "pipeline": {
+      "Runs": 6,
+      "Storage": "InMemoryNoNetwork",
+      "Database": "LocalPostgreSQL",
+      "QueueWaitExcluded": true,
+      "CompleteDigitalPipelineMedianMs": 93.505,
+      "PreviewMedianMs": 4.465
+    }
+  },
+  "after": {
+    "digital": [
+      {
+        "Kind": "SyntheticDigital",
+        "Runs": 20,
+        "ValidationMedianMs": 0.102,
+        "ReadMedianMs": 0.34,
+        "ParseAndPreviewMedianMs": 0.036,
+        "ReadParsePreviewMedianMs": 0.375,
+        "ReadParsePreviewP95Ms": 0.603
+      },
+      {
+        "Kind": "ReferenceDigital",
+        "Runs": 20,
+        "ValidationMedianMs": 1.107,
+        "ReadMedianMs": 13.253,
+        "ParseAndPreviewMedianMs": 0.189,
+        "ReadParsePreviewMedianMs": 13.447,
+        "ReadParsePreviewP95Ms": 16.099
+      },
+      {
+        "Kind": "ParserAndAggregation",
+        "Runs": 2000,
+        "MedianMs": 0.056
+      }
+    ],
+    "native": [
+      {
+        "Kind": "Render2500px",
+        "Milliseconds": 309.27
+      },
+      {
+        "Kind": "Png",
+        "Runs": 3,
+        "MedianMs": 429.055
+      },
+      {
+        "Kind": "Jpg",
+        "Runs": 3,
+        "MedianMs": 335.136
+      },
+      {
+        "Kind": "ScannedPdf",
+        "Runs": 3,
+        "MedianMs": 765.986
+      },
+      {
+        "Kind": "ScannedPdfWithBlankPage",
+        "Runs": 3,
+        "MedianMs": 767.889
+      }
+    ],
+    "pipeline": {
+      "Runs": 6,
+      "Storage": "InMemoryNoNetwork",
+      "Database": "LocalPostgreSQL",
+      "QueueWaitExcluded": true,
+      "CompleteDigitalPipelineMedianMs": 92.587,
+      "PreviewMedianMs": 4.012
+    }
+  }
+}

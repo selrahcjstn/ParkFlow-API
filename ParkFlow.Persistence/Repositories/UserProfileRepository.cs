@@ -14,8 +14,11 @@ public class UserProfileRepository : IUserProfileRepository
 
     public async Task AddAsync(UserProfile profile)
     {
-        await _appDbContext.UserProfiles.AddAsync(profile);
-        await _appDbContext.SaveChangesAsync();
+        await VerificationMutation.RunAsync(_appDbContext, ParkFlow.Domain.Entities.VerificationType.Account, profile.UserAccountId, async () =>
+        {
+            await _appDbContext.UserProfiles.AddAsync(profile);
+            await _appDbContext.SaveChangesAsync();
+        });
     }
 
     public Task<UserProfile?> GetByIdAsync(Guid id)
@@ -45,16 +48,19 @@ public class UserProfileRepository : IUserProfileRepository
 
     public async Task UpdateAsync(UserProfile profile)
     {
-        var entry = _appDbContext.Entry(profile);
-        if (entry.State == EntityState.Detached)
+        await VerificationMutation.RunAsync(_appDbContext, ParkFlow.Domain.Entities.VerificationType.Account, profile.UserAccountId, async () =>
         {
-            profile.UserAccount = null!;
-            profile.Student = null!;
-            profile.Personnel = null!;
-            profile.Guard = null!;
-            profile.Admin = null!;
-            _appDbContext.UserProfiles.Update(profile);
-        }
-        await _appDbContext.SaveChangesAsync();
+            var entry = _appDbContext.Entry(profile);
+            if (entry.State == EntityState.Detached)
+            {
+                profile.UserAccount = null!;
+                profile.Student = null!;
+                profile.Personnel = null!;
+                profile.Guard = null!;
+                profile.Admin = null!;
+                _appDbContext.UserProfiles.Update(profile);
+            }
+            await _appDbContext.SaveChangesAsync();
+        });
     }
 }

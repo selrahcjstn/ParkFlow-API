@@ -59,20 +59,6 @@ public class UpdateCorSubmissionHandler : IRequestHandler<UpdateCorSubmissionCom
 
         await _corSubmissionRepository.UpdateCorSubmissionAsync(submission);
 
-        if (statusToSet == ParkFlow.Domain.Enums.CorVerificationStatus.Pending)
-        {
-            // Reset user account status to PendingVerification
-            if (_userAccountRepository != null)
-            {
-                var user = await _userAccountRepository.GetByIdAsync(submission.UserAccountId);
-                if (user != null)
-                {
-                    user.UpdateStatus(ParkFlow.Domain.Enums.AccountStatus.PendingVerification);
-                    await _userAccountRepository.UpdateAsync(user);
-                }
-            }
-        }
-
         if (_signalRNotificationSender != null)
         {
             try

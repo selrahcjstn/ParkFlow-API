@@ -113,16 +113,12 @@ public class ParkingScheduleRepository : IParkingScheduleRepository
 
     public async Task ReplaceSchedulesAsync(Guid submissionId, IEnumerable<ParkingSchedule> newSchedules)
     {
-        var existing = await _appDbContext.ParkingSchedules
-            .Where(x => x.SubmissionId == submissionId)
-            .ToListAsync();
-
-        if (existing.Count > 0)
+        await VerificationMutation.RunAsync(_appDbContext, VerificationType.Schedule, submissionId, async () =>
         {
+            var existing = await _appDbContext.ParkingSchedules.Where(x => x.SubmissionId == submissionId).ToListAsync();
             _appDbContext.ParkingSchedules.RemoveRange(existing);
-        }
-
-        await _appDbContext.ParkingSchedules.AddRangeAsync(newSchedules);
-        await _appDbContext.SaveChangesAsync();
+            await _appDbContext.ParkingSchedules.AddRangeAsync(newSchedules);
+            await _appDbContext.SaveChangesAsync();
+        });
     }
 }
