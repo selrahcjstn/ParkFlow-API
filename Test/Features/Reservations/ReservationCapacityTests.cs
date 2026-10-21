@@ -16,14 +16,14 @@ public class ReservationCapacityTests
         new(Guid.NewGuid(), $"RES-{Guid.NewGuid()}", Day, TimeSpan.FromHours(start), TimeSpan.FromHours(end), "Campus visit", type);
 
     [Theory]
-    [InlineData(300, 30, 90)]
-    [InlineData(300, 50, 150)]
-    [InlineData(31, 30, 9)]
+    [InlineData(300, 30, 30)]
+    [InlineData(300, 50, 50)]
+    [InlineData(31, 30, 30)]
     [InlineData(300, 0, 0)]
-    [InlineData(300, 100, 300)]
-    public void AllocationIsPartOfTotalCapacity_NotExtraSpaces(int total, int percent, int expected)
+    [InlineData(300, 300, 300)]
+    public void AllocationIsPartOfTotalCapacity_NotExtraSpaces(int total, int slots, int expected)
     {
-        var settings = new SystemSettingsDto { TotalCapacity = total, ReservationAllocationPercent = percent };
+        var settings = new SystemSettingsDto { TotalCapacity = total, ReservationAllocationSlots = slots };
         var result = ReservationCapacityPolicy.Describe(settings, 3);
         Assert.Equal(total, result.TotalCapacity);
         Assert.Equal(expected, result.ReservationCapacity);

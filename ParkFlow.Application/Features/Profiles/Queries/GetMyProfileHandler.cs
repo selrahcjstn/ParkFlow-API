@@ -50,7 +50,7 @@ public class GetMyProfileHandler
             var cached = await _cacheService.GetAsync<UserProfileDto>(cacheKey, cancellationToken);
             if (cached != null)
             {
-                return Result<UserProfileDto>.Success(cached, "User profile retrieved.");
+                return Result<UserProfileDto>.Success(await ApplyVehicleApprovalAsync(cached), "User profile retrieved.");
             }
         }
 
@@ -121,6 +121,7 @@ public class GetMyProfileHandler
             Role: roleStr,
             Email: profile.UserAccount?.PrimaryEmail,
             ScheduleVerificationStatus: latestCor?.ScheduleVerificationStatus);
+        dto = await ApplyVehicleApprovalAsync(dto);
 
         if (_cacheService != null && userId != Guid.Empty)
         {
@@ -128,5 +129,15 @@ public class GetMyProfileHandler
         }
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");
+    }
+    private async Task<UserProfileDto> ApplyVehicleApprovalAsync(UserProfileDto dto)
+    {
+        // Existing accounts created by the previous flow must not appear verified
+        // merely because their old status was Active. This does not write on GET.
+        if (dto.Role == "Student" && dto.Status == "Active" && _vehicleRepository != null &&
+            !(await _vehicleRepository.GetByOwnerIdAsync(dto.UserAccountId)).Any(v => v.VerificationStatus == CorVerificationStatus.Verified &&
+                !string.IsNullOrWhiteSpace(v.OrcrDocumentUrl) && !string.IsNullOrWhiteSpace(v.VehiclePictureUrl)))
+            return dto with { Status = AccountStatus.PendingVerification.ToString() };
+        return dto;
     }
 }

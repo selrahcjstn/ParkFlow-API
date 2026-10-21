@@ -37,6 +37,8 @@ public class UpdateUserStatusHandler : IRequestHandler<UpdateUserStatusCommand, 
         if (user == null)
             return Result<Guid>.Failure("User account not found.", ErrorCode.NotFound);
 
+        if (newStatus == AccountStatus.Active && user.UserProfile?.Student != null && user.Status != AccountStatus.Active)
+            return Result<Guid>.Failure("Approve the student's vehicle documents from Vehicles before activating the account.", ErrorCode.BadRequest);
         user.UpdateStatus(newStatus);
         await _userAccountRepository.UpdateAsync(user);
 

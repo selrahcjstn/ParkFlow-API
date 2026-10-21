@@ -71,7 +71,8 @@ public class UpdateUserAccountAdminHandler : IRequestHandler<UpdateUserAccountAd
                 if (Enum.TryParse<AccountStatus>(request.Request.Status.Trim(), true, out var status))
                 {
                     if (status == AccountStatus.Active && user.Status != AccountStatus.Active)
-                        return Result<Guid>.Failure("Approve the account through Verification before activating it.", ErrorCode.BadRequest);
+                        return Result<Guid>.Failure(user.UserProfile?.Student != null ? "Approve the student's vehicle documents from Vehicles before activating the account."
+                            : "Approve the account through Verification before activating it.", ErrorCode.BadRequest);
                     user.UpdateStatus(status);
                 }
             }

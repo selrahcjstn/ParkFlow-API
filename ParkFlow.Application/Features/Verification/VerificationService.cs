@@ -140,11 +140,14 @@ public class VerificationService(IVerificationStore store, ICorDocumentReader re
         if (record.Type == VerificationType.Cor && !subject.IsPersonnel)
         {
             var extracted = fieldsJson == null ? null : JsonSerializer.Deserialize<CorFields>(fieldsJson);
+            var termErrors = extracted == null ? new List<string>() : CorAcademicTerm.Validate(extracted);
             var ready = extracted != null && (extracted.AdminWeek != null || extracted.ScheduleIssues.Count == 0) &&
                 CorStudentMapping.ValidateWeek(CorStudentMapping.AuthoritativeWeek(extracted), out _).Count == 0;
             decision = new(ready ? extracted!.ConfirmedInformation != null ? VerificationState.Approved : VerificationState.PreVerified : VerificationState.NeedsReview,
                 ready ? extracted!.ConfirmedInformation != null ? "COR information and daily schedule confirmed; no admin approval required." : "COR ready. Review your information and confirm the schedule."
                     : "The COR schedule could not be read completely. Upload a clearer COR.", outcome, fieldsJson) { PolicyVersion = policy.Version };
+            if (termErrors.Count > 0)
+                decision = new(VerificationState.Rejected, string.Join(" ", termErrors), "AcademicTermMismatch", fieldsJson) { PolicyVersion = policy.Version };
         }
         if (await store.CompleteAsync(record, decision, ct))
         {

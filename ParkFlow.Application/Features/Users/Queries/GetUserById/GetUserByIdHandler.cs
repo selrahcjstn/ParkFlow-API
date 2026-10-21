@@ -99,7 +99,9 @@ public class GetUserByIdHandler : IRequestHandler<GetUserByIdQuery, Result<UserW
             fullName,
             user.PrimaryEmail ?? string.Empty,
             user.PhoneNumber ?? string.Empty,
-            user.Status.ToString(),
+            (profile?.Student != null && user.Status == AccountStatus.Active && !vehicles.Any(v => v.VerificationStatus == CorVerificationStatus.Verified &&
+                !string.IsNullOrWhiteSpace(v.OrcrDocumentUrl) && !string.IsNullOrWhiteSpace(v.VehiclePictureUrl))
+                ? AccountStatus.PendingVerification : user.Status).ToString(),
             corStatusStr,
             user.AuthProvider.ToString(),
             roleStr,

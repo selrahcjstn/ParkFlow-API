@@ -36,6 +36,8 @@ public record CorSchedulePreview(Guid RecordId, int Version, string Status, stri
     public bool ScheduleReviewRequested { get; init; }
     public bool CanConfirmSchedule { get; init; }
     public bool FetchRequested { get; init; }
+    public string? CurrentAcademicYear { get; init; }
+    public string? CurrentSemester { get; init; }
 }
 
 public class VerificationRequests(IVerificationStore store, VerificationService service, ILogger<VerificationRequests>? logger = null, IUserAccountRepository? accounts = null) :
@@ -83,21 +85,20 @@ public class VerificationRequests(IVerificationStore store, VerificationService 
         var items = intervals.Select(s => new CorScheduleItem((int)s.Day, CorStudentMapping.Format(s.Start), CorStudentMapping.Format(s.End))).ToList();
         var processing = record.Status is VerificationState.Pending or VerificationState.Processing;
         var issues = fields?.AdminWeek != null ? [] : fields?.ScheduleIssues.ToList() ?? (processing ? [] : new List<string> { "The schedule could not be read. Upload a clearer COR." });
-        if (record.Status == VerificationState.Rejected) issues.Add("This COR was rejected. Upload a replacement before confirming its schedule.");
+        if (record.Status == VerificationState.Rejected && (fields == null || CorAcademicTerm.Validate(fields).Count == 0)) issues.Add(record.Reason);
         var information = fields == null ? null : CorStudentMapping.Information(fields);
         if (information != null && !string.IsNullOrWhiteSpace(subject.Identifier))
             information = information with { FirstName = subject.FirstName, LastName = subject.LastName, StudentNumber = subject.Identifier,
                 Course = subject.Course, YearLevel = subject.YearLevel, Section = CorStudentMapping.Section(subject.Section) };
         if (information != null && fields?.ConfirmedInformation is { } confirmed)
-            information = information with { MiddleName = confirmed.MiddleName, College = confirmed.College,
-                AcademicYear = confirmed.AcademicYear, Semester = confirmed.Semester };
+            information = information with { MiddleName = confirmed.MiddleName, College = confirmed.College };
         var account = accounts == null ? null : await accounts.GetByIdAsync(owner);
-        return new(record.Id, record.Version, record.Status.ToString(), subject.DocumentUrl!, items, issues,
+        return CorAcademicTerm.Preview(new(record.Id, record.Version, record.Status.ToString(), subject.DocumentUrl!, items, issues,
             !processing && fields != null && record.Status != VerificationState.Rejected)
             { FetchRequested = record.OcrOutcome != AwaitingInformationFetch, Week = week, StudentInformation = information, PhoneNumber = account?.PhoneNumber, InformationConfirmed = fields?.ConfirmedInformation != null,
               ScheduleReviewRequested = false,
               CanConfirmSchedule = !processing && fields != null && record.Status != VerificationState.Rejected &&
-                (fields.AdminWeek != null || fields.ScheduleIssues.Count == 0) && CorStudentMapping.ValidateWeek(week, out _).Count == 0 };
+                (fields.AdminWeek != null || fields.ScheduleIssues.Count == 0) && CorStudentMapping.ValidateWeek(week, out _).Count == 0 }, fields);
     }
 
     public async Task<Result<bool>> Handle(ConfirmCorSchedule request, CancellationToken ct)

@@ -8,10 +8,12 @@ namespace ParkFlow.Persistence.Repositories;
 internal static class VerificationMutation
 {
     public static Task RunAsync(AppDbContext db, VerificationType type, Guid id, Func<Task> save,
-        Func<VerificationRecord?, Task>? onQueued = null, CancellationToken ct = default) =>
+        Func<VerificationRecord?, Task>? onQueued = null, CancellationToken ct = default, Guid? ownerId = null) =>
         db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
+            if (type == VerificationType.Vehicle && ownerId.HasValue)
+                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"Account" + ownerId.Value}, 0))", ct);
             if (type == VerificationType.Schedule)
                 await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"Cor" + id}, 0))", ct);
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({type.ToString() + id}, 0))", ct);
@@ -22,6 +24,7 @@ internal static class VerificationMutation
             {
                 var current = await store.GetSubjectAsync(type, id, default);
                 var isCampusClient = await db.UserProfiles.AnyAsync(p => p.UserAccountId == id && (p.Student != null || p.Personnel != null));
+                var isStudent = await db.UserProfiles.AnyAsync(p => p.UserAccountId == id && p.Student != null);
                 var account = await db.UserAccounts.FindAsync(id);
                 if (account != null) await db.Entry(account).ReloadAsync();
                 if (isCampusClient && account?.Status == ParkFlow.Domain.Enums.AccountStatus.Active && previous?.Fingerprint != current?.Fingerprint)
@@ -30,11 +33,16 @@ internal static class VerificationMutation
                     await db.SaveChangesAsync();
                 }
                 // Administrator/guard account provisioning retains its existing workflow.
-                if ((isCampusClient && (previous?.Fingerprint != current?.Fingerprint || account?.Status != ParkFlow.Domain.Enums.AccountStatus.Active)) ||
+                if (isStudent || (isCampusClient && (previous?.Fingerprint != current?.Fingerprint || account?.Status != ParkFlow.Domain.Enums.AccountStatus.Active)) ||
                     account?.Status == ParkFlow.Domain.Enums.AccountStatus.PendingVerification)
                     await store.EnqueueAsync(type, id, CancellationToken.None);
             }
-            else if (type == VerificationType.Vehicle) await store.RetireVehicleJobsAsync(id, CancellationToken.None);
+            else if (type == VerificationType.Vehicle)
+            {
+                await store.RetireVehicleJobsAsync(id, CancellationToken.None);
+                if (ownerId.HasValue && await db.UserProfiles.AnyAsync(p => p.UserAccountId == ownerId.Value && p.Student != null, ct))
+                    await store.EnqueueAsync(VerificationType.Account, ownerId.Value, ct);
+            }
             else
             {
                 var record = await store.EnqueueAsync(type, id, ct);

@@ -77,8 +77,7 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
             await _emailOtpRepository.InvalidateActiveOtpsForEmailAsync(request.Email);
 
             // Generate a random 6-digit OTP code
-            var random = new Random();
-            var otpCode = random.Next(100000, 999999).ToString();
+            var otpCode = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
 
             // Set expiration to 5 minutes from creation
             var expiresAt = DateTime.UtcNow.AddMinutes(5);
@@ -144,7 +143,7 @@ public class SendEmailOtpCommandHandler : IRequestHandler<SendEmailOtpCommand, R
 
             await _emailService.SendEmailAsync(request.Email, subject, htmlBody);
             _otpRateLimiter?.RecordOtpDispatched(normalizedEmail);
-            return Result<bool>.Success(true, $"Verification code generated: {otpCode}");
+            return Result<bool>.Success(true, "Verification code sent to your email.");
         }
         catch (Exception ex)
         {

@@ -67,6 +67,8 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         var data = confirmation.Information;
         var oldFields = string.IsNullOrWhiteSpace(record.ExtractedFieldsJson) ? null : JsonSerializer.Deserialize<CorFields>(record.ExtractedFieldsJson);
         if (oldFields == null) return false;
+        var termErrors = CorAcademicTerm.Validate(oldFields, data.AcademicYear, data.Semester);
+        if (termErrors.Count > 0) throw new DocumentValidationException(string.Join(" ", termErrors));
         var intervals = CorStudentMapping.ConfirmableSchedules(oldFields, confirmation.Week);
         var existingIntervals = await db.ParkingSchedules.Where(s => s.SubmissionId == record.SubjectId).ToListAsync(ct);
         var intervalSnapshot = existingIntervals.OrderBy(s => s.DayOfWeek).Select(s => new VerificationSchedule(s.DayOfWeek, s.StartTime, s.EndTime));
@@ -141,6 +143,9 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
     public Task<bool> ReviewVehicleManuallyAsync(Guid id, string fingerprint, VerificationState status, string reason, CancellationToken ct) => Transaction(async () =>
     {
         if (status is not (VerificationState.Approved or VerificationState.Rejected) || string.IsNullOrWhiteSpace(reason)) return false;
+        var owner = await db.Vehicles.Where(v => v.Id == id).Select(v => (Guid?)v.OwnerId).SingleOrDefaultAsync(ct);
+        if (owner == null) return false;
+        await Lock(VerificationType.Account, owner.Value, ct);
         await Lock(VerificationType.Vehicle, id, ct);
         var subject = await GetSubjectAsync(VerificationType.Vehicle, id, ct);
         if (subject == null || subject.Fingerprint != fingerprint) return false;
@@ -151,6 +156,8 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         await db.Entry(vehicle).ReloadAsync(ct);
         vehicle.UpdateVerificationStatus(status == VerificationState.Approved ? CorVerificationStatus.Verified : CorVerificationStatus.Rejected, reason);
         await db.SaveChangesAsync(ct);
+        if (await db.UserProfiles.AnyAsync(p => p.UserAccountId == owner.Value && p.Student != null, ct))
+            await EnqueueAsync(VerificationType.Account, owner.Value, ct);
         return true;
     }, ct);
 
@@ -169,6 +176,8 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         var fields = string.IsNullOrWhiteSpace(record.ExtractedFieldsJson) ? null : JsonSerializer.Deserialize<CorFields>(record.ExtractedFieldsJson);
         if (corrected != null) throw new DocumentValidationException("Schedules are read-only. Request an admin review for corrections.");
         if (fields == null) throw new DocumentValidationException("The schedule has not been extracted yet.");
+        var termErrors = CorAcademicTerm.Validate(fields);
+        if (termErrors.Count > 0) throw new DocumentValidationException(string.Join(" ", termErrors));
         var intervals = CorStudentMapping.ConfirmableSchedules(fields);
         SetDecision(record, new(VerificationState.Approved, "COR schedule confirmed by the student; no admin approval required."), VerificationMethod.Automatic, null);
         await Apply(record, ct);
@@ -291,11 +300,17 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
             await db.VerificationRecords.Where(r => r.Type == VerificationType.Account && r.SubjectId == id && r.IsCurrent)
                 .ExecuteUpdateAsync(update => update.SetProperty(r => r.IsCurrent, false).SetProperty(r => r.LeaseId, (Guid?)null)
                     .SetProperty(r => r.LeaseExpiresAt, (DateTime?)null).SetProperty(r => r.Version, r => r.Version + 1), ct);
-            if (subject.EmailVerified && VerificationService.MandatoryChecks(subject, await GetPolicyAsync(ct)).Count == 0 &&
-                await db.UserProfiles.AnyAsync(p => p.UserAccountId == subject.UserId && p.Student != null, ct))
+            if (await db.UserProfiles.AnyAsync(p => p.UserAccountId == subject.UserId && p.Student != null, ct))
             {
                 var account = await db.UserAccounts.FindAsync([id], ct);
-                if (account != null && account.Status != AccountStatus.Suspended) { account.UpdateStatus(AccountStatus.Active); await db.SaveChangesAsync(ct); }
+                if (account != null && account.Status != AccountStatus.Suspended)
+                {
+                    var approvedVehicle = await db.Vehicles.AnyAsync(v => v.OwnerId == id && v.VerificationStatus == CorVerificationStatus.Verified &&
+                        v.OrcrDocumentUrl != null && v.OrcrDocumentUrl != "" && v.VehiclePictureUrl != null && v.VehiclePictureUrl != "", ct);
+                    var ready = approvedVehicle && subject.EmailVerified && VerificationService.MandatoryChecks(subject, await GetPolicyAsync(ct)).Count == 0;
+                    account.UpdateStatus(ready ? AccountStatus.Active : AccountStatus.PendingVerification);
+                    await db.SaveChangesAsync(ct);
+                }
             }
             return null;
         }

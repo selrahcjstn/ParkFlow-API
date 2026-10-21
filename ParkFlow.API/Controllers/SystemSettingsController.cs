@@ -45,9 +45,11 @@ public class SystemSettingsController : ControllerBase
         var isSuperAdmin = User.IsInRole("SuperAdmin") || User.HasClaim("role", "SuperAdmin")
             || User.HasClaim("profile_type", "superadmin");
         if (!isSuperAdmin) return Forbid();
-        if (request.TotalCapacity < 1 || request.ReservationAllocationPercent < 0 || request.ReservationAllocationPercent > 100)
+        if (!ParkFlow.Application.Features.Verification.CorAcademicTerm.IsValid(request.AcademicYear, request.CurrentSemester))
+            return BadRequest(Result<SystemSettingsDto>.Failure("Enter a valid school year (YYYY-YYYY) and semester (1st Semester, 2nd Semester or Summer).", ErrorCode.BadRequest));
+        if (request.TotalCapacity < 1 || request.ReservationAllocationSlots < 0 || request.ReservationAllocationSlots > request.TotalCapacity)
             return BadRequest(Result<SystemSettingsDto>.Failure(
-                "Total parking capacity must be at least 1. Reservation allocation must be between 0% and 100%.", ErrorCode.BadRequest));
+                "Total parking capacity must be at least 1. Reservation spaces must be between 0 and the total parking capacity.", ErrorCode.BadRequest));
         if (!PersonnelParkingPolicy.TryGetHours(request, out _, out _) || request.ViolationRatePerHour < 0)
             return BadRequest(Result<SystemSettingsDto>.Failure(
                 "Enter valid faculty/staff hours with the start earlier than the end, and a non-negative hourly rate.",
@@ -82,7 +84,7 @@ public class SystemSettingsController : ControllerBase
             request.EarlyParkingMinutes,
             request.PersonnelFreeParkingStart,
             request.PersonnelFreeParkingEnd,
-            request.ReservationAllocationPercent);
+            request.ReservationAllocationSlots);
 
         if (_cacheService != null)
         {

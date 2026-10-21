@@ -76,10 +76,10 @@ public class VerificationController(IMediator mediator, IUserContext user) : Con
     public async Task<ActionResult<Result<bool>>> ReviewSubject(string type, Guid subjectId, ReviewSubjectRequest request, CancellationToken ct) =>
         this.ToActionResult(await mediator.Send(new ReviewVerificationSubject(type, subjectId, request.Status, request.Reason, user.GetUserId()), ct));
 
-    [HttpGet("academic-term")]
-    public async Task<IActionResult> AcademicTerm(CancellationToken ct)
+    [HttpGet("academic-term"), AllowAnonymous]
+    public IActionResult AcademicTerm()
     {
-        var policy = await mediator.Send(new GetVerificationPolicy(), ct);
-        return Ok(new { policy.AcademicYear, policy.Semester });
+        var settings = SystemSettingsStore.Current;
+        return Ok(new { settings.AcademicYear, Semester = settings.CurrentSemester });
     }
 }

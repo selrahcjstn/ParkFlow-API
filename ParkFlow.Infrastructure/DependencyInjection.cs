@@ -32,6 +32,9 @@ public static class DependencyInjection
         services.AddScoped<ICorDocumentReader, ParkFlow.Infrastructure.Verification.CorDocumentReader>();
         services.AddScoped<IInstitutionalVerificationProvider, ParkFlow.Infrastructure.Verification.UnavailableInstitutionalVerificationProvider>();
         services.AddHostedService<ParkFlow.Infrastructure.Verification.VerificationWorker>();
+        services.AddSingleton<ParkFlow.Infrastructure.Verification.RegistrationDraftService>();
+        services.AddSingleton<IRegistrationDraftService>(sp => sp.GetRequiredService<ParkFlow.Infrastructure.Verification.RegistrationDraftService>());
+        services.AddHostedService(sp => sp.GetRequiredService<ParkFlow.Infrastructure.Verification.RegistrationDraftService>());
         services.AddSingleton<IOtpRateLimiter, ParkFlow.Infrastructure.Services.OtpRateLimiter>();
 
         // Caching

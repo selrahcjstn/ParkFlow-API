@@ -186,7 +186,9 @@ namespace ParkFlow.API.Controllers
             var accounts = HttpContext.RequestServices.GetRequiredService<IUserAccountRepository>();
             var account = await accounts.GetByIdAsync(id);
             if (account == null) return NotFound(Result<Guid>.Failure("User account not found.", ErrorCode.NotFound));
-            var isCampusClient = account.UserProfile?.Student != null || account.UserProfile?.Personnel != null;
+            if (account.UserProfile?.Student != null && request.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(Result<Guid>.Failure("Student verification requires approved vehicle documents. Review them from Vehicles.", ErrorCode.BadRequest));
+            var isCampusClient = account.UserProfile?.Personnel != null;
             if (isCampusClient && (request.Status.Equals("Active", StringComparison.OrdinalIgnoreCase) ||
                 request.Status.Equals("PendingVerification", StringComparison.OrdinalIgnoreCase)))
             {

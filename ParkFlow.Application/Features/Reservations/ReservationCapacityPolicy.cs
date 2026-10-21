@@ -3,14 +3,14 @@ using ParkFlow.Application.Common;
 namespace ParkFlow.Application.Features.Reservations;
 
 public record ReservationTimeWindow(TimeSpan StartTime, TimeSpan EndTime);
-public record ReservationAvailability(int TotalCapacity, int AllocationPercent,
+public record ReservationAvailability(int TotalCapacity,
     int ReservationCapacity, int BookedSlots, int AvailableSlots);
 public enum ReservationBookingResult { Created, CapacityFull, DuplicateUser, DuplicateVehicle }
 
 public static class ReservationCapacityPolicy
 {
     public static int GetCapacity(SystemSettingsDto settings) =>
-        (int)Math.Floor((decimal)Math.Max(0, settings.TotalCapacity) * Math.Clamp(settings.ReservationAllocationPercent, 0, 100) / 100m);
+        Math.Clamp(settings.ReservationAllocationSlots, 0, Math.Max(0, settings.TotalCapacity));
 
     // Half-open intervals: an ending booking releases its space before a new one starts.
     public static int GetPeak(IEnumerable<ReservationTimeWindow> windows, TimeSpan start, TimeSpan end)
@@ -29,6 +29,6 @@ public static class ReservationCapacityPolicy
     public static ReservationAvailability Describe(SystemSettingsDto settings, int booked)
     {
         var capacity = GetCapacity(settings);
-        return new(settings.TotalCapacity, settings.ReservationAllocationPercent, capacity, booked, Math.Max(0, capacity - booked));
+        return new(settings.TotalCapacity, capacity, booked, Math.Max(0, capacity - booked));
     }
 }

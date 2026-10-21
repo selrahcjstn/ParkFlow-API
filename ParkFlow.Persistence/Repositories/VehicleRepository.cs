@@ -7,10 +7,12 @@ namespace ParkFlow.Persistence.Repositories;
 public class VehicleRepository : IVehicleRepository
 {
     private readonly AppDbContext _appDbContext;
+    private readonly ICacheService? _cache;
 
-    public VehicleRepository(AppDbContext appDbContext)
+    public VehicleRepository(AppDbContext appDbContext, ICacheService? cache = null)
     {
         _appDbContext = appDbContext;
+        _cache = cache;
     }
 
     public async Task AddAsync(Vehicle vehicle)
@@ -19,13 +21,18 @@ public class VehicleRepository : IVehicleRepository
         {
             await _appDbContext.Set<Vehicle>().AddAsync(vehicle);
             await _appDbContext.SaveChangesAsync();
-        });
+        }, ownerId: vehicle.OwnerId);
+        await InvalidateAsync();
     }
 
     public async Task DeleteAsync(Vehicle vehicle)
     {
-        _appDbContext.Set<Vehicle>().Remove(vehicle);
-        await _appDbContext.SaveChangesAsync();
+        await VerificationMutation.RunAsync(_appDbContext, VerificationType.Vehicle, vehicle.Id, async () =>
+        {
+            _appDbContext.Set<Vehicle>().Remove(vehicle);
+            await _appDbContext.SaveChangesAsync();
+        }, ownerId: vehicle.OwnerId);
+        await InvalidateAsync();
     }
 
     public Task<Vehicle?> GetByIdAsync(Guid id)
@@ -97,6 +104,14 @@ public class VehicleRepository : IVehicleRepository
             var entry = _appDbContext.Entry(vehicle);
             if (entry.State == EntityState.Detached) _appDbContext.Set<Vehicle>().Update(vehicle);
             await _appDbContext.SaveChangesAsync();
-        });
+        }, ownerId: vehicle.OwnerId);
+        await InvalidateAsync();
+    }
+    private async Task InvalidateAsync()
+    {
+        if (_cache == null) return;
+        await _cache.RemoveByPrefixAsync(ParkFlow.Application.Common.CacheKeys.UserPrefix);
+        await _cache.RemoveByPrefixAsync(ParkFlow.Application.Common.CacheKeys.VehiclePrefix);
+        await _cache.RemoveByPrefixAsync(ParkFlow.Application.Common.CacheKeys.DashboardPrefix);
     }
 }

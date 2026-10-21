@@ -168,14 +168,9 @@ public static class CorTextVerification
         var courseAbbreviation = Regex.Match(subject.Course ?? "", @"\(([^)]+)\)").Groups[1].Value;
         if (string.IsNullOrWhiteSpace(courseAbbreviation) || Compact(courseAbbreviation) != Compact(fields.Course))
             Check(fields.Course, subject.Course, "Course", CourseKey);
-        Check(fields.AcademicYear, policy.AcademicYear, "Academic year", Compact);
-        Check(fields.Semester, policy.Semester, "Semester", SemesterKey);
+        issues.AddRange(CorAcademicTerm.Validate(fields));
         if (!string.IsNullOrWhiteSpace(fields.Section)) Check(CorStudentMapping.Section(fields.Section), CorStudentMapping.Section(subject.Section), "Section", Normalize);
         if (!string.IsNullOrWhiteSpace(fields.YearLevel)) Check(fields.YearLevel, subject.YearLevel?.ToString(CultureInfo.InvariantCulture), "Year level", Compact);
-        if (string.IsNullOrWhiteSpace(policy.AcademicYear) || string.IsNullOrWhiteSpace(policy.Semester))
-            issues.Add("University academic term policy has not been configured.");
-        if (!string.IsNullOrWhiteSpace(subject.AcademicTerm) && !Compact(subject.AcademicTerm).Contains(Compact(policy.AcademicYear)))
-            issues.Add("Submitted academic term does not match university policy.");
         return issues;
 
         void Check(string? actual, string? expected, string label, Func<string?, string> normalize)
