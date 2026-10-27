@@ -115,7 +115,7 @@ public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result
                 EntryTime: activeSession?.EntryTime,
                 Purpose: activeSession?.Purpose,
                 Destination: activeSession?.Destination,
-                EntryFee: SystemSettingsStore.Current.ForVehicle(visitor.VehicleType).EntryFee,
+                EntryFee: 0m,
                 DriversLicenseUrl: activeSession?.DriversLicenseUrl ?? visitor.DriversLicenseUrl, ProfilePictureUrl: activeSession?.ProfilePictureUrl ?? visitor.ProfilePictureUrl, VehiclePictureUrl: activeSession?.VehiclePictureUrl ?? visitor.VehiclePictureUrl
             );
 
@@ -129,7 +129,7 @@ public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result
             IsVisitor: false,
             IsInside: false,
             PlateNumber: normalizedPlate,
-            EntryFee: null
+            EntryFee: 0m
         ), "Plate not found in system.");
     }
 }

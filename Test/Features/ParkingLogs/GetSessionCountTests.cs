@@ -271,7 +271,7 @@ public class FakeParkingLogRepositoryWithActiveLogs : IParkingLogRepository
         _activeLogs = activeLogs;
     }
 
-    public Task<bool> CompleteExitAsync(ParkingLog log, Violation? charge, IReadOnlyCollection<ParkingReservation> reservations, CancellationToken ct = default)
+    public Task<bool> CompleteExitAsync(ParkingLog log, IReadOnlyCollection<ParkingReservation> reservations, CancellationToken ct = default)
         => throw new NotSupportedException("This test double only supports entry and read operations.");
     public Task AddParkingLogAsync(ParkingLog parkingLog) => Task.CompletedTask;
     public Task<ParkingLog?> GetActiveParkingLogByVehicleIdAsync(Guid vehicleId) => Task.FromResult<ParkingLog?>(null);

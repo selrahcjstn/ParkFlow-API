@@ -78,7 +78,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             return Result<CreateParkingLogResponse>.Failure(
                 "This plate is not registered. Use visitor entry to record it.", ErrorCode.NotFound);
 
-        var chargeUnscheduledFee = false;
+        var isUnscheduledEntry = false;
 
         // 2. Fetch owner profile
         var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
@@ -111,15 +111,6 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
                 conflictResponse,
                 "Vehicle is already parked.",
                 ErrorCode.Conflict);
-        }
-
-        // 3b. Check active violations
-        var activeViolationCount = await _violationRepository.GetActiveViolationCountAsync(vehicle.Id, vehicle.OwnerId);
-        if (activeViolationCount > 0)
-        {
-            return Result<CreateParkingLogResponse>.Failure(
-                "Entry denied. Please settle all unpaid violations before entering campus.",
-                ErrorCode.Forbidden);
         }
 
         // 4. Check guard or admin exists
@@ -178,7 +169,6 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             r.Type != ReservationType.Special && philippinesNow.TimeOfDay > r.EndTime);
 
         var systemSettings = SystemSettingsStore.Current;
-        var vehicleRates = systemSettings.ForVehicle(vehicle.VehicleType);
         var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
 
         if (admin == null && !isGuest)
@@ -269,28 +259,18 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
 
             if (todaySchedules.Count == 0)
             {
-                if (!request.AcceptUnscheduledFee)
-                    return Result<CreateParkingLogResponse>.Failure(
-                        new CreateParkingLogResponse { FeeOptionAvailable = true, EntryFee = vehicleRates.EntryFee },
-                        $"No class or work schedule for today. You may continue with a ₱{vehicleRates.EntryFee:0.00} parking fee, payable on exit.",
-                        ErrorCode.Forbidden);
 
-                chargeUnscheduledFee = true;
+                isUnscheduledEntry = true;
             }
 
-            if (!chargeUnscheduledFee)
+            if (!isUnscheduledEntry)
             {
                 var validSchedule = todaySchedules.FirstOrDefault(s => _scheduleService.CanEnter(philippinesNow, s));
                 if (validSchedule == null)
                 {
                     if (hasEndedReservation)
                     {
-                        if (!request.AcceptUnscheduledFee)
-                            return Result<CreateParkingLogResponse>.Failure(
-                                new CreateParkingLogResponse { FeeOptionAvailable = true, EntryFee = vehicleRates.EntryFee },
-                                $"Your reservation has ended and there is no valid class schedule now. You may continue with a ₱{vehicleRates.EntryFee:0.00} parking charge, payable on exit.",
-                                ErrorCode.Forbidden);
-                        chargeUnscheduledFee = true;
+                        isUnscheduledEntry = true;
                     }
                     else
                     {
@@ -310,13 +290,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
                                     $"Entry denied: Too early for class schedule. Earliest allowed entry is {DateTime.Today.Add(earliestStart):hh:mm tt}.",
                                     ErrorCode.BadRequest);
 
-                            if (!request.AcceptUnscheduledFee)
-                                return Result<CreateParkingLogResponse>.Failure(
-                                    new CreateParkingLogResponse { FeeOptionAvailable = true, EntryFee = vehicleRates.EntryFee },
-                                    $"Your class schedule starts later today. You may enter now with a one-time ₱{vehicleRates.EntryFee:0.00} parking charge for this visit. The charge remains due when your class schedule starts.",
-                                    ErrorCode.Forbidden);
-
-                            chargeUnscheduledFee = true;
+                            isUnscheduledEntry = true;
                         }
                         else
                         {
@@ -341,7 +315,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         }
 
         // 5. Create Entry with manual method
-        var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard?.UserProfileId, chargeUnscheduledFee || isGuest ? EntryMethod.Manual : EntryMethod.ManualScheduled);
+        var parkingLog = _parkingService.CreateEntry(vehicle.Id, guard?.UserProfileId, isUnscheduledEntry || isGuest ? EntryMethod.Manual : EntryMethod.ManualScheduled);
         await _parkingLogRepository.AddParkingLogAsync(parkingLog);
 
         var roleDetails = _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin);
@@ -370,7 +344,6 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             MaximumExitTime = PersonnelParkingPolicy.IsFaculty(personnel) ? null : maximumExitTimeUtc,
             EntryMethod = parkingLog.EntryMethod.ToString(),
             GuardName = guardName,
-            EntryFee = !PersonnelParkingPolicy.IsFaculty(personnel) && (chargeUnscheduledFee || isGuest) ? vehicleRates.EntryFee : 0m,
             IssuedBy = guardName
         };
 

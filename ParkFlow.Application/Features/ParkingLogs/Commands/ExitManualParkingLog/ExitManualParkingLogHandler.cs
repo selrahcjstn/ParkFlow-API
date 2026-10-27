@@ -139,21 +139,14 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
         var exitTime = DateTime.UtcNow;
 
         _parkingService.MarkExit(active);
-        Violation? pendingCharge = null;
         var completedReservations = new List<ParkingReservation>();
 
-        var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
+        var corSubmissions = await _corSubmissionRepository.GetByUserIdsAsync([vehicle.OwnerId]);
         var verifiedCor = corSubmissions.FirstOrDefault(c => c.UserAccountId == vehicle.OwnerId && c.VerificationStatus == CorVerificationStatus.Verified);
 
         var endTime = exitTime;
         DateTime? maximumExitTime = null;
         double overstayTime = 0;
-        decimal penaltyFee = 0m;
-        bool isViolation = false;
-        Guid? violationId = null;
-        string? violationType = null;
-        string? settlementStatus = null;
-        string? referenceNumber = null;
 
         var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(active.EntryTime);
         var philippinesExit = ParkingTimeHelper.ConvertUtcToPhilippinesTime(exitTime);
@@ -183,174 +176,13 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
         var employeePersonnel = employeeProfile == null ? null : await _personnelRepository.GetByUserProfileIdAsync(employeeProfile.Id);
         var isPersonnelParking = PersonnelParkingPolicy.AppliesTo(employeePersonnel);
         var systemSettings = SystemSettingsStore.Current;
-        var vehicleRates = systemSettings.ForVehicle(vehicle.VehicleType);
-        var gracePeriodMinutes = systemSettings.IsGracePeriodEnabled ? systemSettings.GracePeriodMinutes : 0;
 
-        var savedCharge = await _violationRepository.GetByLogIdAsync(active.Id);
-        if (savedCharge != null)
-        {
-            penaltyFee = savedCharge.PenaltyFee;
-            violationId = savedCharge.Id; violationType = savedCharge.ViolationType.ToString();
-            settlementStatus = savedCharge.SettlementStatus.ToString(); referenceNumber = savedCharge.ReferenceNumber;
-            isViolation = true;
-        }
-        else if (PersonnelParkingPolicy.IsFaculty(employeePersonnel))
-        {
-            // Faculty are exempt from all new parking charges, including overstay.
-            maximumExitTime = null;
-        }
-        else if (isPersonnelParking)
-        {
-            maximumExitTime = PersonnelParkingPolicy.GetDeadlineUtc(active.EntryTime, systemSettings);
-            overstayTime = PersonnelParkingPolicy.GetChargeDuration(active.EntryTime, exitTime, systemSettings).TotalHours;
-            penaltyFee = PersonnelParkingPolicy.CalculateCharge(active.EntryTime, exitTime, systemSettings, vehicle.VehicleType);
-            if (penaltyFee > 0m)
-            {
-                var violation = new Violation(active.Id, penaltyFee, ViolationType.Overstay);
-                pendingCharge = violation;
-                isViolation = true;
-                violationId = violation.Id;
-                violationType = violation.ViolationType.ToString();
-                settlementStatus = violation.SettlementStatus.ToString();
-                referenceNumber = violation.ReferenceNumber;
-            }
-        }
-        else if (active.EntryMethod == EntryMethod.Manual)
-        {
-            var entryMidnightUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
-            maximumExitTime = entryMidnightUtc;
-
-            var overdueDays = (philippinesExit.Date - philippinesEntry.Date).Days;
-            if (overdueDays < 0) overdueDays = 0;
-
-            if (overdueDays > 0)
-            {
-                penaltyFee = vehicleRates.EntryFee + (overdueDays * vehicleRates.DailyOverstayFee);
-                overstayTime = (exitTime - entryMidnightUtc).TotalHours;
-                violationType = "Manual Parking Overstay";
-                var violation = new Violation(active.Id, penaltyFee, ViolationType.Overstay);
-                pendingCharge = violation;
-                isViolation = true;
-                violationId = violation.Id;
-                settlementStatus = violation.SettlementStatus.ToString();
-                referenceNumber = violation.ReferenceNumber;
-            }
-            else
-            {
-                penaltyFee = vehicleRates.EntryFee;
-                overstayTime = 0;
-                violationType = "Manual Parking Charge";
-                var violation = new Violation(active.Id, penaltyFee, ViolationType.ManualParkingCharge);
-                pendingCharge = violation;
-                isViolation = true;
-                violationId = violation.Id;
-                settlementStatus = violation.SettlementStatus.ToString();
-                referenceNumber = violation.ReferenceNumber;
-            }
-        }
-        else if (entryReservation != null)
-        {
-            if (entryReservation.Type == ReservationType.Special)
-            {
-                maximumExitTime = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(23, 59, 59));
-                penaltyFee = 0m;
-                overstayTime = 0;
-                isViolation = false;
-            }
-            else
-            {
-                var resEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, entryReservation.EndTime);
-                maximumExitTime = resEndTimeUtc.AddMinutes(gracePeriodMinutes);
-
-                var overdueDays = (philippinesExit.Date - philippinesEntry.Date).Days;
-                if (overdueDays < 0) overdueDays = 0;
-
-                if (maximumExitTime.HasValue && exitTime > maximumExitTime.Value)
-                {
-                    var overstayDuration = exitTime - maximumExitTime.Value;
-                    overstayTime = overstayDuration.TotalHours;
-                    penaltyFee = vehicleRates.EntryFee + vehicleRates.DailyOverstayFee + (overdueDays * vehicleRates.DailyOverstayFee);
-                    violationType = "Reservation Overstay";
-                    var violation = new Violation(active.Id, penaltyFee, ViolationType.Overstay);
-                    pendingCharge = violation;
-                    isViolation = true;
-                    violationId = violation.Id;
-                    settlementStatus = violation.SettlementStatus.ToString();
-                    referenceNumber = violation.ReferenceNumber;
-                }
-                else
-                {
-                    penaltyFee = vehicleRates.EntryFee;
-                    overstayTime = 0;
-                    violationType = "Reservation Parking Charge";
-                    var violation = new Violation(active.Id, penaltyFee, ViolationType.ReservationCharge);
-                    pendingCharge = violation;
-                    isViolation = true;
-                    violationId = violation.Id;
-                    settlementStatus = violation.SettlementStatus.ToString();
-                    referenceNumber = violation.ReferenceNumber;
-                }
-            }
-        }
-        else
-        {
-            if (verifiedCor != null)
-            {
-                var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-                var entrySchedule = ScheduleService.FindEntrySchedule(schedules, philippinesEntry);
-
-                if (entrySchedule != null)
-                {
-                    var scheduleEndTimeUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, entrySchedule.EndTime);
-                    maximumExitTime = scheduleEndTimeUtc.AddMinutes(gracePeriodMinutes);
-                }
-            }
-
-            // If no schedule or reservation was found for entry day, apply default campus closing time on entry day (10:00 PM)
-            if (maximumExitTime == null)
-            {
-                var defaultClosingUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(22, 0, 0));
-                maximumExitTime = defaultClosingUtc > active.EntryTime ? defaultClosingUtc : active.EntryTime.AddHours(4);
-            }
-
-            if (maximumExitTime.HasValue && exitTime > maximumExitTime.Value)
-            {
-                var overstayDuration = exitTime - maximumExitTime.Value;
-                overstayTime = overstayDuration.TotalHours;
-                penaltyFee = _violationService.CalculatePenaltyForVehicle(overstayDuration, vehicle.VehicleType);
-
-                if (penaltyFee > 0m)
-                {
-                    var violation = new Violation(
-                        active.Id,
-                        penaltyFee);
-                    pendingCharge = violation;
-                    isViolation = true;
-                    violationId = violation.Id;
-                    violationType = violation.ViolationType.ToString();
-                    settlementStatus = violation.SettlementStatus.ToString();
-                    referenceNumber = violation.ReferenceNumber;
-                }
-            }
-        }
-
-        if (!PersonnelParkingPolicy.IsFaculty(employeePersonnel) && !isViolation && entryReservation?.Type != ReservationType.Special)
-        {
-            var existingViolation = await _violationRepository.GetByLogIdAsync(active.Id);
-            if (existingViolation != null)
-            {
-                isViolation = true;
-                violationId = existingViolation.Id;
-                violationType = existingViolation.ViolationType.ToString();
-                settlementStatus = existingViolation.SettlementStatus.ToString();
-                referenceNumber = existingViolation.ReferenceNumber ?? $"VIO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
-                penaltyFee = existingViolation.PenaltyFee;
-                if (maximumExitTime.HasValue && exitTime > maximumExitTime.Value)
-                {
-                    overstayTime = (exitTime - maximumExitTime.Value).TotalHours;
-                }
-            }
-        }
+        var entrySchedules = verifiedCor == null || isPersonnelParking || active.EntryMethod == EntryMethod.Manual || entryReservation != null
+            ? [] : (await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id)).ToList();
+        var checkoutTiming = ActiveSessionTiming.ResolveCheckout(active.EntryTime, active.EntryMethod, employeePersonnel,
+            entryReservation, ScheduleService.FindEntrySchedule(entrySchedules, philippinesEntry), systemSettings, exitTime);
+        maximumExitTime = checkoutTiming.MaximumExitTime;
+        overstayTime = checkoutTiming.OverstayHours;
 
         if (_reservationRepository != null)
         {
@@ -375,7 +207,7 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
         var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
         if (ownerProfile == null)
             return Result<ExitParkingLogResponse>.Failure("Owner profile not found.", ErrorCode.NotFound);
-        if (!await _parkingLogRepository.CompleteExitAsync(active, pendingCharge, completedReservations, cancellationToken))
+        if (!await _parkingLogRepository.CompleteExitAsync(active, completedReservations, cancellationToken))
             return Result<ExitParkingLogResponse>.Failure("This session has already exited. Refresh the parking history.", ErrorCode.Conflict);
         if (completedReservations.Count > 0)
         {
@@ -416,184 +248,38 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
             EntryTime = active.EntryTime,
             ExitTime = actualExitTime,
             OverstayTime = overstayTime,
-            PenaltyFee = penaltyFee,
-            ReferenceNumber = referenceNumber,
-            SettlementStatus = isViolation ? settlementStatus : "Settled",
             GuardName = guardName,
             IssuedBy = guardName
         };
 
         if (vehicle.OwnerId != Guid.Empty)
         {
-            var notificationDto = new HasViolationNotificationDto
-            {
-                ReferenceNumber = referenceNumber ?? response.ReferenceNumber ?? $"EXIT-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
-                RefNumber = referenceNumber ?? response.ReferenceNumber ?? $"EXIT-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
-                IssuedDate = exitTime,
-                IssuedTime = exitTime,
-                IssuedBy = guardName,
-                OverstayHours = overstayTime,
-                PlateNumber = vehicle.PlateNumber,
-                Amount = penaltyFee,
-                ViolationType = violationType ?? (isViolation ? "Overstay" : "Normal Exit"),
-                IsViolation = isViolation
-            };
-
-            var fullExitPayload = new
-            {
-                ReferenceNumber = referenceNumber ?? response.ReferenceNumber ?? $"EXIT-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
-                RefNumber = referenceNumber ?? response.ReferenceNumber ?? $"EXIT-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
-                IssuedDate = exitTime,
-                IssuedTime = exitTime,
-                IssuedBy = guardName,
-                GuardName = guardName,
-                OverstayHours = overstayTime,
-                PlateNumber = vehicle.PlateNumber,
-                Amount = penaltyFee,
-                PenaltyFee = penaltyFee,
-                ViolationType = violationType ?? (isViolation ? "Overstay" : "Normal Exit"),
-                IsViolation = isViolation,
-                SettlementStatus = isViolation ? settlementStatus : "Settled",
-                IsPaid = !isViolation || settlementStatus == "Settled",
-                ProfilePictureUrl = ownerProfile.ProfilePictureUrl,
-            VehiclePictureUrl = vehicle.VehiclePictureUrl,
-            FirstName = ownerProfile.FirstName,
-                LastName = ownerProfile.LastName,
-                MiddleName = ownerProfile.MiddleName,
-                DriverName = $"{ownerProfile.FirstName} {ownerProfile.LastName}".Trim(),
-                Role = roleDetails.Role,
-                Status = response.Status,
-                Brand = vehicle.Brand,
-                VehicleBrand = vehicle.Brand,
-                VehicleType = vehicle.VehicleType.ToString(),
-                EntryTime = response.EntryTime,
-                ExitTime = response.ExitTime,
-                OverstayTime = overstayTime
-            };
-
             if (_notificationService != null)
-            {
-                var notifTitle = isViolation ? "Parking Violation Issued on Exit" : "Vehicle Exit Recorded";
-                var notifType = isViolation ? "overdue" : "approved";
-                var notifBody = isViolation
-                    ? $"Citation [{violationType ?? "Overstay Citation"}] recorded for vehicle [{vehicle.PlateNumber}] upon exit scan. Fine: ₱{penaltyFee:0.00}. Issued by {guardName}."
-                    : $"Vehicle [{vehicle.PlateNumber}] exit confirmed at campus gate. Issued by {guardName}.";
-                var actionRoute = isViolation ? "/(settings)/violations" : "/(users)/(tabs)/history";
-                var actionText = isViolation ? "Pay Citation" : "View Log History";
-
-                await _notificationService.CreateAndSendNotificationAsync(
-                    vehicle.OwnerId,
-                    notifTitle,
-                    notifBody,
-                    type: notifType,
-                    subtitle: $"Issued by: {guardName}",
-                    referenceCode: referenceNumber ?? response.ReferenceNumber,
-                    vehiclePlate: vehicle.PlateNumber,
-                    actionRoute: actionRoute,
-                    actionText: actionText,
-                    priority: isViolation ? "high" : "low",
-                    issuer: guardName,
-                    driverName: $"{ownerProfile.FirstName} {ownerProfile.LastName}".Trim(),
-                    driverRole: roleDetails.Role,
-                    vehicleBrand: vehicle.Brand,
-                    signalRData: fullExitPayload
-                );
-            }
-
+                await _notificationService.CreateAndSendNotificationAsync(vehicle.OwnerId, "Vehicle Exit Recorded",
+                    $"Vehicle [{vehicle.PlateNumber}] exit confirmed at campus gate. Issued by {guardName}.",
+                    type: "approved", subtitle: $"Issued by: {guardName}", vehiclePlate: vehicle.PlateNumber,
+                    actionRoute: "/(users)/(tabs)/history", actionText: "View Log History", issuer: guardName,
+                    driverName: $"{ownerProfile.FirstName} {ownerProfile.LastName}".Trim(), driverRole: roleDetails.Role,
+                    vehicleBrand: vehicle.Brand, signalRData: response);
             try
             {
                 await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ParkingSessionUpdated", response);
-                if (isViolation)
-                {
-                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReceiveViolation", fullExitPayload);
-                }
-                else
-                {
-                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ExitResponse", fullExitPayload);
-                    await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReceiveParkingReceipt", fullExitPayload);
-                }
-            }
-            catch
-            {
-                // Ignore SignalR dispatch failure
-            }
-
-            try
-            {
+                await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ExitResponse", response);
+                await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReceiveParkingReceipt", response);
                 await _notificationSender.SendToAllAsync("ParkingOccupancyUpdated", new { plateNumber = vehicle.PlateNumber, action = "CheckOut" });
                 await _notificationSender.SendToAllAsync("ParkingSessionUpdated", response);
             }
-            catch
-            {
-                // Ignore SignalR dispatch failure
-            }
-
-            // Gmail Email Notification on Exit ONLY
-            if (_userAccountRepository != null && _emailService != null)
+            catch { /* Realtime delivery must not undo a persisted checkout. */ }
+            if (_emailService != null && _userAccountRepository != null)
             {
                 try
                 {
-                    var ownerAccount = await _userAccountRepository.GetByIdAsync(vehicle.OwnerId);
-                    if (ownerAccount != null && !string.IsNullOrWhiteSpace(ownerAccount.PrimaryEmail))
-                    {
-                        var exitPhTime = ParkingTimeHelper.ConvertUtcToPhilippinesTime(actualExitTime);
-                        var entryPhTime = ParkingTimeHelper.ConvertUtcToPhilippinesTime(active.EntryTime);
-                        var subject = $"ParkFlow Exit Pass Notice - Vehicle [{vehicle.PlateNumber}]";
-
-                        var penaltyText = isViolation
-                            ? $"<span style=\"color: #dc2626; font-weight: bold;\">₱{penaltyFee:0.00} (Overstay Citation)</span>" 
-                            : penaltyFee > 0m
-                                ? $"<span style=\"color: #16a34a; font-weight: bold;\">₱{penaltyFee:0.00} (Reservation Rate)</span>"
-                                : "<span style=\"color: #16a34a; font-weight: bold;\">₱0.00 (Cleared)</span>";
-                        var feeLabel = isViolation ? "Overstay Penalty Fee:" : "Parking Fee:";
-
-                        var bodyHtml = $@"
-                            <div style=""font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 14px; background-color: #ffffff;"">
-                              <div style=""background: linear-gradient(135deg, #d22730 0%, #991b1b 100%); padding: 18px 24px; border-radius: 10px 10px 0 0; text-align: center;"">
-                                <h2 style=""color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.5px;"">ParkFlow Parking Exit Receipt</h2>
-                                <p style=""color: #fecdd3; margin: 4px 0 0; font-size: 12px; font-weight: 600;"">Official Gate Exit Notice</p>
-                              </div>
-                              <div style=""padding: 24px;"">
-                                <p style=""font-size: 15px; color: #1e293b; margin-top: 0;"">Hello <strong>{ownerProfile.FirstName} {ownerProfile.LastName}</strong>,</p>
-                                <p style=""font-size: 14px; color: #475569; line-height: 1.5;"">
-                                  Your registered vehicle <strong>{vehicle.PlateNumber} ({vehicle.Brand})</strong> has successfully logged an exit from the campus parking facility.
-                                </p>
-
-                                <div style=""background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #d22730; padding: 16px; margin: 20px 0; border-radius: 8px;"">
-                                  <table style=""width: 100%; border-collapse: collapse; font-size: 13.5px;"">
-                                    <tr>
-                                      <td style=""padding: 6px 0; color: #64748b;"">Plate Number:</td>
-                                      <td style=""padding: 6px 0; font-weight: bold; color: #0f172a; text-align: right;"">{vehicle.PlateNumber}</td>
-                                    </tr>
-                                    <tr>
-                                      <td style=""padding: 6px 0; color: #64748b;"">Entry Time:</td>
-                                      <td style=""padding: 6px 0; color: #0f172a; text-align: right;"">{entryPhTime:MMMM dd, yyyy · hh:mm tt}</td>
-                                    </tr>
-                                    <tr>
-                                      <td style=""padding: 6px 0; color: #64748b;"">Exit Time:</td>
-                                      <td style=""padding: 6px 0; color: #0f172a; text-align: right;"">{exitPhTime:MMMM dd, yyyy · hh:mm tt}</td>
-                                    </tr>
-                                    <tr>
-                                      <td style=""padding: 6px 0; color: #64748b;"">{feeLabel}</td>
-                                      <td style=""padding: 6px 0; text-align: right;"">{penaltyText}</td>
-                                    </tr>
-                                  </table>
-                                </div>
-
-                                <p style=""font-size: 12.5px; color: #64748b; margin-bottom: 0; line-height: 1.5; text-align: center;"">
-                                  Thank you for utilizing ParkFlow Campus Smart Parking Services.<br/>
-                                  <span style=""font-size: 11px; color: #94a3b8;"">This is an automated system notification. Please do not reply directly to this email.</span>
-                                </p>
-                              </div>
-                            </div>";
-
-                        await _emailService.SendEmailAsync(ownerAccount.PrimaryEmail, subject, bodyHtml);
-                    }
+                    var account = await _userAccountRepository.GetByIdAsync(vehicle.OwnerId);
+                    if (!string.IsNullOrWhiteSpace(account?.PrimaryEmail))
+                        await _emailService.SendEmailAsync(account.PrimaryEmail, "ParkFlow - Vehicle Exit Recorded",
+                            $"Vehicle [{vehicle.PlateNumber}] exited at {ParkingTimeHelper.ConvertUtcToPhilippinesTime(actualExitTime):MMMM dd, yyyy hh:mm tt}. Your parking session has ended.");
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[ExitManualParkingLogHandler] Email notice failed: {ex.Message}");
-                }
+                catch { /* Email delivery must not undo a persisted checkout. */ }
             }
         }
 

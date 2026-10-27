@@ -204,21 +204,18 @@ public class VisitorRepository : IVisitorRepository
             .CountAsync(s => s.Status == VisitSessionStatus.Inside);
     }
 
-    public async Task<bool> CompleteVisitSessionWithChargeAsync(VisitSession session, Violation charge)
+    public async Task<bool> CompleteVisitSessionAsync(VisitSession session)
     {
-        // Save the exit and pending charge together; a failed save must not lose the fee.
+        // The status concurrency token prevents the same visit from exiting twice.
         _context.Entry(session).Property(s => s.Status).OriginalValue = VisitSessionStatus.Inside;
         _context.Entry(session).State = EntityState.Modified;
-        await _context.Violations.AddAsync(charge);
         try
         {
             await _context.SaveChangesAsync();
             return true;
         }
-        catch (DbUpdateException ex) when (ex is DbUpdateConcurrencyException ||
-            ex.InnerException is PostgresException { SqlState: "23505", ConstraintName: "IX_Violations_VisitSessionId" })
+        catch (DbUpdateConcurrencyException)
         {
-            _context.Entry(charge).State = EntityState.Detached;
             _context.Entry(session).State = EntityState.Detached;
             return false;
         }

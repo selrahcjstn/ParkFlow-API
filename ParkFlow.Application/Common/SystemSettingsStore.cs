@@ -5,20 +5,21 @@ namespace ParkFlow.Application.Common
 {
     public class VehicleParkingSettingsDto
     {
+        // Legacy monetary fields stay zero until their contracts retire in Phase 3.
         public int TotalCapacity { get; set; } = 250;
         public int ReservationAllocationSlots { get; set; } = 75;
-        public decimal ViolationRatePerHour { get; set; } = 100m;
-        public decimal BaseFee { get; set; } = 50m;
-        public decimal EntryFee { get; set; } = 20m;
-        public decimal DailyOverstayFee { get; set; } = 100m;
+        public decimal ViolationRatePerHour { get => 0m; set { } }
+        public decimal BaseFee { get => 0m; set { } }
+        public decimal EntryFee { get => 0m; set { } }
+        public decimal DailyOverstayFee { get => 0m; set { } }
         public VehicleParkingSettingsDto Copy() => (VehicleParkingSettingsDto)MemberwiseClone();
     }
 
     public class SystemSettingsDto
     {
-        public decimal ViolationRatePerHour { get; set; } = 100.00m;
-        public string FeeCalculationMode { get; set; } = "per_hour"; // "per_hour", "per_day", "one_time", "one_time_hourly", "no_fee"
-        public decimal BaseFee { get; set; } = 50.00m;
+        public decimal ViolationRatePerHour { get => 0m; set { } }
+        public string FeeCalculationMode { get => "no_fee"; set { } }
+        public decimal BaseFee { get => 0m; set { } }
         public string PersonnelFreeParkingStart { get; set; } = "05:00";
         public string PersonnelFreeParkingEnd { get; set; } = "21:00";
 

@@ -82,50 +82,12 @@ public class GetActiveParkingSessionHandler
 
                 var isPersonnelParking = PersonnelParkingPolicy.AppliesTo(log.Vehicle.Owner?.UserProfile?.Personnel);
                 var nowUtc = DateTime.UtcNow;
-                var vehicleRates = sysSettings.ForVehicle(log.Vehicle.VehicleType);
                 var amount = 0m;
                 var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
                 var timing = ActiveSessionTiming.Resolve(log, nowUtc, sysSettings, corSubmissions,
                     schedulesBySubmission, reservationsByOwner[log.Vehicle.OwnerId]);
                 var maximumExitTimeUtc = timing.DeadlineUtc;
                 var overstayHours = ActiveSessionTiming.GetOverstayHours(log, nowUtc, sysSettings, maximumExitTimeUtc);
-
-                if (PersonnelParkingPolicy.IsFaculty(log.Vehicle.Owner?.UserProfile?.Personnel)) { amount = 0m; overstayHours = 0; }
-                else if (isPersonnelParking)
-                {
-                    amount = PersonnelParkingPolicy.CalculateCharge(log.EntryTime, nowUtc, sysSettings, log.Vehicle.VehicleType);
-                }
-                else if (log.EntryMethod == EntryMethod.Manual)
-                {
-                    var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(nowUtc);
-                    var overdueDays = (philippinesNow.Date - philippinesEntry.Date).Days;
-                    if (overdueDays < 0) overdueDays = 0;
-
-                    amount = vehicleRates.EntryFee + (overdueDays * vehicleRates.DailyOverstayFee);
-                }
-                else if (timing.HasReservation)
-                {
-                    var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(nowUtc);
-                    var overdueDays = (philippinesNow.Date - philippinesEntry.Date).Days;
-                    if (overdueDays < 0) overdueDays = 0;
-
-                    if (overstayHours > 0)
-                    {
-                        amount = vehicleRates.EntryFee + vehicleRates.DailyOverstayFee + (overdueDays * vehicleRates.DailyOverstayFee);
-                    }
-                    else
-                    {
-                        amount = vehicleRates.EntryFee;
-                    }
-                }
-                else
-                {
-                    if (overstayHours > 0)
-                    {
-                        var overstayDuration = nowUtc - maximumExitTimeUtc;
-                        amount = _violationService.CalculatePenaltyForVehicle(overstayDuration, log.Vehicle.VehicleType);
-                    }
-                }
 
                 var ownerProfile = log.Vehicle.Owner?.UserProfile;
                 var ownerPhoneNumber = ownerProfile?.UserAccount?.PhoneNumber

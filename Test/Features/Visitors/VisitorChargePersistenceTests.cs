@@ -34,51 +34,41 @@ public class VisitorChargePersistenceTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ExitAndChargeAreSavedTogether_ConcurrentExitIsRejected(bool conflicting)
+    public async Task FreeExitPersistsOperationalStateAndRejectsConcurrentExit(bool conflicting)
     {
         using var context = new RecordingContext(Options()) { Conflicting = conflicting };
-        var session = new VisitSession(Guid.NewGuid());
-        context.Attach(session);
-        session.MarkExit();
-        var charge = Violation.CreateVisitorCharge(session);
-        var result = await new VisitorRepository(context).CompleteVisitSessionWithChargeAsync(session, charge);
-        Assert.Equal(!conflicting, result);
-        Assert.Equal(1, context.SaveCount);
-        Assert.True(context.SawExitAndCharge);
+        var session = new VisitSession(Guid.NewGuid()); context.Attach(session); session.MarkExit();
+        var result = await new VisitorRepository(context).CompleteVisitSessionAsync(session);
+        Assert.Equal(!conflicting, result); Assert.Equal(1, context.SaveCount); Assert.True(context.SawExit);
     }
 
     [Fact]
-    public async Task DuplicateChargeConstraintIsHandled_ButOtherDatabaseErrorsAreNotHidden()
+    public async Task DatabaseErrorsAreNotHiddenAndHistoricalChargesAreUnchanged()
     {
-        var session = new VisitSession(Guid.NewGuid());
-        session.MarkExit();
-        using var duplicate = new RecordingContext(Options()) { DuplicateCharge = true };
-        Assert.False(await new VisitorRepository(duplicate).CompleteVisitSessionWithChargeAsync(session, Violation.CreateVisitorCharge(session)));
-        using var unavailable = new RecordingContext(Options()) { DatabaseUnavailable = true };
-        await Assert.ThrowsAsync<DbUpdateException>(() => new VisitorRepository(unavailable)
-            .CompleteVisitSessionWithChargeAsync(session, Violation.CreateVisitorCharge(session)));
+        var session = new VisitSession(Guid.NewGuid()); session.MarkExit();
+        using var context = new RecordingContext(Options()) { DatabaseUnavailable = true };
+        var historicalCharge = Violation.CreateVisitorCharge(session); context.Attach(historicalCharge);
+        await Assert.ThrowsAsync<DbUpdateException>(() => new VisitorRepository(context).CompleteVisitSessionAsync(session));
+        Assert.Equal(EntityState.Unchanged, context.Entry(historicalCharge).State);
+        Assert.Equal(20m, historicalCharge.PenaltyFee);
     }
 
     private sealed class RecordingContext(DbContextOptions<AppDbContext> options) : AppDbContext(options)
     {
         public bool Conflicting { get; init; }
-        public bool DuplicateCharge { get; init; }
         public bool DatabaseUnavailable { get; init; }
         public int SaveCount { get; private set; }
-        public bool SawExitAndCharge { get; private set; }
+        public bool SawExit { get; private set; }
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             SaveCount++;
             var session = Assert.Single(ChangeTracker.Entries<VisitSession>());
-            var charge = Assert.Single(ChangeTracker.Entries<Violation>());
-            SawExitAndCharge = session.State == EntityState.Modified && charge.State == EntityState.Added &&
-                session.Property(s => s.Status).OriginalValue == VisitSessionStatus.Inside &&
-                session.Entity.Status == VisitSessionStatus.Completed && charge.Entity.PenaltyFee == 20m;
+            Assert.All(ChangeTracker.Entries<Violation>(), charge => Assert.Equal(EntityState.Unchanged, charge.State));
+            SawExit = session.State == EntityState.Modified && session.Property(s => s.Status).OriginalValue == VisitSessionStatus.Inside
+                && session.Entity.Status == VisitSessionStatus.Completed && session.Entity.ExitTime != null;
             if (Conflicting) throw new DbUpdateConcurrencyException("Another guard already recorded exit.");
-            if (DuplicateCharge) throw new DbUpdateException("Duplicate charge", new PostgresException(
-                "Charge already exists", "ERROR", "ERROR", "23505", constraintName: "IX_Violations_VisitSessionId"));
             if (DatabaseUnavailable) throw new DbUpdateException("Database unavailable");
-            return Task.FromResult(2);
+            return Task.FromResult(1);
         }
     }
 }

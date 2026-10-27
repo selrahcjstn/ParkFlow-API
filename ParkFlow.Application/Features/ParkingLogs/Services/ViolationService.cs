@@ -33,35 +33,7 @@ public class ViolationService : IViolationService
         return duration > TimeSpan.Zero ? duration : TimeSpan.Zero;
     }
 
-    public decimal CalculatePenalty(TimeSpan overstayDuration, decimal? customHourlyRate = null) =>
-        CalculatePenalty(overstayDuration, customHourlyRate, SystemSettingsStore.Current.BaseFee);
-
-    public decimal CalculatePenaltyForVehicle(TimeSpan duration, VehicleType vehicleType)
-    {
-        var rates = SystemSettingsStore.Current.ForVehicle(vehicleType);
-        return CalculatePenalty(duration, rates.ViolationRatePerHour, rates.BaseFee);
-    }
-
-    private decimal CalculatePenalty(TimeSpan overstayDuration, decimal? customHourlyRate, decimal baseFee)
-    {
-        if (overstayDuration <= TimeSpan.Zero)
-            return 0m;
-
-        var settings = SystemSettingsStore.Current;
-        var mode = (settings.FeeCalculationMode ?? "per_hour").ToLowerInvariant();
-
-        if (mode == "no_fee")
-            return 0m;
-
-        var hours = Math.Max(1, (int)Math.Ceiling(overstayDuration.TotalHours));
-        var hourlyRate = customHourlyRate ?? settings.ViolationRatePerHour;
-
-        return mode switch
-        {
-            "per_day" => hourlyRate,
-            "one_time" => baseFee > 0m ? baseFee : hourlyRate,
-            "one_time_hourly" => baseFee + (hours * hourlyRate),
-            "per_hour" or _ => hours * hourlyRate,
-        };
-    }
+    // Compatibility methods retained until legacy violation services are removed in Phase 3.
+    public decimal CalculatePenalty(TimeSpan overstayDuration, decimal? customHourlyRate = null) => 0m;
+    public decimal CalculatePenaltyForVehicle(TimeSpan duration, VehicleType vehicleType) => 0m;
 }

@@ -52,12 +52,6 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
         if (user == null)
             return Result<ParkingReservationDto>.Failure("User not found.", ErrorCode.NotFound);
 
-        if (_violationRepository != null && (await _violationRepository.GetActiveViolationCountByUserIdAsync(user.Id)) > 0)
-        {
-            return Result<ParkingReservationDto>.Failure(
-                "Please settle all unpaid violations before creating a reservation.",
-                ErrorCode.Forbidden);
-        }
 
         var isAdmin = user.UserProfile?.Admin != null;
         var isGuard = user.UserProfile?.Guard != null;

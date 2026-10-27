@@ -140,9 +140,6 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         if (vehicle == null)
             return Result<CreateParkingLogResponse>.Failure("Invalid QR code. Vehicle not found.", ErrorCode.NotFound);
 
-        var activeViolationCount = await _violationRepository.GetActiveViolationCountAsync(vehicle.Id, vehicle.OwnerId);
-        if (activeViolationCount > 0)
-            return Result<CreateParkingLogResponse>.Failure("Entry denied. Please settle all unpaid violations before entering campus.", ErrorCode.Forbidden);
 
         var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
 

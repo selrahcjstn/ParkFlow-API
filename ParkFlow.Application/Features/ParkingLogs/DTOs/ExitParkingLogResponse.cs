@@ -15,9 +15,10 @@ public class ExitParkingLogResponse
     public DateTime EntryTime { get; set; }
     public DateTime ExitTime { get; set; }
     public double OverstayTime { get; set; }
+    // Deprecated compatibility fields; no new charge or settlement is created.
     public decimal PenaltyFee { get; set; }
     public string? ReferenceNumber { get; set; }
-    public string? SettlementStatus { get; set; }
+    public string? SettlementStatus { get; set; } = "NotRequired";
     public string? GuardName { get; set; }
     public string? IssuedBy { get; set; }
 }

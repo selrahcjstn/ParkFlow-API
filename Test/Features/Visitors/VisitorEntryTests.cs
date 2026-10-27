@@ -42,7 +42,7 @@ public class VisitorEntryTests
         var result = await handler.Handle(Entry(), CancellationToken.None);
         Assert.True(result.IsSuccess);
         Assert.False(result.Data!.IsReturning);
-        Assert.Equal(20m, result.Data.EntryFee);
+        Assert.Equal(0m, result.Data.EntryFee);
         Assert.Equal("Juan", visitors.Visitor!.FullName);
         Assert.Single(visitors.Sessions);
         Assert.Null(await vehicles.GetByPlateNumberAsync("ABC123"));
@@ -59,7 +59,7 @@ public class VisitorEntryTests
         var result = await handler.Handle(Entry() with { FullName = "Visitor", ContactNumber = "", Brand = "Changed" }, CancellationToken.None);
         Assert.True(result.IsSuccess);
         Assert.True(result.Data!.IsReturning);
-        Assert.Equal(20m, result.Data.EntryFee);
+        Assert.Equal(0m, result.Data.EntryFee);
         Assert.Equal(id, result.Data.VisitorId);
         Assert.Equal("Juan", result.Data.FullName);
         Assert.Equal("Toyota", result.Data.Brand);
@@ -109,7 +109,7 @@ public class VisitorEntryTests
         var result = await handler.Handle(new("ABC123"), default);
         Assert.True(result.IsSuccess);
         Assert.Equal(returning ? "Visitor" : "Unknown", result.Data!.LookupType);
-        Assert.Equal(20m, result.Data.EntryFee);
+        Assert.Equal(0m, result.Data.EntryFee);
         Assert.Empty(visitors.Sessions);
     }
 
@@ -120,21 +120,20 @@ public class VisitorEntryTests
     public async Task VisitorExit_CreatesPendingTwentyPesoCharge_AndDoesNotChargeTwice()
     {
         var visitors = new VisitorRepositoryFake();
-        var entry = await CreateHandler(visitors, new FakeVehicleRepository()).Handle(Entry(), default);
+        var visitor = new Visitor("Juan", "09123456789", "ABC123", VehicleType.Car, "Toyota");
+        await visitors.AddAsync(visitor);
+        await visitors.AddVisitSessionAsync(new VisitSession(visitor.Id));
         var handler = new ParkFlow.Application.Features.Visitors.Commands.ExitVisitorSession.ExitVisitorSessionHandler(
             visitors, new FakeUserProfileRepository(), new FakeGuardRepository(), new Test.Features.ParkingLogs.FakeAdminRepository());
         var exit = await handler.Handle(new("ABC123", null), default);
         Assert.True(exit.IsSuccess);
-        Assert.Equal(entry.Data!.EntryFee, exit.Data!.ChargeAmount);
-        Assert.Equal("Pending", exit.Data.SettlementStatus);
-        Assert.StartsWith("CHG-", exit.Data.ReferenceNumber);
-        var charge = Assert.Single(visitors.Charges);
-        Assert.Null(charge.ParkingLogId);
-        Assert.Equal(entry.Data.SessionId, charge.VisitSessionId);
-        Assert.Equal(ViolationType.ManualParkingCharge, charge.ViolationType);
+        Assert.Equal(0m, exit.Data!.ChargeAmount);
+        Assert.Equal("NotRequired", exit.Data.SettlementStatus);
+        Assert.Empty(exit.Data.ReferenceNumber);
+        Assert.Empty(visitors.Charges);
         Assert.Equal(VisitSessionStatus.Completed, visitors.Sessions.Single().Status);
         Assert.False((await handler.Handle(new("ABC123", null), default)).IsSuccess);
-        Assert.Single(visitors.Charges);
+        Assert.Empty(visitors.Charges);
     }
 
     [Fact]
@@ -169,14 +168,11 @@ public class VisitorEntryTests
             new ParkFlow.Application.Features.Violations.Commands.ProcessViolationPayment.ProcessViolationPaymentCommandValidator(),
             new FakeSignalRNotificationSender(), adminRepository: admins);
         var receipt = await payments.Handle(new(charge.ReferenceNumber, profile.UserAccountId), default);
-        Assert.True(receipt.IsSuccess);
-        Assert.Equal("Juan", receipt.Data!.OwnerFirstName);
-        Assert.Equal("ABC123", receipt.Data.PlateNumber);
-        Assert.Equal("Toyota", receipt.Data.VehicleBrand);
-        Assert.Equal(20m, receipt.Data.PenaltyFee);
-        Assert.Equal("Settled", receipt.Data.SettlementStatus);
-        Assert.False((await payments.Handle(new(charge.ReferenceNumber, profile.UserAccountId), default)).IsSuccess);
-        Assert.Empty((await history.Handle(new(profile.UserAccountId, 1, 20, true), default)).Data!.Items);
+        Assert.False(receipt.IsSuccess);
+        Assert.Contains("read-only", receipt.Message);
+        Assert.Equal(20m, charge.PenaltyFee);
+        Assert.Equal(SettlementStatus.Pending, charge.SettlementStatus);
+        Assert.Single((await history.Handle(new(profile.UserAccountId, 1, 20, true), default)).Data!.Items);
     }
 
     [Fact]
@@ -218,7 +214,7 @@ public class VisitorEntryTests
         public Task AddVisitSessionAsync(VisitSession session) { session.Visitor = Visitor!; Sessions.Add(session); return Task.CompletedTask; }
         public Task UpdateAsync(Visitor visitor) => Task.CompletedTask;
         public Task UpdateVisitSessionAsync(VisitSession session) => Task.CompletedTask;
-        public Task<bool> CompleteVisitSessionWithChargeAsync(VisitSession session, Violation charge) { Charges.Add(charge); return Task.FromResult(true); }
+        public Task<bool> CompleteVisitSessionAsync(VisitSession session) { return Task.FromResult(true); }
         public Task DeleteAsync(Visitor visitor) => throw new NotImplementedException();
         public Task<VisitorDetailDto?> GetDetailPageAsync(Guid id, int page, int size)
         {

@@ -50,9 +50,9 @@ public class ExitManualParkingLogTests
     }
 
     [Theory]
-    [InlineData(EntryMethod.Manual, 20)]
-    [InlineData(EntryMethod.ManualScheduled, 0)]
-    public async Task Handle_ShouldChargeOnlyPaidManualEntry(EntryMethod method, int expectedFee)
+    [InlineData(EntryMethod.Manual)]
+    [InlineData(EntryMethod.ManualScheduled)]
+    public async Task Handle_ExitsWithoutCharges_ForBothManualMethods(EntryMethod method)
     {
         // Arrange
         var ownerId = Guid.NewGuid();
@@ -123,9 +123,10 @@ public class ExitManualParkingLogTests
         Assert.NotNull(result.Data);
         Assert.Equal("ABC-1234", result.Data.PlateNumber);
         Assert.Equal(ParkingStatus.Exited.ToString(), result.Data.Status);
-        Assert.Equal(expectedFee, result.Data.PenaltyFee);
-        Assert.Equal(expectedFee > 0 ? "Pending" : "Settled", result.Data.SettlementStatus);
-        if (expectedFee > 0) Assert.StartsWith("CHG-", result.Data.ReferenceNumber);
+        Assert.Equal(0m, result.Data.PenaltyFee);
+        Assert.Empty(_violationRepository.Violations);
+        Assert.Equal("NotRequired", result.Data.SettlementStatus);
+        Assert.Null(result.Data.ReferenceNumber);
         Assert.True(fakeNotificationSender.WasNotificationSent);
     }
 
@@ -200,9 +201,11 @@ public class ExitManualParkingLogTests
         Assert.NotNull(result.Data);
         Assert.Equal("XYZ-9999", result.Data.PlateNumber);
         Assert.Equal(ParkingStatus.Exited.ToString(), result.Data.Status);
-        Assert.True(result.Data.PenaltyFee > 0, "Penalty fee should be greater than 0 for a 60-day overstay.");
+        Assert.Equal(0m, result.Data.PenaltyFee);
+        Assert.True(result.Data.OverstayTime > 0);
+        Assert.Empty(_violationRepository.Violations);
         Assert.True(result.Data.OverstayTime > 24, "Overstay hours should exceed 24 hours.");
-        Assert.NotNull(result.Data.ReferenceNumber);
+        Assert.Null(result.Data.ReferenceNumber);
     }
 
     [Fact]
@@ -281,9 +284,8 @@ public class FakeParkingLogRepositoryForExit : IParkingLogRepository
         _charges = charges;
     }
 
-    public async Task<bool> CompleteExitAsync(ParkingLog log, Violation? charge, IReadOnlyCollection<ParkingReservation> reservations, CancellationToken ct = default)
+    public async Task<bool> CompleteExitAsync(ParkingLog log, IReadOnlyCollection<ParkingReservation> reservations, CancellationToken ct = default)
     {
-        if (charge != null && _charges != null) await _charges.AddAsync(charge);
         await UpdateParkingLogAsync(log);
         return true;
     }

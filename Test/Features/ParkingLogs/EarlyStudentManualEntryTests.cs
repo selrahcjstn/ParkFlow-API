@@ -15,19 +15,13 @@ namespace Test.Features.ParkingLogs;
 public class EarlyStudentManualEntryTests
 {
     [Fact]
-    public async Task EarlyManualEntryRequiresConsent_ThenRecordsOneTimeCharge()
+    public async Task EarlyManualEntryRemainsAnEligibleExceptionWithoutACharge()
     {
         var f = await Fixture.Create();
-        var offer = await f.ManualEntry().Handle(f.Command(), default);
-        Assert.False(offer.IsSuccess);
-        Assert.True(offer.Data!.FeeOptionAvailable);
-        Assert.Equal(20m, offer.Data.EntryFee);
-        Assert.Contains("one-time", offer.Message);
-        Assert.Null(f.Logs.ActiveParkingLog);
-
-        var accepted = await f.ManualEntry().Handle(f.Command() with { AcceptUnscheduledFee = true }, default);
+        var accepted = await f.ManualEntry().Handle(f.Command(), default);
         Assert.True(accepted.IsSuccess, accepted.Message);
-        Assert.Equal(20m, accepted.Data!.EntryFee);
+        Assert.Equal(0m, accepted.Data!.EntryFee);
+        Assert.False(accepted.Data.FeeOptionAvailable);
         Assert.Equal(EntryMethod.Manual.ToString(), accepted.Data.EntryMethod);
         Assert.Equal(EntryMethod.Manual, f.Logs.ActiveParkingLog!.EntryMethod);
     }
@@ -45,7 +39,6 @@ public class EarlyStudentManualEntryTests
     }
 
     [Theory]
-    [InlineData("unpaid")]
     [InlineData("vehicle")]
     [InlineData("document")]
     [InlineData("parked")]
@@ -79,19 +72,19 @@ public class EarlyStudentManualEntryTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ChargeRemainsVisibleAndIsRecordedOnceOnEitherExitPath(bool qrExit)
+    public async Task LiveSessionAndBothExitPathsRemainFree(bool qrExit)
     {
         var f = await Fixture.Create();
         var entry = await f.ManualEntry().Handle(f.Command() with { AcceptUnscheduledFee = true }, default);
         Assert.True(entry.IsSuccess, entry.Message);
         typeof(ParkingLog).GetProperty("Vehicle")!.SetValue(f.Logs.ActiveParkingLog, f.Vehicle);
 
-        // The same paid session remains chargeable after the class window starts.
+        // Starting the class window must not introduce a charge to the same session.
         f.SchedulePolicy.CanEnterNow = true;
         var live = await new GetActiveSessionByVehicleIdHandler(f.Logs, f.Vehicles, f.Schedules,
             f.Documents, new FakeViolationService()).Handle(new(f.Vehicle.Id), default);
         Assert.True(live.IsSuccess, live.Message);
-        Assert.Equal(20m, live.Data!.AccruedCharge);
+        Assert.Equal(0m, live.Data!.AccruedCharge);
 
         var exit = qrExit
             ? await new ExitParkingLogHandler(f.Logs, f.Vehicles, f.Profiles, f.Guards, f.Documents,
@@ -104,10 +97,9 @@ public class EarlyStudentManualEntryTests
                 new FakeViolationService(), new ParkingLogRoleService(), new ExitManualParkingLogValidator(),
                 new FakeSignalRNotificationSender()).Handle(new(f.Vehicle.PlateNumber, f.GuardUserId), default);
         Assert.True(exit.IsSuccess, exit.Message);
-        Assert.Equal(20m, exit.Data!.PenaltyFee);
-        Assert.Equal("Pending", exit.Data.SettlementStatus);
-        Assert.Single(f.Violations.Violations);
-        Assert.Equal(ViolationType.ManualParkingCharge, f.Violations.Violations.Single().ViolationType);
+        Assert.Equal(0m, exit.Data!.PenaltyFee);
+        Assert.Equal("NotRequired", exit.Data.SettlementStatus);
+        Assert.Empty(f.Violations.Violations);
     }
 
     [Fact]
@@ -119,6 +111,23 @@ public class EarlyStudentManualEntryTests
         Assert.False(policy.CanEnter(tenAm, schedule, earlyBufferMinutes: 0));
         Assert.True(policy.CanEnter(tenAm.AddHours(2), schedule, earlyBufferMinutes: 0));
         Assert.True(policy.CanEnter(tenAm, schedule, earlyBufferMinutes: 120));
+    }
+
+    [Fact]
+    public async Task HistoricalBalancesDoNotBlockVerifiedManualOrQrEntry()
+    {
+        var f = await Fixture.Create(canEnter: true);
+        f.Violations.ActiveViolationCount = 4;
+        var manual = await f.ManualEntry().Handle(f.Command(), default);
+        Assert.True(manual.IsSuccess, manual.Message);
+        f.Logs.ActiveParkingLog = null;
+        var qr = await new CreateParkingLogHandler(f.Logs, f.Vehicles, f.Profiles, f.Guards, f.Documents,
+            f.Schedules, f.Students, f.Personnel, f.Admins, f.Violations, new ParkingService(),
+            f.SchedulePolicy, new ParkingLogRoleService(), new FakeSignalRNotificationSender())
+            .Handle(new(f.Vehicle.QrCodeHash, f.GuardUserId), default);
+        Assert.True(qr.IsSuccess, qr.Message);
+        Assert.Equal(4, f.Violations.ActiveViolationCount);
+        Assert.Empty(f.Violations.Violations);
     }
 
     private sealed class Fixture
@@ -143,7 +152,8 @@ public class EarlyStudentManualEntryTests
             var f = new Fixture();
             f.SchedulePolicy.CanEnterNow = canEnter;
             var owner = new UserAccount("hash", "+639123456789");
-            var profile = new UserProfile(owner.Id, "Student", "One", null, null) { UserAccount = owner };
+            var profile = new UserProfile(owner.Id, "Student", "One", null, "profile.jpg") { UserAccount = owner };
+            profile.SubmitLicense("license.jpg"); profile.ReviewLicense(true, Guid.NewGuid(), "Approved");
             owner.UserProfile = profile;
             await f.Profiles.AddAsync(profile);
             await f.Students.AddAsync(new Student(profile.Id, "2023106763", "BSCS", "4A", 4) { UserProfile = profile });
@@ -171,6 +181,8 @@ public class EarlyStudentManualEntryTests
 
     private sealed class RecordingParkingLogRepository : FakeParkingLogRepository, ParkFlow.Application.Interfaces.IParkingLogRepository
     {
+        public new Task<bool> CompleteExitAsync(ParkingLog log, IReadOnlyCollection<ParkingReservation> reservations, CancellationToken ct = default)
+        { ActiveParkingLog = null; return Task.FromResult(true); }
         public new Task AddParkingLogAsync(ParkingLog log)
         {
             ActiveParkingLog = log;

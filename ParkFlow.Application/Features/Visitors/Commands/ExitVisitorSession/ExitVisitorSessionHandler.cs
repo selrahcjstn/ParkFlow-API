@@ -85,11 +85,10 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
         }
 
         activeSession.MarkExit(guardProfileId, exitGate);
-        var charge = Violation.CreateVisitorCharge(activeSession, SystemSettingsStore.Current.ForVehicle(visitor.VehicleType).EntryFee);
-        if (!await _visitorRepository.CompleteVisitSessionWithChargeAsync(activeSession, charge))
+        if (!await _visitorRepository.CompleteVisitSessionAsync(activeSession))
         {
             return Result<VisitorExitResponse>.Failure(
-                "This visitor's exit has already been recorded. Check Collections for the parking charge.",
+                "This visitor's exit has already been recorded.",
                 ErrorCode.Conflict);
         }
 
@@ -103,8 +102,6 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
                     sessionId = activeSession.Id,
                     plateNumber = visitor.PlateNumber,
                     exitTime = activeSession.ExitTime,
-                    chargeAmount = charge.PenaltyFee,
-                    referenceNumber = charge.ReferenceNumber
                 });
                 await _signalRNotificationSender.SendToAllAsync("ParkingSessionUpdated", new { });
                 await _signalRNotificationSender.SendToAllAsync("ApprovalUpdated", new { });
@@ -127,11 +124,9 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
             Purpose: activeSession.Purpose,
             Destination: activeSession.Destination,
             Status: activeSession.Status.ToString(),
-            ChargeAmount: charge.PenaltyFee,
-            ReferenceNumber: charge.ReferenceNumber,
-            SettlementStatus: charge.SettlementStatus.ToString()
+            ChargeAmount: 0m, ReferenceNumber: string.Empty, SettlementStatus: "NotRequired"
         );
 
-        return Result<VisitorExitResponse>.Success(response, "Visitor exit recorded. Parking charge is due; confirm payment after collecting it.");
+        return Result<VisitorExitResponse>.Success(response, "Visitor exit recorded.");
     }
 }

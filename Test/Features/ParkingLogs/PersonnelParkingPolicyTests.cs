@@ -25,8 +25,8 @@ public class PersonnelParkingPolicyTests
     {
         var settings = new SystemSettingsDto { ViolationRatePerHour = 100, FeeCalculationMode = "one_time" };
         var entry = Local(entryDay, entryHour, entryMinute);
-        Assert.Equal(expected, PersonnelParkingPolicy.CalculateCharge(entry,
-            Local(exitDay, exitHour, exitMinute), settings));
+        Assert.Equal(0m, PersonnelParkingPolicy.CalculateCharge(entry, Local(exitDay, exitHour, exitMinute), settings));
+        Assert.Equal(expected / 100m, (decimal)Math.Ceiling(PersonnelParkingPolicy.GetChargeDuration(entry, Local(exitDay, exitHour, exitMinute), settings).TotalHours));
         Assert.Equal(Local(entryDay, 21), PersonnelParkingPolicy.GetDeadlineUtc(entry, settings));
     }
 
@@ -37,7 +37,7 @@ public class PersonnelParkingPolicyTests
             PersonnelFreeParkingStart = "06:00", PersonnelFreeParkingEnd = "17:00",
             ViolationRatePerHour = 25, IsGracePeriodEnabled = true, GracePeriodMinutes = 15,
         };
-        Assert.Equal(25m, PersonnelParkingPolicy.CalculateCharge(Local(4, 8), Local(4, 17, 1), settings));
+        Assert.Equal(0m, PersonnelParkingPolicy.CalculateCharge(Local(4, 8), Local(4, 17, 1), settings));
         Assert.Equal(0m, PersonnelParkingPolicy.CalculateCharge(Local(4, 6), Local(4, 17), settings));
     }
 
@@ -69,6 +69,7 @@ public class PersonnelParkingPolicyTests
     {
         var settings = new SystemSettingsDto { ViolationRatePerHour = 100 };
         var entry = Local(8, hour, 44);
-        Assert.Equal(expectedCharge, PersonnelParkingPolicy.CalculateCharge(entry, entry.AddMinutes(30), settings));
+        Assert.Equal(0m, PersonnelParkingPolicy.CalculateCharge(entry, entry.AddMinutes(30), settings));
+        Assert.Equal(expectedCharge / 100m, (decimal)Math.Ceiling(PersonnelParkingPolicy.GetChargeDuration(entry, entry.AddMinutes(30), settings).TotalHours));
     }
 }

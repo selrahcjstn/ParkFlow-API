@@ -54,9 +54,8 @@ public class SystemSettingsController : ControllerBase
             return BadRequest(Result<SystemSettingsDto>.Failure("Configure car and motorcycle parking settings.", ErrorCode.BadRequest));
         foreach (var (label, parking) in new[] { ("Car", request.CarParking), ("Motorcycle", request.MotorcycleParking) })
         {
-            if (parking.TotalCapacity < 0 || parking.ReservationAllocationSlots < 0 || parking.ReservationAllocationSlots > parking.TotalCapacity
-                || parking.ViolationRatePerHour < 0 || parking.BaseFee < 0 || parking.EntryFee < 0 || parking.DailyOverstayFee < 0)
-                return BadRequest(Result<SystemSettingsDto>.Failure($"{label}: enter non-negative spaces and charges. Reservation spaces cannot exceed this vehicle type's total capacity.", ErrorCode.BadRequest));
+            if (parking.TotalCapacity < 0 || parking.ReservationAllocationSlots < 0 || parking.ReservationAllocationSlots > parking.TotalCapacity)
+                return BadRequest(Result<SystemSettingsDto>.Failure($"{label}: enter non-negative spaces. Reservation spaces cannot exceed this vehicle type's total capacity.", ErrorCode.BadRequest));
         }
         if ((long)request.CarParking.TotalCapacity + request.MotorcycleParking.TotalCapacity is < 1 or > int.MaxValue)
             return BadRequest(Result<SystemSettingsDto>.Failure("The campus must have at least one parking space.", ErrorCode.BadRequest));

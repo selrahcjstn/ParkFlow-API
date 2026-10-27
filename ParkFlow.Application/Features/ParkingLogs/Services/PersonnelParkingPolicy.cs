@@ -47,10 +47,5 @@ public static class PersonnelParkingPolicy
         return early + late;
     }
 
-    public static decimal CalculateCharge(DateTime entryUtc, DateTime nowUtc, SystemSettingsDto settings, VehicleType vehicleType = VehicleType.Motorcycle)
-    {
-        var duration = GetChargeDuration(entryUtc, nowUtc, settings);
-        return duration <= TimeSpan.Zero ? 0m
-            : (decimal)Math.Ceiling(duration.TotalHours) * Math.Max(0m, settings.ForVehicle(vehicleType).ViolationRatePerHour);
-    }
+    public static decimal CalculateCharge(DateTime entryUtc, DateTime nowUtc, SystemSettingsDto settings, VehicleType vehicleType = VehicleType.Motorcycle) => 0m;
 }

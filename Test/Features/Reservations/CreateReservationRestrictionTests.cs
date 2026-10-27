@@ -147,15 +147,9 @@ public class CreateReservationRestrictionTests
         var command = new CreateReservationCommand(user.Id, DateTime.UtcNow.Date.AddDays(2),
             TimeSpan.FromHours(8), TimeSpan.FromHours(17), "Campus visit", null, ReservationType.Normal, vehicle.Id);
 
-        var denied = await handler.Handle(command, default);
-        Assert.False(denied.IsSuccess);
-        Assert.Equal(ErrorCode.Forbidden, denied.ErrorCode);
-        Assert.Contains("settle all unpaid violations", denied.Message);
-        Assert.Empty(_reservationRepo.Reservations);
-
-        violations.ActiveViolationCount = 0;
         var allowed = await handler.Handle(command, default);
         Assert.True(allowed.IsSuccess, allowed.Message);
+        Assert.Equal(unpaidCount, violations.ActiveViolationCount);
         Assert.Single(_reservationRepo.Reservations);
     }
 

@@ -179,19 +179,10 @@ public class VerifyStudentScanTests
         {
             Assert.True(result.Data.IsValid);
             Assert.Equal("CurrentlyParked", result.Data.EntryStatus);
-            Assert.True(result.Data.HasActiveViolation);
+            Assert.False(result.Data.HasActiveViolation);
             return;
         }
-        if (unpaidCount > 0)
-        {
-            Assert.False(result.Data.IsValid);
-            Assert.True(result.Data.HasActiveViolation);
-            Assert.Contains("settle all unpaid violations", result.Data.StatusMessage);
-            _violationRepository.ActiveViolationCount = 0;
-            result = await _handler.Handle(query, CancellationToken.None);
-            Assert.True(result.IsSuccess);
-            Assert.False(result.Data!.HasActiveViolation);
-        }
+        Assert.False(result.Data.HasActiveViolation);
         Assert.True(result.Data.IsValid);
         Assert.Equal("Approved", result.Data.EntryStatus);
         Assert.Equal("Juan Dela Cruz", result.Data.FullName);

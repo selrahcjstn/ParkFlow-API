@@ -82,7 +82,7 @@ public class PersonnelSessionTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Data);
         Assert.InRange(result.Data.PenaltyFee, before, PersonnelParkingPolicy.CalculateCharge(entry, DateTime.UtcNow, settings));
-        Assert.NotNull(result.Data.ReferenceNumber);
+        Assert.Null(result.Data.ReferenceNumber);
         Assert.Equal(ParkingStatus.Exited, log.Status);
     }
 }

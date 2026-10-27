@@ -170,7 +170,7 @@ public class ParkingLogRepository : IParkingLogRepository
             .ToListAsync();
     }
 
-    public async Task<bool> CompleteExitAsync(ParkingLog log, Violation? charge, IReadOnlyCollection<ParkingReservation> reservations, CancellationToken ct = default)
+    public async Task<bool> CompleteExitAsync(ParkingLog log, IReadOnlyCollection<ParkingReservation> reservations, CancellationToken ct = default)
     {
         return await _context.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
@@ -180,8 +180,8 @@ public class ParkingLogRepository : IParkingLogRepository
             var saved = await _context.ParkingLogs.AsNoTracking().SingleAsync(p => p.Id == log.Id, ct);
             if (saved.ExitTime != null)
             {
-                // A retried commit may already have succeeded. Never insert another charge.
-                var sameExit = (saved.ExitTime.HasValue && log.ExitTime.HasValue && Math.Abs((saved.ExitTime.Value - log.ExitTime.Value).TotalMilliseconds) < 1) || (charge != null && await _context.Violations.AnyAsync(v => v.Id == charge.Id, ct));
+                // A retried commit may already have succeeded. Do not repeat a completed exit.
+                var sameExit = (saved.ExitTime.HasValue && log.ExitTime.HasValue && Math.Abs((saved.ExitTime.Value - log.ExitTime.Value).TotalMilliseconds) < 1);
                 _context.ChangeTracker.Clear();
                 return sameExit;
             }
@@ -190,7 +190,6 @@ public class ParkingLogRepository : IParkingLogRepository
             exit.Property(p => p.ExitTime).IsModified = true;
             exit.Property(p => p.Status).IsModified = true;
             exit.Property(p => p.UpdatedAt).IsModified = true;
-            if (charge != null) _context.Violations.Add(charge);
             foreach (var reservation in reservations)
             {
                 // Complete only the booking; do not mark its loaded account/profile graph modified.

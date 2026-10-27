@@ -8,6 +8,31 @@ namespace ParkFlow.Application.Features.ParkingLogs.Services;
 // Inputs are already batch-loaded by their handlers; no per-session queries.
 public static class ActiveSessionTiming
 {
+    public static (DateTime? MaximumExitTime, double OverstayHours) ResolveCheckout(
+        DateTime entryUtc, EntryMethod method, Personnel? personnel, ParkingReservation? reservation,
+        ParkingSchedule? schedule, SystemSettingsDto settings, DateTime exitUtc)
+    {
+        if (PersonnelParkingPolicy.IsFaculty(personnel)) return (null, 0);
+        var entry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(entryUtc);
+        if (PersonnelParkingPolicy.AppliesTo(personnel))
+            return (PersonnelParkingPolicy.GetDeadlineUtc(entryUtc, settings),
+                PersonnelParkingPolicy.GetChargeDuration(entryUtc, exitUtc, settings).TotalHours);
+        DateTime deadline;
+        var grace = settings.IsGracePeriodEnabled ? settings.GracePeriodMinutes : 0;
+        if (method == EntryMethod.Manual || reservation?.Type == ReservationType.Special)
+            deadline = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entry, new TimeSpan(23, 59, 59));
+        else if (reservation != null)
+            deadline = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entry, reservation.EndTime).AddMinutes(grace);
+        else if (schedule != null)
+            deadline = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entry, schedule.EndTime).AddMinutes(grace);
+        else
+        {
+            deadline = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entry, TimeSpan.FromHours(22));
+            if (deadline <= entryUtc) deadline = entryUtc.AddHours(4);
+        }
+        return (deadline, reservation?.Type == ReservationType.Special ? 0 : Math.Max(0, (exitUtc - deadline).TotalHours));
+    }
+
     public static (DateTime DeadlineUtc, bool HasReservation) Resolve(
         ParkingLog log, DateTime nowUtc, SystemSettingsDto settings,
         IEnumerable<CorSubmission> submissions,
