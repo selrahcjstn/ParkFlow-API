@@ -4,6 +4,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Verification;
 
@@ -50,6 +51,11 @@ public class VerificationService(IVerificationStore store, ICorDocumentReader re
         }
         return issues;
     }
+
+    public static AccountStatus StudentAccountStatus(VerificationSubject subject, VerificationPolicy policy,
+        bool approvedVehicle, bool driverReady) =>
+        driverReady && approvedVehicle && MandatoryChecks(subject, policy).Count == 0
+            ? AccountStatus.Active : AccountStatus.PendingVerification;
 
     public async Task ProcessAsync(VerificationRecord record, CancellationToken ct)
     {

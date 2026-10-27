@@ -4,4 +4,5 @@ using System;
 
 namespace ParkFlow.Application.Features.Users.Commands.UpdateUserStatus;
 
-public record UpdateUserStatusCommand(Guid UserId, string Status) : IRequest<Result<Guid>>;
+public record UpdateUserStatusResponse(Guid Id, string Status);
+public record UpdateUserStatusCommand(Guid UserId, string Status, Guid ActorId = default) : IRequest<Result<UpdateUserStatusResponse>>;

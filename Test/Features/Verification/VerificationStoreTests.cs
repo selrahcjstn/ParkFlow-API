@@ -28,6 +28,35 @@ public class PostgresVerificationFactAttribute : FactAttribute
 public class VerificationStoreTests
 {
     [PostgresVerificationFact]
+    public async Task StudentRestorationPersistsCurrentDocumentApprovalWithoutBypassingPendingDocuments()
+    {
+        await using var fixture = await DatabaseFixture.Create();
+        await using var db = fixture.Context();
+        var user = new UserAccount("hash", null);
+        var identity = AuthIdentity.CreateManual(user.Id, "restore@example.test", "hash", true); identity.MarkVerified();
+        var profile = new UserProfile(user.Id, "Juan", "Dela Cruz", null, "uploads/profile.jpg");
+        profile.SubmitLicense("uploads/license.jpg"); profile.ReviewLicense(true, Guid.NewGuid(), "Checked");
+        var student = new Student(profile.Id, "2023106763", "BSCS", "4A", 4);
+        var vehicle = new Vehicle(user.Id, "RST1234", "Honda", "restore-hash", VehicleType.Car,
+            orcrDocumentUrl: "uploads/orcr.pdf", vehiclePictureUrl: "uploads/vehicle.jpg");
+        vehicle.UpdateVerificationStatus(CorVerificationStatus.Verified, "Checked");
+        user.UpdateStatus(AccountStatus.Suspended);
+        db.AddRange(user, identity, profile, student, vehicle); await db.SaveChangesAsync();
+        var store = new VerificationStore(db);
+        Assert.Equal(AccountStatus.Active, await store.RestoreAccountAsync(user.Id, default));
+        await using (var fresh = fixture.Context())
+            Assert.Equal(AccountStatus.Active, (await fresh.UserAccounts.SingleAsync()).Status);
+
+        var tracked = (await db.UserAccounts.FindAsync(user.Id))!; tracked.UpdateStatus(AccountStatus.Suspended);
+        var changed = (await db.Vehicles.FindAsync(vehicle.Id))!; changed.UpdateVerificationStatus(CorVerificationStatus.Pending, null);
+        await db.SaveChangesAsync();
+        Assert.Equal(AccountStatus.PendingVerification, await store.RestoreAccountAsync(user.Id, default));
+        await using var refreshed = fixture.Context();
+        Assert.Equal(AccountStatus.PendingVerification, (await refreshed.UserAccounts.SingleAsync()).Status);
+        Assert.Equal(CorVerificationStatus.Pending, (await refreshed.Vehicles.SingleAsync()).VerificationStatus);
+    }
+
+    [PostgresVerificationFact]
     public async Task DigitalUploadReturnsOwnedPreviewWithoutDownloadOcrOrAccountApproval()
     {
         await using var fixture = await DatabaseFixture.Create();

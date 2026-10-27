@@ -181,30 +181,9 @@ namespace ParkFlow.API.Controllers
 
         [Authorize(Policy = "AdminOrSuperAdmin")]
         [HttpPut("{id}/status")]
-        public async Task<ActionResult<Result<Guid>>> UpdateStatus(Guid id, [FromBody] UpdateUserStatusRequest request)
+        public async Task<ActionResult<Result<UpdateUserStatusResponse>>> UpdateStatus(Guid id, [FromBody] UpdateUserStatusRequest request)
         {
-            var accounts = HttpContext.RequestServices.GetRequiredService<IUserAccountRepository>();
-            var account = await accounts.GetByIdAsync(id);
-            if (account == null) return NotFound(Result<Guid>.Failure("User account not found.", ErrorCode.NotFound));
-            if (account.UserProfile?.Student != null && request.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
-                return BadRequest(Result<Guid>.Failure("Student verification requires approved vehicle documents. Review them from Vehicles.", ErrorCode.BadRequest));
-            var isCampusClient = account.UserProfile?.Personnel != null;
-            if (isCampusClient && (request.Status.Equals("Active", StringComparison.OrdinalIgnoreCase) ||
-                request.Status.Equals("PendingVerification", StringComparison.OrdinalIgnoreCase)))
-            {
-                if (account.Status == ParkFlow.Domain.Enums.AccountStatus.Suspended)
-                {
-                    // An authorized administrator explicitly clears suspension; the
-                    // independent identity approval still has to pass its checks.
-                    account.UpdateStatus(ParkFlow.Domain.Enums.AccountStatus.PendingVerification);
-                    await accounts.UpdateAsync(account);
-                }
-                var approval = request.Status.Equals("Active", StringComparison.OrdinalIgnoreCase);
-                var review = await _mediator.Send(new ParkFlow.Application.Features.Verification.ReviewVerificationSubject("Account", id,
-                    approval ? "Approved" : "Rejected", approval ? "Account identity reviewed by an administrator." : "Account requires further administrative review.", _userContext.GetUserId()));
-                return review.IsSuccess ? Ok(Result<Guid>.Success(id)) : this.ToActionResult(Result<Guid>.Failure(review.Message, review.ErrorCode));
-            }
-            var command = new UpdateUserStatusCommand(id, request.Status);
+            var command = new UpdateUserStatusCommand(id, request.Status, _userContext.GetUserId());
             var result = await _mediator.Send(command);
             return this.ToActionResult(result);
         }

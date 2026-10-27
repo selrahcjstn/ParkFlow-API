@@ -29,6 +29,7 @@ public record VerificationDecision(VerificationState Status, string Reason, stri
 
 public interface IVerificationStore
 {
+    Task<ParkFlow.Domain.Enums.AccountStatus?> RestoreAccountAsync(Guid id, CancellationToken ct);
     Task<VerificationPolicy> GetPolicyAsync(CancellationToken ct);
     Task<bool> UpdatePolicyAsync(VerificationPolicy policy, Guid actor, CancellationToken ct);
     Task<VerificationSubject?> GetSubjectAsync(VerificationType type, Guid id, CancellationToken ct);

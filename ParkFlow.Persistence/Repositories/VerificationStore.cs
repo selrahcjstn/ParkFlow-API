@@ -11,6 +11,33 @@ namespace ParkFlow.Persistence.Repositories;
 
 public class VerificationStore(AppDbContext db) : IVerificationStore
 {
+    public Task<AccountStatus?> RestoreAccountAsync(Guid id, CancellationToken ct) => Transaction<AccountStatus?>(async () =>
+    {
+        await Lock(VerificationType.Account, id, ct);
+        var account = await db.UserAccounts.Include(u => u.UserProfile).ThenInclude(p => p!.Admin)
+            .Include(u => u.UserProfile).ThenInclude(p => p!.Guard).SingleOrDefaultAsync(u => u.Id == id, ct);
+        if (account == null) return null;
+        if (account.Status != AccountStatus.Suspended) return account.Status;
+
+        // Clear suspension without approving a new or changed document revision.
+        account.UpdateStatus(AccountStatus.PendingVerification);
+        await db.SaveChangesAsync(ct);
+        if (account.UserProfile?.Admin != null || account.UserProfile?.Guard != null)
+        {
+            // These roles are verified when explicitly provisioned by an administrator.
+            account.UpdateStatus(AccountStatus.Active);
+        }
+        else
+        {
+            var record = await EnqueueAsync(VerificationType.Account, id, ct);
+            // Student status is recalculated by EnqueueAsync. Personnel retain only
+            // an approval for the unchanged, current identity revision.
+            if (record?.Status == VerificationState.Approved) await Apply(record, ct);
+        }
+        await db.SaveChangesAsync(ct);
+        return account.Status;
+    }, ct);
+
     public Task<VerificationRecord?> FindCurrentCorAsync(Guid owner, CancellationToken ct) => db.VerificationRecords.AsNoTracking()
         .Where(r => r.UserAccountId == owner && r.Type == VerificationType.Cor && r.IsCurrent).OrderByDescending(r => r.CreatedAt).FirstOrDefaultAsync(ct);
 
@@ -317,8 +344,7 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
                     var approvedVehicle = await db.Vehicles.AnyAsync(v => v.OwnerId == id && v.VerificationStatus == CorVerificationStatus.Verified &&
                         v.OrcrDocumentUrl != null && v.OrcrDocumentUrl != "" && v.VehiclePictureUrl != null && v.VehiclePictureUrl != "", ct);
                     var driverReady = await db.UserProfiles.AnyAsync(p => p.UserAccountId == id && p.LicenseStatus == CorVerificationStatus.Verified && p.DriversLicenseUrl != null && p.ProfilePictureUrl != null, ct);
-                    var ready = driverReady && approvedVehicle && subject.EmailVerified && VerificationService.MandatoryChecks(subject, await GetPolicyAsync(ct)).Count == 0;
-                    account.UpdateStatus(ready ? AccountStatus.Active : AccountStatus.PendingVerification);
+                    account.UpdateStatus(VerificationService.StudentAccountStatus(subject, await GetPolicyAsync(ct), approvedVehicle, driverReady));
                     await db.SaveChangesAsync(ct);
                 }
             }
