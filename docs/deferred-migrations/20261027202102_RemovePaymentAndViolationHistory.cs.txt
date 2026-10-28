@@ -1,0 +1,55 @@
+using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace ParkFlow.Persistence.Migrations;
+
+public partial class RemovePaymentAndViolationHistory : Migration
+{
+    protected override void Up(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.Sql("""
+            DO $guard$
+            BEGIN
+                IF current_setting('parkflow.approved_financial_deletion', true) IS DISTINCT FROM 'yes' THEN
+                    RAISE EXCEPTION 'Historical financial deletion requires explicit approval and a verified backup. See docs/phase-3-deletion-plan.md.';
+                END IF;
+                IF EXISTS (SELECT 1 FROM pg_constraint WHERE contype = 'f'
+                    AND confrelid = '"Violations"'::regclass) THEN
+                    RAISE EXCEPTION 'Unexpected incoming foreign key to Violations; review the live schema before deleting.';
+                END IF;
+                IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = '"UserNotifications"'::regclass
+                    AND NOT tgisinternal AND tgenabled <> 'D') THEN
+                    RAISE EXCEPTION 'UserNotifications has custom triggers; review them before deleting financial messages.';
+                END IF;
+            END
+            $guard$;
+            """);
+
+        // Delete only clearly financial messages. Operational exit receipts/reminders remain.
+        migrationBuilder.Sql("""
+            DELETE FROM "UserNotifications"
+            WHERE lower("Type") IN ('violation', 'payment', 'payment_processed', 'settlement', 'invoice')
+               OR lower(coalesce("ActionRoute", '')) SIMILAR TO '%(violation|process-payment|scan-receipt)%'
+               OR upper(coalesce("ReferenceCode", '')) LIKE 'VIO-%'
+               OR upper(coalesce("ReferenceCode", '')) LIKE 'PAY-%'
+               OR upper(coalesce("ReferenceCode", '')) LIKE 'INV-%'
+               OR lower("Title") SIMILAR TO '%(payment|paid|settled|violation|penalty|invoice)%'
+               OR lower("Body") SIMILAR TO '%(payment|penalty|charge|settlement|invoice| fee|₱)%';
+            """);
+
+        // PostgreSQL DROP TABLE uses RESTRICT by default. Never use CASCADE here.
+        migrationBuilder.DropTable(name: "Violations");
+        // Retain feedback and replies; remove only their obsolete financial fields.
+        migrationBuilder.DropColumn(name: "InvoiceAmount", table: "Feedbacks");
+        migrationBuilder.DropColumn(name: "InvoiceDescription", table: "Feedbacks");
+        migrationBuilder.DropColumn(name: "InvoiceNumber", table: "Feedbacks");
+        migrationBuilder.DropColumn(name: "InvoiceStatus", table: "Feedbacks");
+    }
+
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        throw new NotSupportedException("Deleted financial history cannot be reconstructed. Restore the approved backup instead.");
+    }
+}

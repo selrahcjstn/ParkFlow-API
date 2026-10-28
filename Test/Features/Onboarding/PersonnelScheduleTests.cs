@@ -50,7 +50,7 @@ public class PersonnelScheduleTests
     }
 
     [Fact]
-    public async Task StudentScheduleSubmissionStillWorks()
+    public async Task StudentManualScheduleSubmissionRemainsForbidden()
     {
         var user = new UserAccount("hash", "+639123456789");
         user.UserProfile = new UserProfile(user.Id, "Student", "One", null, null);
@@ -61,8 +61,9 @@ public class PersonnelScheduleTests
         var result = await new UpdateOnboardingScheduleHandler(documents, schedules, accounts,
             new UpdateOnboardingScheduleValidator()).Handle(new UpdateOnboardingScheduleCommand(user.Id,
                 [new ScheduleItem(DayOfWeek.Monday, TimeSpan.FromHours(8), TimeSpan.FromHours(17))]), default);
-        Assert.True(result.IsSuccess);
-        Assert.Equal(OnboardingStep.Done, user.OnboardingStep);
-        Assert.Single(documents.Submissions);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.Forbidden, result.ErrorCode);
+        Assert.Equal(OnboardingStep.Profile, user.OnboardingStep);
+        Assert.Empty(documents.Submissions);
     }
 }

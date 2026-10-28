@@ -49,7 +49,7 @@ public class OnboardingCacheTests
                 .Handle(new UpdateOnboardingStudentCommand(user.Id, "2023106763", "BSIT", "1A", 1), default),
             "faculty" or "staff" => await new UpdateOnboardingPersonnelHandler(profiles, personnel, students, users, new UpdateOnboardingPersonnelValidator(), cache)
                 .Handle(new UpdateOnboardingPersonnelCommand(user.Id, "EMP-123", "Office", step == "staff" ? "NonAcademicPersonnel" : "UniversityStaff"), default),
-            _ => await new UpdateOnboardingVehicleHandler(new Test.Features.Violations.FakeVehicleRepository(), users,
+            _ => await new UpdateOnboardingVehicleHandler(new Test.Support.FakeVehicleRepository(), users,
                 new Test.Features.Vehicles.FakeQrCodeService(), new UpdateOnboardingVehicleValidator(), cache)
                 .Handle(new UpdateOnboardingVehicleCommand(user.Id, "ABC1234", "Honda", VehicleType.Motorcycle), default)
         };

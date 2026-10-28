@@ -227,7 +227,7 @@ public class RegistrationRoleTests
             userRepo, authRepo, profileRepo, studentRepo, personnelRepo, guardRepo, passwordHasher, jwtService, validator);
 
         var command = new ParkFlow.Application.Features.Auth.Commands.RegisterManualAccount.RegisterManualAccountCommand(
-            "student1@parkflow.app", "Password123!");
+            "student1@parkflow.app", "Password123!", PhoneNumber: "09171234567");
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);

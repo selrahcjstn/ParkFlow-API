@@ -23,22 +23,20 @@ public class PersonnelParkingPolicyTests
     public void ChargesOnlyOutsideEntryDayWindow(int entryDay, int entryHour, int entryMinute,
         int exitDay, int exitHour, int exitMinute, int expected)
     {
-        var settings = new SystemSettingsDto { ViolationRatePerHour = 100, FeeCalculationMode = "one_time" };
+        var settings = new SystemSettingsDto();
         var entry = Local(entryDay, entryHour, entryMinute);
-        Assert.Equal(0m, PersonnelParkingPolicy.CalculateCharge(entry, Local(exitDay, exitHour, exitMinute), settings));
         Assert.Equal(expected / 100m, (decimal)Math.Ceiling(PersonnelParkingPolicy.GetChargeDuration(entry, Local(exitDay, exitHour, exitMinute), settings).TotalHours));
         Assert.Equal(Local(entryDay, 21), PersonnelParkingPolicy.GetDeadlineUtc(entry, settings));
     }
 
     [Fact]
-    public void HonorsConfiguredHoursAndHourlyRateWithoutStudentGrace()
+    public void HonorsConfiguredHoursWithoutStudentGrace()
     {
         var settings = new SystemSettingsDto {
             PersonnelFreeParkingStart = "06:00", PersonnelFreeParkingEnd = "17:00",
-            ViolationRatePerHour = 25, IsGracePeriodEnabled = true, GracePeriodMinutes = 15,
+            IsGracePeriodEnabled = true, GracePeriodMinutes = 15,
         };
-        Assert.Equal(0m, PersonnelParkingPolicy.CalculateCharge(Local(4, 8), Local(4, 17, 1), settings));
-        Assert.Equal(0m, PersonnelParkingPolicy.CalculateCharge(Local(4, 6), Local(4, 17), settings));
+        Assert.Equal(Local(4, 17), PersonnelParkingPolicy.GetDeadlineUtc(Local(4, 8), settings));
     }
 
     [Theory]
@@ -67,9 +65,8 @@ public class PersonnelParkingPolicyTests
     [InlineData(21, 100)] // 9:44 PM entry is allowed, but parking time is chargeable.
     public void NineFortyFourEntryUsesTheConfiguredFreeWindow(int hour, decimal expectedCharge)
     {
-        var settings = new SystemSettingsDto { ViolationRatePerHour = 100 };
+        var settings = new SystemSettingsDto();
         var entry = Local(8, hour, 44);
-        Assert.Equal(0m, PersonnelParkingPolicy.CalculateCharge(entry, entry.AddMinutes(30), settings));
         Assert.Equal(expectedCharge / 100m, (decimal)Math.Ceiling(PersonnelParkingPolicy.GetChargeDuration(entry, entry.AddMinutes(30), settings).TotalHours));
     }
 }

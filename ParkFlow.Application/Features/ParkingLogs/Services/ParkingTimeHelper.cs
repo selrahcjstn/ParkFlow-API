@@ -2,7 +2,7 @@ namespace ParkFlow.Application.Features.ParkingLogs.Services;
 
 public static class ParkingTimeHelper
 {
-    private const string PhilippinesTimeZoneId = "Singapore Standard Time";
+    private const string PhilippinesTimeZoneId = "Asia/Manila";
 
     public static DateTime ConvertUtcToPhilippinesTime(DateTime utcDateTime)
     {

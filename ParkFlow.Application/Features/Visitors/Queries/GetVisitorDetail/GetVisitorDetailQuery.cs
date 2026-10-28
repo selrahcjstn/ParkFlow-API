@@ -6,7 +6,7 @@ using ParkFlow.Domain.Entities;
 
 namespace ParkFlow.Application.Features.Visitors.Queries.GetVisitorDetail;
 
-public record GetVisitorDetailQuery(Guid Id, int Page = 1, int PageSize = 20) : IRequest<Result<VisitorDetailDto>>;
+public record GetVisitorDetailQuery(Guid Id, int Page = 1, int PageSize = 20, Guid? VisitorVehicleId = null) : IRequest<Result<VisitorDetailDto>>;
 
 public class GetVisitorDetailHandler : IRequestHandler<GetVisitorDetailQuery, Result<VisitorDetailDto>>
 {
@@ -21,7 +21,7 @@ public class GetVisitorDetailHandler : IRequestHandler<GetVisitorDetailQuery, Re
     {
         var page = Math.Max(1, request.Page);
         var size = request.PageSize < 1 ? 20 : Math.Min(100, request.PageSize);
-        var detail = await _visitorRepository.GetDetailPageAsync(request.Id, page, size);
+        var detail = await _visitorRepository.GetDetailPageAsync(request.Id, page, size, request.VisitorVehicleId);
         return detail == null
             ? Result<VisitorDetailDto>.Failure("Visitor not found.", ErrorCode.NotFound)
             : Result<VisitorDetailDto>.Success(detail, "Visitor details retrieved successfully.");

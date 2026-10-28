@@ -16,12 +16,6 @@ public class ParkingService : IParkingService
         parkingLog.Exit();
     }
 
-    public DateTime CalculateEntryGracePeriod(DateTime entryTime, TimeSpan startTime, int? earlyBufferMinutes = null)
-    {
-        var settings = SystemSettingsStore.Current;
-        var buffer = earlyBufferMinutes ?? (settings.IsEarlyParkingAllowed ? settings.EarlyParkingMinutes : 0);
-        return entryTime.Date.Add(startTime).AddMinutes(-buffer);
-    }
 
     public DateTime CalculateEstimatedExitTime(DateTime entryTime, TimeSpan endTime, int? graceMinutes = null)
     {

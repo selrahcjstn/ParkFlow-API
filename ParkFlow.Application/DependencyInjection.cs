@@ -21,7 +21,6 @@ namespace ParkFlow.Application
 
             services.AddScoped<IParkingService, ParkingService>();
             services.AddScoped<ParkFlow.Application.Features.Verification.VerificationService>();
-            services.AddScoped<IViolationService, ViolationService>();
             services.AddScoped<IScheduleService, ScheduleService>();
             services.AddScoped<IParkingLogRoleService, ParkingLogRoleService>();
 

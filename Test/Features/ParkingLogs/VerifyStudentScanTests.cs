@@ -9,7 +9,7 @@ using ParkFlow.Application.Features.ParkingLogs.Services;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
-using Test.Features.Violations;
+using Test.Support;
 
 namespace Test.Features.ParkingLogs;
 
@@ -21,7 +21,6 @@ public class VerifyStudentScanTests
     private readonly FakeTestParkingScheduleRepository _parkingScheduleRepository;
     private readonly FakeTestVehicleRepository _vehicleRepository;
     private readonly FakeParkingLogRepository _parkingLogRepository;
-    private readonly FakeViolationRepository _violationRepository;
     private readonly IScheduleService _scheduleService;
     private readonly VerifyStudentScanHandler _handler;
 
@@ -33,7 +32,6 @@ public class VerifyStudentScanTests
         _parkingScheduleRepository = new FakeTestParkingScheduleRepository();
         _vehicleRepository = new FakeTestVehicleRepository();
         _parkingLogRepository = new FakeParkingLogRepository();
-        _violationRepository = new FakeViolationRepository();
         _scheduleService = new ScheduleService();
 
         _handler = new VerifyStudentScanHandler(
@@ -43,7 +41,6 @@ public class VerifyStudentScanTests
             _parkingScheduleRepository,
             _vehicleRepository,
             _parkingLogRepository,
-            _violationRepository,
             _scheduleService
         );
     }
@@ -74,6 +71,7 @@ public class VerifyStudentScanTests
         // Arrange
         var userAccountId = Guid.NewGuid();
         var profile = new UserProfile(userAccountId, "Maria", "Santos", null, null);
+        Test.Support.DriverDocumentFixture.Approve(profile);
         await _userProfileRepository.AddAsync(profile);
 
         var student = new Student(profile.Id, "2023-10001", "BS Information Technology", "3A", 3)
@@ -101,6 +99,7 @@ public class VerifyStudentScanTests
         // Arrange
         var userAccountId = Guid.NewGuid();
         var profile = new UserProfile(userAccountId, "Carlos", "Reyes", null, null);
+        Test.Support.DriverDocumentFixture.Approve(profile);
         await _userProfileRepository.AddAsync(profile);
 
         var student = new Student(profile.Id, "2023-10002", "BS Computer Engineering", "2B", 2)
@@ -131,17 +130,14 @@ public class VerifyStudentScanTests
     }
 
     [Theory]
-    [InlineData(0, false)]
-    [InlineData(1, false)]
-    [InlineData(2, false)]
-    [InlineData(3, false)]
-    [InlineData(1, true)]
-    public async Task Handle_WhenStudentHasValidScheduleNow_RequiresUnpaidViolationsToBeSettled(int unpaidCount, bool currentlyParked)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Handle_ValidScheduleRetainsEntryAndExitEligibility(bool currentlyParked)
     {
-        _violationRepository.ActiveViolationCount = unpaidCount;
         // Arrange
         var userAccountId = Guid.NewGuid();
         var profile = new UserProfile(userAccountId, "Juan", "Dela Cruz", null, null);
+        Test.Support.DriverDocumentFixture.Approve(profile);
         await _userProfileRepository.AddAsync(profile);
 
         var student = new Student(profile.Id, "2023-12345", "BS Information Technology", "4A", 4)
@@ -179,10 +175,8 @@ public class VerifyStudentScanTests
         {
             Assert.True(result.Data.IsValid);
             Assert.Equal("CurrentlyParked", result.Data.EntryStatus);
-            Assert.False(result.Data.HasActiveViolation);
             return;
         }
-        Assert.False(result.Data.HasActiveViolation);
         Assert.True(result.Data.IsValid);
         Assert.Equal("Approved", result.Data.EntryStatus);
         Assert.Equal("Juan Dela Cruz", result.Data.FullName);

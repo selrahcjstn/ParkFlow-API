@@ -12,9 +12,9 @@ internal static class ParkingCapacityGuard
         var parked = db.ParkingLogs.Where(p => p.Status == ParkingStatus.Parked && p.ExitTime == null);
         var visits = db.VisitSessions.Where(s => s.Status == VisitSessionStatus.Inside);
         var cars = await parked.CountAsync(p => p.Vehicle.VehicleType == VehicleType.Car)
-            + await visits.CountAsync(s => s.Visitor.VehicleType == VehicleType.Car);
+            + await visits.CountAsync(s => s.VisitorVehicle.VehicleType == VehicleType.Car);
         var motorcycles = await parked.CountAsync(p => p.Vehicle.VehicleType != VehicleType.Car)
-            + await visits.CountAsync(s => s.Visitor.VehicleType != VehicleType.Car);
+            + await visits.CountAsync(s => s.VisitorVehicle.VehicleType != VehicleType.Car);
         return (cars, motorcycles);
     }
 

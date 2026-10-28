@@ -17,7 +17,9 @@ public class CreateVisitorEntryValidator : AbstractValidator<CreateVisitorEntryC
         RuleFor(x => x.LicenseVerified).Equal(true).WithMessage("Verify the driver's valid license at the gate before entry.");
         RuleFor(x => x.PlateNumber)
             .NotEmpty().WithMessage("Plate number is required.")
-            .MaximumLength(20).WithMessage("Plate number must not exceed 20 characters.");
+            .MaximumLength(20).WithMessage("Plate number must not exceed 20 characters.")
+            .Must(p => System.Text.RegularExpressions.Regex.IsMatch(VisitorVehicle.NormalizePlate(p), "^[A-Z0-9]{2,20}$"))
+            .WithMessage("Enter a valid plate number using letters, numbers, spaces or hyphens.");
 
         RuleFor(x => x.Brand)
             .NotEmpty().WithMessage("Vehicle brand/model is required.")
@@ -58,7 +60,7 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
 
     public async Task<Result<VisitorEntryResponse>> Handle(CreateVisitorEntryCommand request, CancellationToken cancellationToken)
     {
-        var normalizedPlate = request.PlateNumber.Trim().ToUpper();
+        var normalizedPlate = VisitorVehicle.NormalizePlate(request.PlateNumber);
 
         // 1. Registered ParkFlow vehicles should use standard parking entry
         var registeredVehicle = await _vehicleRepository.GetByPlateNumberAsync(normalizedPlate);
@@ -73,18 +75,21 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
         if (!validation.IsValid) return Result<VisitorEntryResponse>.Failure(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)), ErrorCode.BadRequest);
         if (request.VehicleType is not (VehicleType.Motorcycle or VehicleType.Car))
             return Result<VisitorEntryResponse>.Failure("Please select Motorcycle or Car.", ErrorCode.BadRequest);
-        var visitor = await _visitorRepository.GetByPlateNumberAsync(normalizedPlate);
+        var vehicle = await _visitorRepository.GetVehicleByPlateNumberAsync(normalizedPlate);
+        var newVehicle = vehicle == null;
+        if (request.ExistingVisitorId.HasValue && !request.IdentityConfirmed)
+            return Result<VisitorEntryResponse>.Failure("Confirm the existing visitor's identity before adding a vehicle.", ErrorCode.BadRequest);
+        if (vehicle != null && request.ExistingVisitorId.HasValue && request.ExistingVisitorId != vehicle.VisitorId)
+            return Result<VisitorEntryResponse>.Failure("This vehicle belongs to a different visitor.", ErrorCode.Conflict);
+        var visitor = vehicle?.Visitor ?? (request.ExistingVisitorId.HasValue ? await _visitorRepository.GetByIdAsync(request.ExistingVisitorId.Value) : null);
+        if (request.ExistingVisitorId.HasValue && visitor == null)
+            return Result<VisitorEntryResponse>.Failure("The selected visitor no longer exists. Search again.", ErrorCode.NotFound);
         var isReturning = visitor != null;
-        visitor ??= new Visitor(request.FullName, request.ContactNumber, normalizedPlate, request.VehicleType, request.Brand);
-
-        // 3. BACKEND DUPLICATE PROTECTION: Only ONE active visit session allowed
-        var activeSession = await _visitorRepository.GetActiveVisitSessionByVisitorIdAsync(visitor.Id);
+        visitor ??= new Visitor(request.FullName, request.ContactNumber, request.PlateNumber, request.VehicleType, request.Brand);
+        vehicle ??= new VisitorVehicle(visitor.Id, request.PlateNumber, request.VehicleType, request.Brand) { Visitor = visitor };
+        var activeSession = await _visitorRepository.GetActiveVisitSessionByVehicleIdAsync(vehicle.Id);
         if (activeSession != null)
-        {
-            return Result<VisitorEntryResponse>.Failure(
-                $"Visitor with plate {normalizedPlate} is already inside campus (entered at {activeSession.EntryTime:hh:mm tt}). Please process exit before entering again.",
-                ErrorCode.Conflict);
-        }
+            return Result<VisitorEntryResponse>.Failure("This vehicle is already inside campus. Process its exit before entering again.", ErrorCode.Conflict);
 
         // 4. Resolve Guard / Admin
         Guid? guardProfileId = null;
@@ -122,14 +127,15 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
         {
             if (request.License != null) visitor.DriversLicenseUrl = await ParkFlow.Application.Features.Profiles.DriverDocumentUpload.UploadAsync(request.License, true, _cloud, cancellationToken);
             if (request.ProfilePhoto != null) visitor.ProfilePictureUrl = await ParkFlow.Application.Features.Profiles.DriverDocumentUpload.UploadAsync(request.ProfilePhoto, false, _cloud, cancellationToken);
-            if (request.VehiclePhoto != null) visitor.VehiclePictureUrl = await ParkFlow.Application.Features.Profiles.DriverDocumentUpload.UploadAsync(request.VehiclePhoto, false, _cloud, cancellationToken);
+            if (request.VehiclePhoto != null) vehicle.VehiclePictureUrl = await ParkFlow.Application.Features.Profiles.DriverDocumentUpload.UploadAsync(request.VehiclePhoto, false, _cloud, cancellationToken);
         }
         catch (DocumentValidationException e) { return Result<VisitorEntryResponse>.Failure(e.Message, ErrorCode.BadRequest); }
-        if (string.IsNullOrWhiteSpace(visitor.DriversLicenseUrl) || string.IsNullOrWhiteSpace(visitor.ProfilePictureUrl) || string.IsNullOrWhiteSpace(visitor.VehiclePictureUrl))
+        if (string.IsNullOrWhiteSpace(visitor.DriversLicenseUrl) || string.IsNullOrWhiteSpace(visitor.ProfilePictureUrl) || string.IsNullOrWhiteSpace(vehicle.VehiclePictureUrl))
             return Result<VisitorEntryResponse>.Failure("Capture the driver's license, driver photo and vehicle photo before entry.", ErrorCode.BadRequest);
         visitor.UpdateProfile(isReturning ? null : request.FullName, request.ContactNumber, visitor.VehicleType, null);
-        if (isReturning) await _visitorRepository.UpdateAsync(visitor);
-        else await _visitorRepository.AddAsync(visitor);
+        visitor.LicenseVerifiedBy = request.GuardUserId;
+        visitor.LicenseVerifiedAt = DateTime.UtcNow;
+        if (!isReturning) visitor.VehiclePictureUrl = vehicle.VehiclePictureUrl;
 
         // 5. Create new Visit Session
         var newSession = new VisitSession(
@@ -141,10 +147,14 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
 
         newSession.DriversLicenseUrl = visitor.DriversLicenseUrl;
         newSession.ProfilePictureUrl = visitor.ProfilePictureUrl;
-        newSession.VehiclePictureUrl = visitor.VehiclePictureUrl;
+        newSession.VehiclePictureUrl = vehicle.VehiclePictureUrl;
+        newSession.VisitorVehicleId = vehicle.Id;
+        newSession.Visitor = visitor;
+        newSession.VisitorVehicle = vehicle;
         newSession.LicenseVerifiedBy = request.GuardUserId;
         newSession.LicenseVerifiedAt = DateTime.UtcNow;
-        await _visitorRepository.AddVisitSessionAsync(newSession);
+        try { await _visitorRepository.SaveEntryAsync(visitor, vehicle, newSession, !isReturning, newVehicle, cancellationToken); }
+        catch (ParkingCapacityException e) { return Result<VisitorEntryResponse>.Failure(e.Message, ErrorCode.Conflict); }
 
         // 6. SignalR live notification
         if (_signalRNotificationSender != null)
@@ -155,7 +165,8 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
                 {
                     visitorId = visitor.Id,
                     sessionId = newSession.Id,
-                    plateNumber = visitor.PlateNumber,
+                    plateNumber = vehicle.PlateNumber,
+                    visitorVehicleId = vehicle.Id,
                     fullName = visitor.FullName,
                     entryTime = newSession.EntryTime
                 });
@@ -171,15 +182,15 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
             VisitorId: visitor.Id,
             SessionId: newSession.Id,
             FullName: visitor.FullName,
-            PlateNumber: visitor.PlateNumber,
-            Brand: visitor.Brand,
-            VehicleType: visitor.VehicleType.ToString(),
+            PlateNumber: vehicle.PlateNumber,
+            Brand: vehicle.Brand,
+            VehicleType: vehicle.VehicleType.ToString(),
             EntryTime: newSession.EntryTime,
             Purpose: newSession.Purpose,
             Destination: newSession.Destination,
             Status: newSession.Status.ToString(),
             IsReturning: isReturning,
-            EntryFee: 0m
+            VisitorVehicleId: vehicle.Id
         );
 
         return Result<VisitorEntryResponse>.Success(response, isReturning ? "Returning visitor entry recorded." : "New visitor entry recorded.");

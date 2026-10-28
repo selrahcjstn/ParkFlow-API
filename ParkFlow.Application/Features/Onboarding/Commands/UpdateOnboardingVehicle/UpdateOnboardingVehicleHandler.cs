@@ -66,7 +66,9 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
             
             vehicleToUpdate.Update(request.PlateNumber, request.Brand, request.VehicleType, qrCodeHash);
             vehicleToUpdate.UpdateVerificationStatus(CorVerificationStatus.Pending);
-            await _vehicleRepository.UpdateAsync(vehicleToUpdate);
+            try { await _vehicleRepository.UpdateAsync(vehicleToUpdate); }
+            catch (VehiclePlateConflictException conflict)
+            { return Result<Guid>.Failure(conflict.Message, ErrorCode.Conflict); }
             existingVehicle = vehicleToUpdate;
         }
         else
@@ -87,7 +89,9 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
             var vehicle = new Vehicle(request.UserId, request.PlateNumber, request.Brand, qrCodeHash, request.VehicleType);
             vehicle.SetPrimary(true);
 
-            await _vehicleRepository.AddAsync(vehicle);
+            try { await _vehicleRepository.AddAsync(vehicle); }
+            catch (VehiclePlateConflictException conflict)
+            { return Result<Guid>.Failure(conflict.Message, ErrorCode.Conflict); }
             existingVehicle = vehicle;
         }
 

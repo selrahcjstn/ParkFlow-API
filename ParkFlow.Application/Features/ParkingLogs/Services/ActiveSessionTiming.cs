@@ -8,6 +8,18 @@ namespace ParkFlow.Application.Features.ParkingLogs.Services;
 // Inputs are already batch-loaded by their handlers; no per-session queries.
 public static class ActiveSessionTiming
 {
+    public static (DateTime? MaximumExitTime, double OverstayHours) ResolveActive(
+        ParkingLog log, DateTime nowUtc, SystemSettingsDto settings,
+        IEnumerable<CorSubmission> submissions, ILookup<Guid, ParkingSchedule> schedules,
+        IEnumerable<ParkingReservation> reservations, Personnel? personnel = null, Vehicle? vehicle = null)
+    {
+        vehicle ??= log.Vehicle;
+        personnel ??= vehicle.Owner?.UserProfile?.Personnel;
+        var timing = Resolve(log, nowUtc, settings, submissions, schedules, reservations, personnel, vehicle);
+        return (PersonnelParkingPolicy.IsFaculty(personnel) ? null : timing.DeadlineUtc,
+            timing.IsSpecialReservation ? 0 : GetOverstayHours(log, nowUtc, settings, timing.DeadlineUtc, personnel));
+    }
+
     public static (DateTime? MaximumExitTime, double OverstayHours) ResolveCheckout(
         DateTime entryUtc, EntryMethod method, Personnel? personnel, ParkingReservation? reservation,
         ParkingSchedule? schedule, SystemSettingsDto settings, DateTime exitUtc)
@@ -33,22 +45,24 @@ public static class ActiveSessionTiming
         return (deadline, reservation?.Type == ReservationType.Special ? 0 : Math.Max(0, (exitUtc - deadline).TotalHours));
     }
 
-    public static (DateTime DeadlineUtc, bool HasReservation) Resolve(
+    public static (DateTime DeadlineUtc, bool HasReservation, bool IsSpecialReservation) Resolve(
         ParkingLog log, DateTime nowUtc, SystemSettingsDto settings,
         IEnumerable<CorSubmission> submissions,
         ILookup<Guid, ParkingSchedule> schedulesBySubmission,
-        IEnumerable<ParkingReservation> reservations)
+        IEnumerable<ParkingReservation> reservations, Personnel? personnel = null, Vehicle? vehicle = null)
     {
         var entry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
-        if (PersonnelParkingPolicy.AppliesTo(log.Vehicle.Owner?.UserProfile?.Personnel))
-            return (PersonnelParkingPolicy.GetDeadlineUtc(log.EntryTime, settings), false);
+        vehicle ??= log.Vehicle;
+        personnel ??= vehicle.Owner?.UserProfile?.Personnel;
+        if (PersonnelParkingPolicy.AppliesTo(personnel))
+            return (PersonnelParkingPolicy.GetDeadlineUtc(log.EntryTime, settings), false, false);
 
         if (log.EntryMethod == EntryMethod.Manual)
-            return (ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entry, new TimeSpan(23, 59, 59)), false);
+            return (ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entry, new TimeSpan(23, 59, 59)), false, false);
 
         bool DateMatches(ParkingReservation reservation)
         {
-            return ReservationSessionWindow.CoversEntry(reservation, log.EntryTime, settings);
+            return ReservationSessionWindow.CoversEntry(reservation, log.EntryTime);
         }
         bool VehicleMatches(ParkingReservation reservation) =>
             reservation.VehicleId == log.VehicleId || reservation.VehicleId == null || reservation.VehicleId == Guid.Empty;
@@ -67,34 +81,26 @@ public static class ActiveSessionTiming
         {
             var end = reservation.Type == ReservationType.Special ? new TimeSpan(23, 59, 59) : reservation.EndTime;
             var deadline = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entry, end);
-            return (reservation.Type == ReservationType.Special ? deadline : deadline.AddMinutes(grace), true);
+            return (reservation.Type == ReservationType.Special ? deadline : deadline.AddMinutes(grace), true, reservation.Type == ReservationType.Special);
         }
 
-        var userSubmissions = submissions.Where(c => c.UserAccountId == log.Vehicle.OwnerId).ToList();
-        var verified = userSubmissions.FirstOrDefault(c => c.VerificationStatus == CorVerificationStatus.Verified);
-        var schedules = verified == null ? new List<ParkingSchedule>() : schedulesBySubmission[verified.Id].ToList();
-        if (schedules.Count == 0)
-        {
-            var latest = userSubmissions.OrderByDescending(c => c.CreatedAt).FirstOrDefault();
-            schedules = latest == null ? [] : schedulesBySubmission[latest.Id].ToList();
-            if (schedules.Count == 0)
-                schedules = userSubmissions.SelectMany(c => schedulesBySubmission[c.Id])
-                    .OrderByDescending(s => s.CreatedAt).GroupBy(s => s.DayOfWeek).Select(g => g.First()).ToList();
-        }
-        var daySchedules = schedules.Where(s => s.DayOfWeek == entry.DayOfWeek).OrderBy(s => s.StartTime).ToList();
-        var schedule = daySchedules.FirstOrDefault(s => entry.TimeOfDay >= s.StartTime && entry.TimeOfDay <= s.EndTime)
-            ?? daySchedules.LastOrDefault();
+        // Match checkout's authoritative verified-COR selection, including legacy
+        // split/adjacent class intervals. Unverified documents cannot set deadlines.
+        var verified = submissions.FirstOrDefault(c => c.UserAccountId == vehicle.OwnerId &&
+            c.VerificationStatus == CorVerificationStatus.Verified);
+        var schedule = verified == null ? null : ScheduleService.FindEntrySchedule(schedulesBySubmission[verified.Id], entry);
         if (schedule != null)
-            return (ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entry, schedule.EndTime).AddMinutes(grace), false);
+            return (ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entry, schedule.EndTime).AddMinutes(grace), false, false);
 
         var closing = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entry, TimeSpan.FromHours(22));
-        return (closing > log.EntryTime ? closing : log.EntryTime.AddHours(4), false);
+        return (closing > log.EntryTime ? closing : log.EntryTime.AddHours(4), false, false);
     }
 
-    public static double GetOverstayHours(ParkingLog log, DateTime nowUtc, SystemSettingsDto settings, DateTime deadlineUtc)
+    public static double GetOverstayHours(ParkingLog log, DateTime nowUtc, SystemSettingsDto settings, DateTime deadlineUtc, Personnel? personnel = null)
     {
-        if (PersonnelParkingPolicy.IsFaculty(log.Vehicle.Owner?.UserProfile?.Personnel)) return 0;
-        if (PersonnelParkingPolicy.AppliesTo(log.Vehicle.Owner?.UserProfile?.Personnel))
+        personnel ??= log.Vehicle?.Owner?.UserProfile?.Personnel;
+        if (PersonnelParkingPolicy.IsFaculty(personnel)) return 0;
+        if (PersonnelParkingPolicy.AppliesTo(personnel))
             return PersonnelParkingPolicy.GetChargeDuration(log.EntryTime, nowUtc, settings).TotalHours;
         if (log.EntryMethod == EntryMethod.Manual &&
             ParkingTimeHelper.ConvertUtcToPhilippinesTime(nowUtc).Date <=

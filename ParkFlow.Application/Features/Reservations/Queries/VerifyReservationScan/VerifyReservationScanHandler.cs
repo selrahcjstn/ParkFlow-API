@@ -13,20 +13,21 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
     private readonly IParkingReservationRepository _reservationRepository;
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IUserProfileRepository _userProfileRepository;
-    private readonly IViolationRepository? _violationRepository;
+
+    private readonly TimeProvider _timeProvider;
 
     public VerifyReservationScanHandler(
         IParkingLogRepository parkingLogs,
         IParkingReservationRepository reservationRepository,
         IVehicleRepository vehicleRepository,
         IUserProfileRepository userProfileRepository,
-        IViolationRepository? violationRepository = null)
+        TimeProvider? timeProvider = null)
     {
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _reservationRepository = reservationRepository;
         _parkingLogs = parkingLogs;
         _vehicleRepository = vehicleRepository;
         _userProfileRepository = userProfileRepository;
-        _violationRepository = violationRepository;
     }
 
     public async Task<Result<VerifyReservationScanResponse>> Handle(VerifyReservationScanQuery request, CancellationToken cancellationToken)
@@ -59,7 +60,7 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
             if (vehicle != null)
             {
                 var userReservations = await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId);
-                var phToday = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow).Date;
+                var phToday = ParkingTimeHelper.ConvertUtcToPhilippinesTime(_timeProvider.GetUtcNow().UtcDateTime).Date;
                 reservation = userReservations.FirstOrDefault(r => 
                     (r.VehicleId == vehicle.Id || r.VehicleId == null) &&
                     r.ReservationDate.Date == phToday &&
@@ -86,13 +87,11 @@ public class VerifyReservationScanHandler : IRequestHandler<VerifyReservationSca
         var driverName = driverProfile != null ? $"{driverProfile.FirstName} {driverProfile.LastName}".Trim() : "Vehicle Owner";
         var driverEmail = reservation.UserAccount?.PrimaryEmail ?? string.Empty;
 
-        var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
+        var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(_timeProvider.GetUtcNow().UtcDateTime);
         var isToday = reservation.ReservationDate.Date == philippinesNow.Date;
         var isApproved = reservation.Status == ReservationStatus.Approved;
 
-        var settings = SystemSettingsStore.Current;
-        var earlyBuffer = settings.IsEarlyParkingAllowed ? settings.EarlyParkingMinutes : 0;
-        var earliestAllowed = reservation.StartTime.Subtract(TimeSpan.FromMinutes(earlyBuffer));
+        var earliestAllowed = reservation.StartTime;
 
         var hasEnded = reservation.Type != ReservationType.Special && philippinesNow.TimeOfDay > reservation.EndTime;
         var isTooEarly = reservation.Type != ReservationType.Special && philippinesNow.TimeOfDay < earliestAllowed;

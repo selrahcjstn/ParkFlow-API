@@ -31,6 +31,13 @@ public class VisitorController : ControllerBase
         return this.ToActionResult(result);
     }
 
+    [Authorize(Policy = "GuardOrAdmin")]
+    [HttpPost("lookup/{plateNumber}/confirm")]
+    public async Task<ActionResult<Result<UnifiedPlateLookupDto>>> ConfirmPlateLookup(string plateNumber)
+    {
+        return this.ToActionResult(await _mediator.Send(new GetPlateLookupQuery(plateNumber, true)));
+    }
+
     [Authorize(Policy = "GuardOnly")]
     [HttpPost("entry"), RequestSizeLimit(16 * 1024 * 1024)]
     public async Task<ActionResult<Result<VisitorEntryResponse>>> CreateVisitorEntry([FromForm] CreateVisitorEntryCommand command)
@@ -76,9 +83,9 @@ public class VisitorController : ControllerBase
 
     [Authorize(Policy = "GuardOrAdmin")]
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<Result<VisitorDetailDto>>> GetVisitorDetail(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<ActionResult<Result<VisitorDetailDto>>> GetVisitorDetail(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] Guid? visitorVehicleId = null)
     {
-        var result = await _mediator.Send(new GetVisitorDetailQuery(id, page, pageSize));
+        var result = await _mediator.Send(new GetVisitorDetailQuery(id, page, pageSize, visitorVehicleId));
         return this.ToActionResult(result);
     }
 }

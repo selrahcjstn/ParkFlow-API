@@ -15,9 +15,10 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IParkingLogRepository _parkingLogRepository;
-    private readonly IViolationRepository _violationRepository;
     private readonly IScheduleService _scheduleService;
     private readonly IParkingReservationRepository? _reservationRepository;
+
+    private readonly TimeProvider _timeProvider;
 
     public VerifyStudentScanHandler(
         IStudentRepository studentRepository,
@@ -26,17 +27,18 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
         IParkingScheduleRepository parkingScheduleRepository,
         IVehicleRepository vehicleRepository,
         IParkingLogRepository parkingLogRepository,
-        IViolationRepository violationRepository,
+
         IScheduleService scheduleService,
-        IParkingReservationRepository? reservationRepository = null)
+        IParkingReservationRepository? reservationRepository = null,
+        TimeProvider? timeProvider = null)
     {
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _studentRepository = studentRepository;
         _userProfileRepository = userProfileRepository;
         _corSubmissionRepository = corSubmissionRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
         _vehicleRepository = vehicleRepository;
         _parkingLogRepository = parkingLogRepository;
-        _violationRepository = violationRepository;
         _scheduleService = scheduleService;
         _reservationRepository = reservationRepository;
     }
@@ -122,8 +124,6 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
         // Check registered vehicle
         Vehicle? primaryVehicle = null;
         bool hasRegisteredVehicle = false;
-        bool hasActiveViolation = false;
-        string? violationNotice = null;
         bool isCurrentlyParked = false;
 
         if (userAccountId != Guid.Empty)
@@ -151,7 +151,7 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
         string? allowedEntryWindow = null;
         string corStatus = "NotSubmitted";
 
-        var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
+        var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(_timeProvider.GetUtcNow().UtcDateTime);
         var todayDayOfWeek = philippinesNow.DayOfWeek;
 
         if (userAccountId == Guid.Empty)
@@ -240,9 +240,8 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
                 {
                     if (todayApprovedReservation != null)
                     {
-                        var settings = SystemSettingsStore.Current;
-                        var earlyBuffer = settings.IsEarlyParkingAllowed ? settings.EarlyParkingMinutes : 0;
-                        var earliestAllowed = todayApprovedReservation.StartTime.Subtract(TimeSpan.FromMinutes(earlyBuffer));
+
+                        var earliestAllowed = todayApprovedReservation.StartTime;
 
                         if (todayApprovedReservation.Type != ReservationType.Special && philippinesNow.TimeOfDay > todayApprovedReservation.EndTime)
                         {
@@ -294,14 +293,13 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
                         isValid = true;
                         entryStatus = "Approved";
                         var earliest = _scheduleService.GetEarliestAllowedEntryTime(matchingSchedule);
-                        allowedEntryWindow = $"{DateTime.Today.Add(earliest):hh:mm tt} – {DateTime.Today.Add(matchingSchedule.EndTime):hh:mm tt} (with 30m grace)";
+                        allowedEntryWindow = $"{DateTime.Today.Add(earliest):hh:mm tt} – {DateTime.Today.Add(matchingSchedule.EndTime):hh:mm tt}";
                         statusMessage = "Authorized for campus entry today.";
                     }
                     else if (todayApprovedReservation != null)
                     {
-                        var settings = SystemSettingsStore.Current;
-                        var earlyBuffer = settings.IsEarlyParkingAllowed ? settings.EarlyParkingMinutes : 0;
-                        var earliestAllowed = todayApprovedReservation.StartTime.Subtract(TimeSpan.FromMinutes(earlyBuffer));
+
+                        var earliestAllowed = todayApprovedReservation.StartTime;
 
                         if (todayApprovedReservation.Type == ReservationType.Special || (philippinesNow.TimeOfDay >= earliestAllowed && philippinesNow.TimeOfDay <= todayApprovedReservation.EndTime))
                         {
@@ -407,8 +405,8 @@ public class VerifyStudentScanHandler : IRequestHandler<VerifyStudentScanQuery, 
             VehicleType = primaryVehicle?.VehicleType.ToString(),
             VehicleQrCodeHash = primaryVehicle?.QrCodeHash,
             IsCurrentlyParked = isCurrentlyParked,
-            HasActiveViolation = hasActiveViolation,
-            ViolationNotice = violationNotice
+
+
         };
 
         return Result<VerifyStudentScanResponse>.Success(response, statusMessage);

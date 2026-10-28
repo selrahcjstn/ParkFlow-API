@@ -11,10 +11,14 @@ public class CancelReservationHandler : IRequestHandler<CancelReservationCommand
     private readonly IParkingReservationRepository _reservationRepository;
     private readonly ISignalRNotificationSender _notificationSender;
 
+    private readonly TimeProvider _timeProvider;
+
     public CancelReservationHandler(
         IParkingReservationRepository reservationRepository,
-        ISignalRNotificationSender notificationSender)
+        ISignalRNotificationSender notificationSender,
+        TimeProvider? timeProvider = null)
     {
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _reservationRepository = reservationRepository;
         _notificationSender = notificationSender;
     }
@@ -30,11 +34,9 @@ public class CancelReservationHandler : IRequestHandler<CancelReservationCommand
 
         if (reservation.Status == ReservationStatus.Approved)
         {
-            var settings = SystemSettingsStore.Current;
             var start = reservation.Type == ReservationType.Special ? TimeSpan.Zero : reservation.StartTime;
-            var cutoff = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(reservation.ReservationDate, start)
-                .AddMinutes(settings.IsEarlyParkingAllowed ? -settings.EarlyParkingMinutes : 0);
-            if (DateTime.UtcNow >= cutoff)
+            var cutoff = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(reservation.ReservationDate, start);
+            if (_timeProvider.GetUtcNow().UtcDateTime >= cutoff)
                 return Result<bool>.Failure("This reservation is already valid for entry and can no longer be cancelled.", ErrorCode.BadRequest);
         }
 

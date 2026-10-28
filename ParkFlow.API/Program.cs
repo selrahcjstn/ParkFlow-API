@@ -7,12 +7,17 @@ using ParkFlow.Infrastructure;
 using ParkFlow.Persistence;
 using System.Text;
 using System.Linq;
+using ParkFlow.API.Security;
+using Microsoft.AspNetCore.HttpOverrides;
 
-var builder = WebApplication.CreateBuilder(args);
+var checkDatabaseOnly = args.Contains("--check-database", StringComparer.Ordinal);
+var builder = WebApplication.CreateBuilder(args.Where(arg => arg != "--check-database").ToArray());
+ReleaseConfiguration.Validate(builder.Configuration, builder.Environment);
+builder.Services.Configure<ForwardedHeadersOptions>(options => ReleaseConfiguration.ConfigureProxy(options, builder.Configuration));
 
 if (string.IsNullOrWhiteSpace(builder.Configuration["ASPNETCORE_URLS"]))
 {
-    builder.WebHost.UseUrls("http://0.0.0.0:5000");
+    builder.WebHost.UseUrls(builder.Environment.IsDevelopment() ? "http://0.0.0.0:5000" : "http://127.0.0.1:5000");
 }
 
 var allowedOrigins = builder.Configuration
@@ -34,10 +39,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.SetIsOriginAllowed(_ => true)
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
+        if (builder.Environment.IsDevelopment() && allowedOrigins.Length == 0) policy.SetIsOriginAllowed(_ => true);
+        else policy.WithOrigins(allowedOrigins);
+        policy.AllowAnyMethod().AllowAnyHeader().AllowCredentials();
     });
 });
 
@@ -98,7 +102,17 @@ builder.Services.AddSignalR();
 
 var app = builder.Build();
 
+// Release preflight: inspect schema history without seeding, serving requests or migrating.
+if (checkDatabaseOnly)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    await DatabaseStartupCheck.EnsureReadyAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>());
+    app.Logger.LogInformation("Database migration history matches this API release. No changes were applied.");
+    return;
+}
+
 // Configure the HTTP request pipeline.
+app.UseReleaseTransport(app.Environment.IsDevelopment());
 app.UseSwagger();
 app.UseSwaggerUI();
 

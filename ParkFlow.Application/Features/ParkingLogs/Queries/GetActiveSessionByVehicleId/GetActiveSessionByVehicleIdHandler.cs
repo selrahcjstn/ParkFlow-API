@@ -14,29 +14,29 @@ public class GetActiveSessionByVehicleIdHandler
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
     private readonly ICorSubmissionRepository _corSubmissionRepository;
-    private readonly IViolationService _violationService;
     private readonly IParkingReservationRepository? _reservationRepository;
     private readonly IUserProfileRepository? _userProfileRepository;
     private readonly IPersonnelRepository? _personnelRepository;
+    private readonly TimeProvider _timeProvider;
 
     public GetActiveSessionByVehicleIdHandler(
         IParkingLogRepository parkingLogRepository,
         IVehicleRepository vehicleRepository,
         IParkingScheduleRepository parkingScheduleRepository,
         ICorSubmissionRepository corSubmissionRepository,
-        IViolationService violationService,
         IParkingReservationRepository? reservationRepository = null,
         IUserProfileRepository? userProfileRepository = null,
-        IPersonnelRepository? personnelRepository = null)
+        IPersonnelRepository? personnelRepository = null,
+        TimeProvider? timeProvider = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
         _corSubmissionRepository = corSubmissionRepository;
-        _violationService = violationService;
         _reservationRepository = reservationRepository;
         _userProfileRepository = userProfileRepository;
         _personnelRepository = personnelRepository;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public async Task<Result<ActiveParkingSessionResponse>> Handle(
@@ -72,77 +72,19 @@ public class GetActiveSessionByVehicleIdHandler
                 ErrorCode.NotFound);
         }
 
-        // 3. Compute exitBy and accruedCharge
-        var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
-        var verifiedCor = corSubmissions.FirstOrDefault(c =>
-            c.UserAccountId == vehicle.OwnerId &&
-            c.VerificationStatus == CorVerificationStatus.Verified);
-
+        // Use the same operational policy as session lists/counts; do not infer a deadline from fees.
+        var corSubmissions = (await _corSubmissionRepository.ListCorSubmissionsAsync())
+            .Where(c => c.UserAccountId == vehicle.OwnerId).ToList();
+        var schedules = await _parkingScheduleRepository.GetBySubmissionIdsAsync(corSubmissions.Select(c => c.Id));
         var ownerProfile = _userProfileRepository == null ? null : await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
         var personnel = ownerProfile == null || _personnelRepository == null ? null : await _personnelRepository.GetByUserProfileIdAsync(ownerProfile.Id);
-        var isPersonnelParking = PersonnelParkingPolicy.AppliesTo(personnel ?? vehicle.Owner?.UserProfile?.Personnel);
-        var nowUtc = DateTime.UtcNow;
-        decimal accruedCharge = 0m;
-        var overstayHours = 0d;
-
-        // scheduleDeadlineUtc = the raw schedule / reservation end time (shown to user as ExitBy)
-        // maximumExitTimeUtc  = schedule end + grace period (overtime penalty starts after this)
-        DateTime? scheduleDeadlineUtc = null;
-        DateTime? maximumExitTimeUtc = null;
-        var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(activeLog.EntryTime);
-        var sysSettings = SystemSettingsStore.Current;
-        var graceMin = sysSettings.IsGracePeriodEnabled ? sysSettings.GracePeriodMinutes : 0;
-
-        var userReservations = _reservationRepository != null 
-            ? (await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId)).ToList() 
-            : new List<ParkFlow.Domain.Entities.ParkingReservation>();
-        bool IsReservationDateMatch(ParkFlow.Domain.Entities.ParkingReservation res)
-        {
-            return ReservationSessionWindow.CoversEntry(res, activeLog.EntryTime, sysSettings);
-        }
-
-        var entryReservation = userReservations.FirstOrDefault(r =>
-            (r.VehicleId == vehicle.Id || r.VehicleId == null || r.VehicleId == Guid.Empty) &&
-            IsReservationDateMatch(r) &&
-            (r.Status == ReservationStatus.Approved || r.Status == ReservationStatus.Completed))
-            ?? userReservations.FirstOrDefault(r =>
-                IsReservationDateMatch(r) &&
-                (r.Status == ReservationStatus.Approved || r.Status == ReservationStatus.Completed))
-            ?? userReservations.FirstOrDefault(r =>
-                (r.VehicleId == vehicle.Id || r.VehicleId == null || r.VehicleId == Guid.Empty) &&
-                IsReservationDateMatch(r) &&
-                r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.Rejected)
-            ?? userReservations.FirstOrDefault(r =>
-                IsReservationDateMatch(r) &&
-                r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.Rejected);
-
-        if (PersonnelParkingPolicy.IsFaculty(personnel ?? vehicle.Owner?.UserProfile?.Personnel)) { overstayHours = 0; scheduleDeadlineUtc = null; }
-        else if (isPersonnelParking)
-        {
-            scheduleDeadlineUtc = PersonnelParkingPolicy.GetDeadlineUtc(activeLog.EntryTime, sysSettings);
-            maximumExitTimeUtc = scheduleDeadlineUtc;
-        }
-        else if (entryReservation != null)
-        {
-            overstayHours = entryReservation.Type == ReservationType.Special || !maximumExitTimeUtc.HasValue
-                ? 0 : Math.Max(0, (nowUtc - maximumExitTimeUtc.Value).TotalHours);
-        }
-        else
-        {
-            if (maximumExitTimeUtc == null)
-            {
-                var defaultClosingUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesEntry, new TimeSpan(22, 0, 0));
-                maximumExitTimeUtc = defaultClosingUtc > activeLog.EntryTime ? defaultClosingUtc : activeLog.EntryTime.AddHours(4);
-                scheduleDeadlineUtc = maximumExitTimeUtc;
-            }
-
-            if (maximumExitTimeUtc.HasValue && nowUtc > maximumExitTimeUtc.Value)
-            {
-                var overstayDuration = nowUtc - maximumExitTimeUtc.Value;
-                overstayHours = overstayDuration.TotalHours;
-
-            }
-        }
+        var reservations = _reservationRepository == null
+            ? new List<ParkFlow.Domain.Entities.ParkingReservation>()
+            : (await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId)).ToList();
+        var nowUtc = _timeProvider.GetUtcNow().UtcDateTime;
+        var timing = ActiveSessionTiming.ResolveActive(activeLog, nowUtc, SystemSettingsStore.Current,
+            corSubmissions, schedules.ToLookup(s => s.SubmissionId), reservations,
+            personnel ?? vehicle.Owner?.UserProfile?.Personnel, vehicle);
 
         // ElapsedMinutes: always from actual DB entry time to now
         var elapsedMinutes = (int)(nowUtc - activeLog.EntryTime).TotalMinutes;
@@ -152,11 +94,9 @@ public class GetActiveSessionByVehicleIdHandler
             SessionId = activeLog.Id.ToString(),
             StartedAt = activeLog.EntryTime.ToString("yyyy-MM-ddTHH:mm:ssZ"),
             ElapsedMinutes = Math.Max(0, elapsedMinutes),
-            OverstayHours = overstayHours,
-            AccruedCharge = accruedCharge,
-            ExitBy = maximumExitTimeUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ")
-                ?? scheduleDeadlineUtc?.ToString("yyyy-MM-ddTHH:mm:ssZ")
-                ?? "N/A"
+            OverstayHours = timing.OverstayHours,
+
+            ExitBy = timing.MaximumExitTime?.ToString("yyyy-MM-ddTHH:mm:ssZ") ?? "N/A"
         };
 
         return Result<ActiveParkingSessionResponse>.Success(response, "Active parking session retrieved successfully.");

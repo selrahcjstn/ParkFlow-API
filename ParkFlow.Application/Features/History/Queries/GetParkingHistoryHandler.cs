@@ -19,8 +19,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
     private readonly IParkingLogRoleService _parkingLogRoleService;
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
-    private readonly IViolationRepository _violationRepository;
-    private readonly IViolationService _violationService;
+    private readonly IParkingReservationRepository? _reservationRepository;
 
     public GetParkingHistoryHandler(
         IParkingLogRepository parkingLogRepository,
@@ -32,8 +31,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
         IParkingLogRoleService parkingLogRoleService,
         ICorSubmissionRepository corSubmissionRepository,
         IParkingScheduleRepository parkingScheduleRepository,
-        IViolationRepository violationRepository,
-        IViolationService violationService)
+        IParkingReservationRepository? reservationRepository = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _userProfileRepository = userProfileRepository;
@@ -44,8 +42,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
         _parkingLogRoleService = parkingLogRoleService;
         _corSubmissionRepository = corSubmissionRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
-        _violationRepository = violationRepository;
-        _violationService = violationService;
+        _reservationRepository = reservationRepository;
     }
 
     public async Task<Result<PagedParkingHistoryResponse>> Handle(GetParkingHistoryQuery request, CancellationToken cancellationToken)
@@ -76,7 +73,14 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
             request.PageNumber,
             request.PageSize);
 
-        var corSubmissions = await _corSubmissionRepository.ListCorSubmissionsAsync();
+        var ownerIds = logs.Where(l => l.Vehicle != null).Select(l => l.Vehicle.OwnerId).ToHashSet();
+        var corSubmissions = (await _corSubmissionRepository.ListCorSubmissionsAsync())
+            .Where(c => ownerIds.Contains(c.UserAccountId)).ToList();
+        var schedules = (await _parkingScheduleRepository.GetBySubmissionIdsAsync(corSubmissions.Select(c => c.Id)))
+            .ToLookup(s => s.SubmissionId);
+        var settings = SystemSettingsStore.Current;
+        var reservations = _reservationRepository == null ? [] :
+            (await _reservationRepository.GetByUserIdsAsync(ownerIds)).ToList();
 
         var dtoList = new List<ParkingHistoryResponse>();
         foreach (var log in logs)
@@ -90,62 +94,20 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 ? _parkingLogRoleService.GetRoleDetails(ownerProfile, student, personnel, admin)
                 : null;
 
-            var entryLocal = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
-            var mustExitBy = log.EntryTime; // Fallback default
-
-            if (vehicle != null)
-            {
-                var verifiedCor = corSubmissions.FirstOrDefault(c => 
-                    c.UserAccountId == vehicle.OwnerId && 
-                    c.VerificationStatus == CorVerificationStatus.Verified);
-
-                if (verifiedCor != null)
-                {
-                    var schedules = await _parkingScheduleRepository.GetBySubmissionIdAsync(verifiedCor.Id);
-                    var schedule = ScheduleService.FindEntrySchedule(schedules, entryLocal);
-                    if (schedule != null)
-                    {
-                        mustExitBy = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(entryLocal, schedule.EndTime);
-                    }
-                }
-            }
-
             // Use the actual exit time from DB — null means the session is still active
             var exitTimeVal = log.ExitTime ?? log.UpdatedAt;
             var duration = exitTimeVal.HasValue
                 ? Math.Round((exitTimeVal.Value - log.EntryTime).TotalHours, 2)
                 : (double?)null;
 
-            var hasViolation = false;
-            decimal violationFee = 0m;
-            double overstayHours = 0;
-            bool isPaid = true;
-            string? referenceNumber = null;
-
-            var existingViolation = await _violationRepository.GetByLogIdAsync(log.Id);
-            if (existingViolation != null)
+            var overstayHours = 0d;
+            if (vehicle != null && exitTimeVal.HasValue)
             {
-                var isPureParkingCharge = existingViolation.ViolationType == ViolationType.ReservationCharge ||
-                                         existingViolation.ViolationType == ViolationType.ManualParkingCharge ||
-                                         (existingViolation.PenaltyFee <= 20m && (!exitTimeVal.HasValue || exitTimeVal.Value <= mustExitBy));
-                hasViolation = !isPureParkingCharge;
-                violationFee = existingViolation.PenaltyFee;
-                isPaid = existingViolation.SettlementStatus == SettlementStatus.Settled;
-                referenceNumber = existingViolation.ReferenceNumber;
-                if (exitTimeVal.HasValue && exitTimeVal.Value > mustExitBy)
-                {
-                    overstayHours = Math.Round((exitTimeVal.Value - mustExitBy).TotalHours, 2);
-                }
+                var timing = ActiveSessionTiming.Resolve(log, exitTimeVal.Value, settings, corSubmissions,
+                    schedules, reservations.Where(r => r.UserId == vehicle.OwnerId));
+                if (!timing.IsSpecialReservation)
+                    overstayHours = Math.Round(ActiveSessionTiming.GetOverstayHours(log, exitTimeVal.Value, settings, timing.DeadlineUtc), 2);
             }
-            else
-            {
-                hasViolation = false;
-                isPaid = true;
-                violationFee = 0m;
-                overstayHours = 0;
-            }
-
-            var sessionCharge = existingViolation?.PenaltyFee ?? 0m;
 
             var ownerEmail = vehicle?.Owner?.PrimaryEmail
                 ?? vehicle?.Owner?.AuthIdentities?.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Email))?.Email
@@ -174,14 +136,8 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
                 ExitTime = exitTimeVal,
                 ParkingDuration = duration,
                 TotalParkingHours = duration,
-                HasViolation = hasViolation,
-                ViolationFee = violationFee,
-                PenaltyFee = violationFee,
-                Amount = sessionCharge,
                 OverstayHours = overstayHours,
-                IsPaid = isPaid,
-                ReferenceNumber = referenceNumber,
-                Status = hasViolation ? "Overdue" : "Completed"
+                Status = log.ExitTime.HasValue ? "Completed" : "Parked"
             });
         }
 

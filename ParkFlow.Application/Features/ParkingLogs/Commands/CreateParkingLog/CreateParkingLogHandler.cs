@@ -19,7 +19,6 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     private readonly IStudentRepository _studentRepository;
     private readonly IPersonnelRepository _personnelRepository;
     private readonly IAdminRepository _adminRepository;
-    private readonly IViolationRepository _violationRepository;
     private readonly IParkingService _parkingService;
     private readonly IScheduleService _scheduleService;
     private readonly IParkingLogRoleService _parkingLogRoleService;
@@ -27,6 +26,8 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     private readonly IParkingReservationRepository? _reservationRepository;
     private readonly INotificationService? _notificationService;
     private readonly ICacheService? _cacheService;
+
+    private readonly TimeProvider _timeProvider;
 
     public CreateParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -38,15 +39,17 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         IStudentRepository studentRepository,
         IPersonnelRepository personnelRepository,
         IAdminRepository adminRepository,
-        IViolationRepository violationRepository,
+
         IParkingService parkingService,
         IScheduleService scheduleService,
         IParkingLogRoleService parkingLogRoleService,
         ISignalRNotificationSender signalRNotificationSender,
         IParkingReservationRepository? reservationRepository = null,
         INotificationService? notificationService = null,
-        ICacheService? cacheService = null)
+        ICacheService? cacheService = null,
+        TimeProvider? timeProvider = null)
     {
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
         _userProfileRepository = userProfileRepository;
@@ -56,7 +59,6 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         _studentRepository = studentRepository;
         _personnelRepository = personnelRepository;
         _adminRepository = adminRepository;
-        _violationRepository = violationRepository;
         _parkingService = parkingService;
         _scheduleService = scheduleService;
         _parkingLogRoleService = parkingLogRoleService;
@@ -68,6 +70,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
 
     public async Task<Result<CreateParkingLogResponse>> Handle(CreateParkingLogCommand request, CancellationToken cancellationToken)
     {
+        var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
         var vehicle = await _vehicleRepository.GetByQrCodeHashAsync(request.QrCodeHash);
 
         if (vehicle == null && _reservationRepository != null)
@@ -86,15 +89,13 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
                     return Result<CreateParkingLogResponse>.Failure($"Entry denied: Reservation status is {reservationPass.Status}.", ErrorCode.Forbidden);
                 }
 
-                var phNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
+                var phNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
                 if (reservationPass.ReservationDate.Date != phNow.Date)
                 {
                     return Result<CreateParkingLogResponse>.Failure($"Entry denied: Reservation is for {reservationPass.ReservationDate:MMMM dd, yyyy}. Not valid today.", ErrorCode.Forbidden);
                 }
 
-                var sysSettings = SystemSettingsStore.Current;
-                var earlyBuff = sysSettings.IsEarlyParkingAllowed ? sysSettings.EarlyParkingMinutes : 0;
-                var earliestResPassEntry = reservationPass.StartTime.Subtract(TimeSpan.FromMinutes(earlyBuff));
+                var earliestResPassEntry = reservationPass.StartTime;
 
                 if (reservationPass.Type != ReservationType.Special && phNow.TimeOfDay > reservationPass.EndTime)
                 {
@@ -199,7 +200,6 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         DateTime? maximumExitTimeUtc = null;
 
         var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId) : [];
-        var utcNow = DateTime.UtcNow;
         var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
         var phNowDate = philippinesNow.Date;
 
@@ -257,8 +257,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             }
             else
             {
-                var earlyBuffer = systemSettings.IsEarlyParkingAllowed ? systemSettings.EarlyParkingMinutes : 0;
-                var earliestResEntry = todayApprovedReservation.StartTime.Subtract(TimeSpan.FromMinutes(earlyBuffer));
+                var earliestResEntry = todayApprovedReservation.StartTime;
                 if (philippinesNow.TimeOfDay < earliestResEntry)
                 {
                     return Result<CreateParkingLogResponse>.Failure(

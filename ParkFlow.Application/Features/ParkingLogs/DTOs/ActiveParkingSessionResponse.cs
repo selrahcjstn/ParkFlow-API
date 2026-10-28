@@ -8,6 +8,5 @@ public class ActiveParkingSessionResponse
     public string StartedAt { get; set; } = null!;
     public int ElapsedMinutes { get; set; }
     public double OverstayHours { get; set; }
-    public decimal AccruedCharge { get; set; }
     public string ExitBy { get; set; } = null!;
 }

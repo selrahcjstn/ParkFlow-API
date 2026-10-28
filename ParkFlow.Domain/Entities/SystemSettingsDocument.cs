@@ -1,6 +1,6 @@
 namespace ParkFlow.Domain.Entities;
 
-// A single versioned settings snapshot; tariff amounts are never inferred from defaults on restart.
+// A single versioned snapshot of operational parking settings.
 public class SystemSettingsDocument
 {
     public int Id { get; set; } = 1;

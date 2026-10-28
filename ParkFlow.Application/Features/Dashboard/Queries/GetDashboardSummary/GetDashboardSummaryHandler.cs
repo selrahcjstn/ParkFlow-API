@@ -40,8 +40,6 @@ public class GetDashboardSummaryHandler : IRequestHandler<GetDashboardSummaryQue
                 var asOfUtc = DateTime.UtcNow;
                 var totalUsers = await _dashboardRepository.GetTotalUsersCountAsync();
                 var activeParking = await _dashboardRepository.GetActiveParkingCountAsync();
-                var todayRevenue = await _dashboardRepository.GetTodayRevenueAsync(asOfUtc);
-                var violationsCount = await _dashboardRepository.GetActiveViolationsCountAsync();
                 var previous = await _dashboardRepository.GetDailyComparisonAsync(asOfUtc);
 
                 var activityDict = await _dashboardRepository.GetActivityOverLast7DaysAsync();
@@ -60,17 +58,11 @@ public class GetDashboardSummaryHandler : IRequestHandler<GetDashboardSummaryQue
                     TotalUsers: totalUsers,
                     ActiveParking: activeParking,
                     MaxCapacity: effectiveCapacity,
-                    TodayRevenue: todayRevenue,
-                    ViolationsCount: violationsCount,
+
+
                     ActivityOverLast7Days: activityList,
                     Trends: new DashboardTrendsDto(
                         CalculatePercentageChange(totalUsers, previous.RegisteredClients),
-                        previous.Revenue.HasValue
-                            ? CalculatePercentageChange(todayRevenue, previous.Revenue.Value)
-                            : null,
-                        previous.PendingCharges.HasValue
-                            ? CalculatePercentageChange(violationsCount, previous.PendingCharges.Value)
-                            : null,
                         previous.Date)
                 );
 

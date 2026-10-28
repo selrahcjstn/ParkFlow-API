@@ -75,7 +75,9 @@ public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result
             vehicle.SetPrimary(true);
         }
 
-        await _vehicleRepository.AddAsync(vehicle);
+        try { await _vehicleRepository.AddAsync(vehicle); }
+        catch (VehiclePlateConflictException conflict)
+        { return Result<Guid>.Failure(conflict.Message, ErrorCode.Conflict); }
 
         if (_signalRNotificationSender != null)
         {

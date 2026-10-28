@@ -11,7 +11,7 @@ using ParkFlow.Application.Features.Reservations.Queries.VerifyReservationScan;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
-using Test.Features.Violations;
+using Test.Support;
 
 namespace Test.Features.ParkingLogs;
 
@@ -23,7 +23,6 @@ public class ScheduleRestrictionEntryTests
     private readonly FakeTestParkingScheduleRepository _parkingScheduleRepository;
     private readonly FakeTestVehicleRepository _vehicleRepository;
     private readonly FakeParkingLogRepository _parkingLogRepository;
-    private readonly FakeViolationRepository _violationRepository;
     private readonly FakeGuardRepository _guardRepository;
     private readonly FakePersonnelRepository _personnelRepository;
     private readonly FakeAdminRepository _adminRepository;
@@ -40,7 +39,6 @@ public class ScheduleRestrictionEntryTests
         _parkingScheduleRepository = new FakeTestParkingScheduleRepository();
         _vehicleRepository = new FakeTestVehicleRepository();
         _parkingLogRepository = new FakeParkingLogRepository();
-        _violationRepository = new FakeViolationRepository();
         _guardRepository = new FakeGuardRepository();
         _personnelRepository = new FakePersonnelRepository();
         _adminRepository = new FakeAdminRepository();
@@ -62,6 +60,7 @@ public class ScheduleRestrictionEntryTests
 
         var studentUserAccountId = Guid.NewGuid();
         var studentProfile = new UserProfile(studentUserAccountId, "Student", "User", null, null);
+        Test.Support.DriverDocumentFixture.Approve(studentProfile);
         await _userProfileRepository.AddAsync(studentProfile);
         var student = new Student(studentProfile.Id, "2023-0001", "BSCS", "4A", 4) { UserProfile = studentProfile };
         await _studentRepository.AddAsync(student);
@@ -92,7 +91,6 @@ public class ScheduleRestrictionEntryTests
             _studentRepository,
             _personnelRepository,
             _adminRepository,
-            _violationRepository,
             _parkingService,
             _scheduleService,
             _parkingLogRoleService,
@@ -123,6 +121,7 @@ public class ScheduleRestrictionEntryTests
 
         var studentUserAccountId = Guid.NewGuid();
         var studentProfile = new UserProfile(studentUserAccountId, "Student", "User", null, null);
+        Test.Support.DriverDocumentFixture.Approve(studentProfile);
         await _userProfileRepository.AddAsync(studentProfile);
 
         var vehicle = new Vehicle(studentUserAccountId, "XYZ-9999", "Honda", "HASH-ENDED-RES", VehicleType.Car);
@@ -157,7 +156,6 @@ public class ScheduleRestrictionEntryTests
             _studentRepository,
             _personnelRepository,
             _adminRepository,
-            _violationRepository,
             _parkingService,
             _scheduleService,
             _parkingLogRoleService,
@@ -188,6 +186,7 @@ public class ScheduleRestrictionEntryTests
 
         var studentUserAccountId = Guid.NewGuid();
         var studentProfile = new UserProfile(studentUserAccountId, "Student", "User", null, null);
+        Test.Support.DriverDocumentFixture.Approve(studentProfile);
         await _userProfileRepository.AddAsync(studentProfile);
 
         var vehicle = new Vehicle(studentUserAccountId, "XYZ-9999", "Honda", "HASH-COMPLETED-RES", VehicleType.Car);
@@ -222,7 +221,6 @@ public class ScheduleRestrictionEntryTests
             _studentRepository,
             _personnelRepository,
             _adminRepository,
-            _violationRepository,
             _parkingService,
             _scheduleService,
             _parkingLogRoleService,

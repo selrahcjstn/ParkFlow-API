@@ -6,7 +6,8 @@ public static class AuthorizationPolicies
 {
     public static void Configure(AuthorizationOptions options)
     {
-        options.AddPolicy("GuardOnly", p => p.RequireAuthenticatedUser().RequireClaim("parkflow_authentication_method", "pwd").RequireClaim("role", "Guard"));
+        options.AddPolicy("GuardOnly", p => p.RequireAuthenticatedUser().RequireClaim("parkflow_authentication_method", "pwd").RequireAssertion(ctx =>
+            ctx.User.IsInRole("Guard") || ctx.User.HasClaim("role", "Guard")));
         options.AddPolicy("GuardOrAdmin", p => p.RequireAuthenticatedUser().RequireClaim("parkflow_authentication_method", "pwd").RequireAssertion(ctx =>
             ctx.User.IsInRole("Guard") || ctx.User.IsInRole("Admin") || ctx.User.IsInRole("SuperAdmin") ||
             ctx.User.HasClaim("role", "Guard") || ctx.User.HasClaim("role", "Admin") || ctx.User.HasClaim("role", "SuperAdmin")));

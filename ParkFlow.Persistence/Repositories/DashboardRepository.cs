@@ -37,38 +37,13 @@ public class DashboardRepository : IDashboardRepository
 		return registered + visitors;
 	}
 
-	public async Task<decimal> GetTodayRevenueAsync(DateTime? asOfUtc = null)
-	{
-		var today = ParkingTimeHelper.ConvertUtcToPhilippinesTime(asOfUtc ?? DateTime.UtcNow).Date;
-		var startUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(today, TimeSpan.Zero);
-		return await GetRevenueAsync(startUtc, startUtc.AddDays(1));
-	}
-
-	private async Task<decimal> GetRevenueAsync(DateTime startUtc, DateTime endUtc) =>
-		await _context.Violations
-			.Where(v => v.SettlementStatus == SettlementStatus.Settled &&
-				v.UpdatedAt >= startUtc && v.UpdatedAt < endUtc)
-			.SumAsync(v => (decimal?)v.PenaltyFee) ?? 0m;
-
-	public async Task<int> GetActiveViolationsCountAsync()
-	{
-		return await _context.Violations.CountAsync(v => v.SettlementStatus != SettlementStatus.Settled);
-	}
-
 	public async Task<DashboardDailyComparison> GetDailyComparisonAsync(DateTime asOfUtc)
 	{
 		var today = ParkingTimeHelper.ConvertUtcToPhilippinesTime(asOfUtc).Date;
 		var startUtc = ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(today, TimeSpan.Zero);
 		// Cumulative clients at yesterday's close, based on surviving account records.
 		var previousClients = await ClientAccounts.CountAsync(user => user.CreatedAt < startUtc);
-		var previousRevenue = await GetRevenueAsync(startUtc.AddDays(-1), startUtc);
-		// MarkAsPaid records the payment timestamp in UpdatedAt. A charge paid today
-		// was still pending at yesterday's close. Never invent dates for legacy paid rows.
-		var unknownPaymentDates = await _context.Violations.AnyAsync(v =>
-			v.SettlementStatus == SettlementStatus.Settled && v.UpdatedAt == null);
-		int? previousPending = unknownPaymentDates ? null : await _context.Violations.CountAsync(v =>
-			v.CreatedAt < startUtc && (v.SettlementStatus != SettlementStatus.Settled || v.UpdatedAt >= startUtc));
-		return new DashboardDailyComparison(previousClients, unknownPaymentDates ? null : previousRevenue, previousPending, today.AddDays(-1));
+		return new DashboardDailyComparison(previousClients, today.AddDays(-1));
 	}
 
 	public async Task<Dictionary<DateTime, (int CheckIns, int CheckOuts)>> GetActivityOverLast7DaysAsync()

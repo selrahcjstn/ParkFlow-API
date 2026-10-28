@@ -12,7 +12,7 @@ using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
 using Test.Features.Auth;
-using Test.Features.Violations;
+using Test.Support;
 
 namespace Test.Features.ParkingLogs;
 
@@ -27,7 +27,6 @@ public class ExitManualParkingLogTests
     private readonly FakeStudentRepository _studentRepository;
     private readonly FakePersonnelRepository _personnelRepository;
     private readonly FakeAdminRepository _adminRepository;
-    private readonly FakeViolationRepository _violationRepository;
     private readonly IParkingService _parkingService;
     private readonly FakeScheduleService _scheduleService;
     private readonly ParkingLogRoleService _parkingLogRoleService;
@@ -43,7 +42,6 @@ public class ExitManualParkingLogTests
         _studentRepository = new FakeStudentRepository();
         _personnelRepository = new FakePersonnelRepository();
         _adminRepository = new FakeAdminRepository();
-        _violationRepository = new FakeViolationRepository();
         _parkingService = new FakeParkingServiceForExit();
         _scheduleService = new FakeScheduleService();
         _parkingLogRoleService = new ParkingLogRoleService();
@@ -89,7 +87,7 @@ public class ExitManualParkingLogTests
         var vehicleProperty = typeof(ParkingLog).GetProperty("Vehicle");
         vehicleProperty?.SetValue(activeLog, vehicle);
 
-        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog, _violationRepository);
+        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog);
         var fakeNotificationSender = new FakeSignalRNotificationSender();
 
         var cor = new CorSubmission(ownerId, "term", "document");
@@ -105,9 +103,7 @@ public class ExitManualParkingLogTests
             _studentRepository,
             _personnelRepository,
             _adminRepository,
-            _violationRepository,
             _parkingService,
-            new FakeViolationService(),
             _parkingLogRoleService,
             new ExitManualParkingLogValidator(),
             fakeNotificationSender
@@ -123,15 +119,11 @@ public class ExitManualParkingLogTests
         Assert.NotNull(result.Data);
         Assert.Equal("ABC-1234", result.Data.PlateNumber);
         Assert.Equal(ParkingStatus.Exited.ToString(), result.Data.Status);
-        Assert.Equal(0m, result.Data.PenaltyFee);
-        Assert.Empty(_violationRepository.Violations);
-        Assert.Equal("NotRequired", result.Data.SettlementStatus);
-        Assert.Null(result.Data.ReferenceNumber);
         Assert.True(fakeNotificationSender.WasNotificationSent);
     }
 
     [Fact]
-    public async Task Handle_ShouldCalculateOverstayPenalty_WhenEntryDateIsInThePast()
+    public async Task Handle_TracksOverstay_WhenEntryDateIsInThePast()
     {
         // Arrange
         var ownerId = Guid.NewGuid();
@@ -170,7 +162,7 @@ public class ExitManualParkingLogTests
         var vehicleProperty = typeof(ParkingLog).GetProperty("Vehicle");
         vehicleProperty?.SetValue(activeLog, vehicle);
 
-        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog, _violationRepository);
+        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog);
         var fakeNotificationSender = new FakeSignalRNotificationSender();
 
         var handler = new ExitManualParkingLogHandler(
@@ -183,9 +175,7 @@ public class ExitManualParkingLogTests
             _studentRepository,
             _personnelRepository,
             _adminRepository,
-            _violationRepository,
-            _parkingService,
-            new ViolationService(), // Use real ViolationService
+            _parkingService, // Use real ViolationService
             _parkingLogRoleService,
             new ExitManualParkingLogValidator(),
             fakeNotificationSender
@@ -201,11 +191,8 @@ public class ExitManualParkingLogTests
         Assert.NotNull(result.Data);
         Assert.Equal("XYZ-9999", result.Data.PlateNumber);
         Assert.Equal(ParkingStatus.Exited.ToString(), result.Data.Status);
-        Assert.Equal(0m, result.Data.PenaltyFee);
         Assert.True(result.Data.OverstayTime > 0);
-        Assert.Empty(_violationRepository.Violations);
         Assert.True(result.Data.OverstayTime > 24, "Overstay hours should exceed 24 hours.");
-        Assert.Null(result.Data.ReferenceNumber);
     }
 
     [Fact]
@@ -237,7 +224,7 @@ public class ExitManualParkingLogTests
         var vehicleProperty = typeof(ParkingLog).GetProperty("Vehicle");
         vehicleProperty?.SetValue(activeLog, vehicle);
 
-        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog, _violationRepository);
+        var parkingLogRepository = new FakeParkingLogRepositoryForExit(activeLog);
         var fakeNotificationSender = new FakeSignalRNotificationSender();
 
         var handler = new ExitManualParkingLogHandler(
@@ -250,9 +237,7 @@ public class ExitManualParkingLogTests
             _studentRepository,
             _personnelRepository,
             _adminRepository,
-            _violationRepository,
             _parkingService,
-            new FakeViolationService(),
             _parkingLogRoleService,
             new ExitManualParkingLogValidator(),
             fakeNotificationSender
@@ -276,12 +261,10 @@ public class ExitManualParkingLogTests
 public class FakeParkingLogRepositoryForExit : IParkingLogRepository
 {
     private readonly ParkingLog _activeLog;
-    private readonly IViolationRepository? _charges;
 
-    public FakeParkingLogRepositoryForExit(ParkingLog activeLog, IViolationRepository? charges = null)
+    public FakeParkingLogRepositoryForExit(ParkingLog activeLog)
     {
         _activeLog = activeLog;
-        _charges = charges;
     }
 
     public async Task<bool> CompleteExitAsync(ParkingLog log, IReadOnlyCollection<ParkingReservation> reservations, CancellationToken ct = default)
@@ -332,7 +315,6 @@ public class FakeParkingServiceForExit : IParkingService
     {
         parkingLog.Exit();
     }
-    public DateTime CalculateEntryGracePeriod(DateTime entryTime, TimeSpan scheduleStartTime, int? earlyBufferMinutes = null) => default;
     public DateTime CalculateEstimatedExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => default;
     public DateTime CalculateMaximumExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => default;
     public double CalculateTotalParkingHours(DateTime entryTime, DateTime exitTime) => 0.0;

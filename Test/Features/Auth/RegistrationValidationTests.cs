@@ -24,7 +24,7 @@ public class RegistrationValidationTests
     [InlineData("Password123!", true)]
     public void RegistrationEnforcesStrongPasswords(string password, bool valid)
     {
-        var result = new RegisterManualAccountValidator().Validate(new RegisterManualAccountCommand("new@example.test", password));
+        var result = new RegisterManualAccountValidator().Validate(new RegisterManualAccountCommand("new@example.test", password, PhoneNumber: "09171234567"));
         Assert.Equal(valid, result.IsValid);
     }
 
@@ -32,7 +32,7 @@ public class RegistrationValidationTests
     public void AdminGeneratedPasswordRemainsSupported()
     {
         Assert.True(new RegisterManualAccountValidator().Validate(
-            new RegisterManualAccountCommand("new@example.test", IsAdminCreated: true)).IsValid);
+            new RegisterManualAccountCommand("new@example.test", IsAdminCreated: true, PhoneNumber: "09171234567")).IsValid);
     }
 
     [Theory]
@@ -45,13 +45,13 @@ public class RegistrationValidationTests
         var profiles = new RegRoleUserProfileRepository();
         var students = new RegRoleStudentRepository();
         var personnel = new RegRolePersonnelRepository();
-        await students.AddAsync(new Student(Guid.NewGuid(), "2026-00123", "BSIT", "1A", 1));
+        await students.AddAsync(new Student(Guid.NewGuid(), "2023106763", "BSIT", "1A", 1));
         await personnel.AddAsync(new Personnel(Guid.NewGuid(), "EMP-00123", "Office"));
         var handler = new RegisterManualAccountHandler(users, identities, profiles, students, personnel,
             new RegRoleGuardRepository(), new FakePasswordHasher(), new FakeJwtService(), new RegisterManualAccountValidator());
         var result = await handler.Handle(new RegisterManualAccountCommand("new@example.test", "Password123!",
-            FirstName: "New", LastName: "User", Role: student ? "Student" : "UniversityStaff",
-            Student: student ? new RegisterStudentDto(" 2026-00123 ", "BSIT", "1A", 1) : null,
+            PhoneNumber: "09171234567", FirstName: "New", LastName: "User", Role: student ? "Student" : "UniversityStaff",
+            Student: student ? new RegisterStudentDto(" 2023106763 ", "BSIT", "1A", 1) : null,
             Personnel: student ? null : new RegisterPersonnelDto(" emp-00123 ", "Office")), default);
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Conflict, result.ErrorCode);

@@ -239,8 +239,7 @@ public static class TestDataSeeder
                 vehicle.SetPrimary(true);
                 vehicle.UpdateDocuments("https://parkflow.blob.core.windows.net/documents/sample_orcr.pdf", "https://parkflow.blob.core.windows.net/documents/sample_vehicle.jpg");
                 vehicle.UpdateVerificationStatus(CorVerificationStatus.Verified);
-                await dbContext.Vehicles.AddAsync(vehicle);
-                await dbContext.SaveChangesAsync();
+                await new ParkFlow.Persistence.Repositories.VehicleRepository(dbContext).AddAsync(vehicle);
             }
             else
             {

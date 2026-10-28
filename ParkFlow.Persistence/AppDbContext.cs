@@ -20,7 +20,6 @@ namespace ParkFlow.Persistence
         public DbSet<CorSubmission> CorSubmissions { get; set; }
         public DbSet<ParkingSchedule> ParkingSchedules { get; set; }
         public DbSet<Vehicle> Vehicles { get; set; }
-        public DbSet<Violation> Violations { get; set; }
         public DbSet<Admin> Admins { get; set; }
         public DbSet<Guard> Guards { get; set; }
         public DbSet<Student> Students { get; set; }
@@ -32,6 +31,7 @@ namespace ParkFlow.Persistence
         public DbSet<Feedback> Feedbacks { get; set; }
         public DbSet<SystemAnnouncement> SystemAnnouncements { get; set; }
         public DbSet<UserNotification> UserNotifications { get; set; }
+        public DbSet<VisitorVehicle> VisitorVehicles { get; set; }
         public DbSet<Visitor> Visitors { get; set; }
         public DbSet<VisitSession> VisitSessions { get; set; }
 

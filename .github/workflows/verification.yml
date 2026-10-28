@@ -2,9 +2,13 @@ name: Verification and OCR
 on:
   push:
   pull_request:
+  workflow_call:
+permissions:
+  contents: read
 jobs:
   verification:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17
@@ -16,6 +20,7 @@ jobs:
         options: >-
           --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     env:
+      PARKFLOW_VISITOR_TEST_CONNECTION: Host=localhost;Database=parkflow_visitor_test;Username=postgres;Password=test-only-password
       PARKFLOW_NATIVE_OCR_TESTS: '1'
       PARKFLOW_VERIFICATION_TEST_CONNECTION: Host=localhost;Database=parkflow_verification_test;Username=postgres;Password=test-only-password
     steps:
@@ -24,4 +29,20 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-eng poppler-utils
-      - run: dotnet test Test/Test.csproj -c Release
+      - name: Create isolated visitor test database
+        env:
+          PGPASSWORD: test-only-password
+        run: psql -h localhost -U postgres -d parkflow_verification_test -v ON_ERROR_STOP=1 -c 'CREATE DATABASE parkflow_visitor_test'
+      - name: Verify execution gate behavior
+        run: python3 -m unittest scripts/test_verify_required_tests.py
+      - name: Full backend verification including isolated PostgreSQL
+        run: dotnet test Test/Test.csproj -c Release --logger 'trx;LogFileName=verification.trx' --results-directory TestResults
+      - name: Require database and HTTP tests to execute successfully
+        run: python3 scripts/verify_required_tests.py TestResults/verification.trx
+      - name: Retain verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-verification
+          path: TestResults/*.trx
+          retention-days: 7

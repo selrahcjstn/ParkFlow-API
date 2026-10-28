@@ -78,7 +78,9 @@ public class UpdateVehicleHandler : IRequestHandler<UpdateVehicleCommand, Result
         // Always put vehicle under review again when edited
         vehicle.UpdateVerificationStatus(CorVerificationStatus.Pending);
 
-        await _vehicleRepository.UpdateAsync(vehicle);
+        try { await _vehicleRepository.UpdateAsync(vehicle); }
+        catch (VehiclePlateConflictException conflict)
+        { return Result<Guid>.Failure(conflict.Message, ErrorCode.Conflict); }
 
         if (_signalRNotificationSender != null)
         {

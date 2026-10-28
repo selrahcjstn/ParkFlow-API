@@ -56,6 +56,7 @@ public class RegistrationWriter(AppDbContext db) : IRegistrationWriter
                 else profile.Personnel = new Personnel(profile.Id, identifier, d.Department.Trim(), d.Role);
                 var vehicle = new Vehicle(account.Id, d.PlateNumber, d.Brand, qrHash, d.VehicleType, r.OrcrUrl, r.MotorUrl);
                 vehicle.SetPrimary(true);
+                await VehiclePlateGuard.EnsureRegisteredVehicleAsync(db, vehicle);
                 var cor = new CorSubmission(account.Id, d.Role == Roles.Student ? d.AcademicYear : "Employee ID", r.CorUrl, r.OrcrUrl, r.MotorUrl,
                     d.Role == Roles.Student ? CorVerificationStatus.Verified : CorVerificationStatus.Pending);
                 db.UserAccounts.Add(account); db.Vehicles.Add(vehicle); db.CorSubmissions.Add(cor);
@@ -88,6 +89,13 @@ public class RegistrationWriter(AppDbContext db) : IRegistrationWriter
                 await transaction.CommitAsync(ct);
                 return Result<UserAccount>.Success(account);
             });
+        }
+        catch (VehiclePlateConflictException conflict)
+        { return Result<UserAccount>.Failure(conflict.Message, ErrorCode.Conflict); }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505", ConstraintName: "PK_VehiclePlateOwnership" })
+        {
+            db.ChangeTracker.Clear();
+            return Result<UserAccount>.Failure("This plate has an existing registered or visitor owner. Refresh the plate lookup; ownership has not been transferred.", ErrorCode.Conflict);
         }
         catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
         {

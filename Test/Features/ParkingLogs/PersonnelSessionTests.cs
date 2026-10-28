@@ -6,7 +6,7 @@ using ParkFlow.Application.Features.ParkingLogs.Queries.GetActiveSessionByVehicl
 using ParkFlow.Application.Features.ParkingLogs.Services;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
-using Test.Features.Violations;
+using Test.Support;
 using Xunit;
 
 namespace Test.Features.ParkingLogs;
@@ -46,43 +46,36 @@ public class PersonnelSessionTests
         var logs = new FakeParkingLogRepositoryForExit(log);
         var documents = new FakeCorSubmissionRepositoryWithMock([]);
         var schedules = new FakeParkingScheduleRepositoryWithMock([]);
-        var violationService = new ViolationService();
         var roleService = new ParkingLogRoleService();
         var admins = new FakeAdminRepository();
         var students = new FakeStudentRepository();
         var settings = SystemSettingsStore.Current;
-        var before = PersonnelParkingPolicy.CalculateCharge(entry, DateTime.UtcNow, settings);
         var deadline = PersonnelParkingPolicy.GetDeadlineUtc(entry, settings);
 
-        var individual = await new GetActiveSessionByVehicleIdHandler(logs, vehicles, schedules, documents,
-            violationService, userProfileRepository: profiles, personnelRepository: personnel)
+        var individual = await new GetActiveSessionByVehicleIdHandler(logs, vehicles, schedules, documents, userProfileRepository: profiles, personnelRepository: personnel)
             .Handle(new GetActiveSessionByVehicleIdQuery(vehicle.Id), default);
         Assert.True(individual.IsSuccess);
-        Assert.Equal(deadline.ToString("yyyy-MM-ddTHH:mm:ssZ"), individual.Data!.ExitBy);
-        Assert.InRange(individual.Data.AccruedCharge, before, PersonnelParkingPolicy.CalculateCharge(entry, DateTime.UtcNow, settings));
+        Assert.Equal(role == Roles.UniversityStaff ? "N/A" : deadline.ToString("yyyy-MM-ddTHH:mm:ssZ"), individual.Data!.ExitBy);
 
         var all = await new GetActiveParkingSessionHandler(new FakeParkingLogRepositoryWithActiveLogs([log]),
-            schedules, documents, violationService, admins, roleService)
+            schedules, documents, admins, roleService)
             .Handle(new GetActiveParkingSessionQuery(500), default);
         Assert.True(all.IsSuccess);
         var live = Assert.Single(all.Data!);
-        Assert.Equal(deadline, live.MaximumExitTime);
-        Assert.InRange(live.Amount, before, PersonnelParkingPolicy.CalculateCharge(entry, DateTime.UtcNow, settings));
+        Assert.Equal(role == Roles.UniversityStaff ? (DateTime?)null : deadline, live.MaximumExitTime);
 
         var notifications = new FakeSignalRNotificationSender();
         var result = manualExit
             ? await new ExitManualParkingLogHandler(logs, vehicles, profiles, guards, documents, schedules,
-                students, personnel, admins, new FakeViolationRepository(), new ParkingService(), violationService,
+                students, personnel, admins, new ParkingService(),
                 roleService, new ExitManualParkingLogValidator(), notifications)
                 .Handle(new ExitManualParkingLogCommand("EMP123", guardId), default)
             : await new ExitParkingLogHandler(logs, vehicles, profiles, guards, documents, schedules,
-                students, personnel, admins, new FakeViolationRepository(), new ParkingService(), violationService,
+                students, personnel, admins, new ParkingService(),
                 roleService, new ExitParkingLogValidator(), notifications, new FakeTestParkingReservationRepository())
                 .Handle(new ExitParkingLogCommand("EMP-HASH", guardId), default);
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Data);
-        Assert.InRange(result.Data.PenaltyFee, before, PersonnelParkingPolicy.CalculateCharge(entry, DateTime.UtcNow, settings));
-        Assert.Null(result.Data.ReferenceNumber);
         Assert.Equal(ParkingStatus.Exited, log.Status);
     }
 }

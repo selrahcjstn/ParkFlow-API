@@ -42,8 +42,6 @@ namespace ParkFlow.Application.Features.Feedbacks.Commands.ReplyToFeedback
 
             feedback.Reply(
                 request.ReplyMessage.Trim(),
-                request.InvoiceAmount,
-                request.InvoiceDescription,
                 request.MarkResolved
             );
 
@@ -144,10 +142,6 @@ namespace ParkFlow.Application.Features.Feedbacks.Commands.ReplyToFeedback
                 AdminNotes = feedback.AdminNotes,
                 AdminReplyMessage = feedback.AdminReplyMessage,
                 AdminRepliedAt = feedback.AdminRepliedAt,
-                InvoiceNumber = feedback.InvoiceNumber,
-                InvoiceAmount = feedback.InvoiceAmount,
-                InvoiceDescription = feedback.InvoiceDescription,
-                InvoiceStatus = feedback.InvoiceStatus,
                 CreatedAt = feedback.CreatedAt
             };
 

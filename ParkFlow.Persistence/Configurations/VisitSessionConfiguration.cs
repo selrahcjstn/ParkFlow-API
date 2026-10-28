@@ -31,6 +31,10 @@ public class VisitSessionConfiguration : IEntityTypeConfiguration<VisitSession>
             .HasMaxLength(50);
 
         entity.HasIndex(e => new { e.VisitorId, e.Status });
+        entity.HasIndex(e => e.VisitorVehicleId).IsUnique().HasFilter("\"Status\" = 0");
+        entity.HasOne(e => e.VisitorVehicle).WithMany(v => v.VisitSessions)
+            .HasForeignKey(e => new { e.VisitorVehicleId, e.VisitorId })
+            .HasPrincipalKey(v => new { v.Id, v.VisitorId }).OnDelete(DeleteBehavior.Restrict);
 
         entity.HasOne(e => e.Visitor)
             .WithMany(v => v.VisitSessions)

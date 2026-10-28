@@ -65,7 +65,7 @@ public class GetSessionCountTests
         Assert.NotNull(result.Data);
         Assert.Equal(2, result.Data.ActiveSessionCount);
         Assert.Equal(1, result.Data.ManualSessionCount);
-        Assert.Equal(100, result.Data.MaximumCapacity);
+        Assert.Equal(SystemSettingsStore.Current.TotalCapacity, result.Data.MaximumCapacity);
     }
 
     [Fact]
@@ -101,7 +101,6 @@ public class GetSessionCountTests
         var parkingLogRepository = new FakeParkingLogRepositoryWithActiveLogs(activeLogs);
         var corSubmissionRepository = new FakeCorSubmissionRepositoryWithMock(new List<CorSubmission>());
         var parkingScheduleRepository = new FakeParkingScheduleRepositoryWithMock(new List<ParkingSchedule>());
-        var violationService = new FakeViolationService();
         var adminRepository = new FakeAdminRepository();
         var parkingLogRoleService = new ParkingLogRoleService();
 
@@ -109,7 +108,6 @@ public class GetSessionCountTests
             parkingLogRepository,
             parkingScheduleRepository,
             corSubmissionRepository,
-            violationService,
             adminRepository,
             parkingLogRoleService
         );
@@ -234,7 +232,6 @@ public class GetSessionCountTests
         var parkingLogRepository = new FakeParkingLogRepositoryWithActiveLogs(activeLogs);
         var corSubmissionRepository = new FakeCorSubmissionRepositoryWithMock(new List<CorSubmission> { cor });
         var parkingScheduleRepository = new FakeParkingScheduleRepositoryWithMock(new List<ParkingSchedule> { schedule });
-        var violationService = new FakeViolationService();
         var adminRepository = new FakeAdminRepository();
         var parkingLogRoleService = new ParkingLogRoleService();
 
@@ -242,7 +239,6 @@ public class GetSessionCountTests
             parkingLogRepository,
             parkingScheduleRepository,
             corSubmissionRepository,
-            violationService,
             adminRepository,
             parkingLogRoleService
         );
@@ -258,7 +254,6 @@ public class GetSessionCountTests
         var session = Assert.Single(result.Data);
         Assert.Equal("Manual", session.EntryMethod);
         Assert.Equal(0, session.OverstayHours); // Should be 0 since entry method is manual
-        Assert.Equal(20, session.Amount); // Flat rate 20 for manual guest pass
     }
 }
 
@@ -281,15 +276,6 @@ public class FakeParkingLogRepositoryWithActiveLogs : IParkingLogRepository
     public Task<IReadOnlyList<ParkingLog>> GetRecentParkingLogsAsync(int limit) => Task.FromResult<IReadOnlyList<ParkingLog>>(new List<ParkingLog>());
     public Task<IReadOnlyList<ParkingLog>> GetParkingHistoryAsync(Guid? userId = null, int pageNumber = 1, int pageSize = 15) => Task.FromResult<IReadOnlyList<ParkingLog>>(new List<ParkingLog>());
     public Task UpdateParkingLogAsync(ParkingLog parkingLog) => Task.CompletedTask;
-}
-
-public class FakeViolationService : IViolationService
-{
-    public bool IsOverstay(DateTime exitTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => false;
-    public TimeSpan GetOverstayDuration(DateTime exitTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => TimeSpan.Zero;
-    public bool IsOverstay(DateTime exitTime, DateTime maximumExitTime) => exitTime > maximumExitTime;
-    public TimeSpan GetOverstayDuration(DateTime exitTime, DateTime maximumExitTime) => exitTime > maximumExitTime ? exitTime - maximumExitTime : TimeSpan.Zero;
-    public decimal CalculatePenalty(TimeSpan overstayDuration, decimal? customHourlyRate = null) => 0m;
 }
 
 public class FakeAdminRepository : IAdminRepository

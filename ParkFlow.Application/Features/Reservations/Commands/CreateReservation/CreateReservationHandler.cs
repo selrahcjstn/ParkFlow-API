@@ -17,7 +17,6 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
     private readonly ISignalRNotificationSender _notificationSender;
     private readonly IEmailService _emailService;
     private readonly ICorSubmissionRepository? _corSubmissionRepository;
-    private readonly IViolationRepository? _violationRepository;
 
     public CreateReservationHandler(
         IParkingReservationRepository reservationRepository,
@@ -26,8 +25,7 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
         IValidator<CreateReservationCommand> validator,
         ISignalRNotificationSender notificationSender,
         IEmailService emailService,
-        ICorSubmissionRepository? corSubmissionRepository = null,
-        IViolationRepository? violationRepository = null)
+        ICorSubmissionRepository? corSubmissionRepository = null)
     {
         _reservationRepository = reservationRepository;
         _userRepository = userRepository;
@@ -36,7 +34,6 @@ public class CreateReservationHandler : IRequestHandler<CreateReservationCommand
         _notificationSender = notificationSender;
         _emailService = emailService;
         _corSubmissionRepository = corSubmissionRepository;
-        _violationRepository = violationRepository;
     }
 
     public async Task<Result<ParkingReservationDto>> Handle(CreateReservationCommand request, CancellationToken cancellationToken)

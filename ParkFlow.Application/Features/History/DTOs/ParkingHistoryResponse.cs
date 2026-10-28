@@ -26,12 +26,6 @@ public class ParkingHistoryResponse
     public DateTime? ExitTime { get; set; }
     public double? ParkingDuration { get; set; }
     public double? TotalParkingHours { get; set; }
-    public bool HasViolation { get; set; }
-    public decimal ViolationFee { get; set; }
-    public decimal? PenaltyFee { get; set; }
-    public decimal? Amount { get; set; }
     public double OverstayHours { get; set; }
-    public bool IsPaid { get; set; }
-    public string? ReferenceNumber { get; set; }
     public string Status { get; set; } = "Completed";
 }

@@ -16,7 +16,6 @@ public class GetActiveParkingSessionHandler
     private readonly IParkingLogRepository _parkingLogRepository;
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
     private readonly ICorSubmissionRepository _corSubmissionRepository;
-    private readonly IViolationService _violationService;
     private readonly IAdminRepository _adminRepository;
     private readonly IParkingLogRoleService _parkingLogRoleService;
     private readonly IParkingReservationRepository? _reservationRepository;
@@ -26,7 +25,6 @@ public class GetActiveParkingSessionHandler
         IParkingLogRepository parkingLogRepository,
         IParkingScheduleRepository parkingScheduleRepository,
         ICorSubmissionRepository corSubmissionRepository,
-        IViolationService violationService,
         IAdminRepository adminRepository,
         IParkingLogRoleService parkingLogRoleService,
         IParkingReservationRepository? reservationRepository = null,
@@ -35,7 +33,6 @@ public class GetActiveParkingSessionHandler
         _parkingLogRepository = parkingLogRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
         _corSubmissionRepository = corSubmissionRepository;
-        _violationService = violationService;
         _adminRepository = adminRepository;
         _parkingLogRoleService = parkingLogRoleService;
         _reservationRepository = reservationRepository;
@@ -82,12 +79,11 @@ public class GetActiveParkingSessionHandler
 
                 var isPersonnelParking = PersonnelParkingPolicy.AppliesTo(log.Vehicle.Owner?.UserProfile?.Personnel);
                 var nowUtc = DateTime.UtcNow;
-                var amount = 0m;
                 var philippinesEntry = ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime);
-                var timing = ActiveSessionTiming.Resolve(log, nowUtc, sysSettings, corSubmissions,
+                var timing = ActiveSessionTiming.ResolveActive(log, nowUtc, sysSettings, corSubmissions,
                     schedulesBySubmission, reservationsByOwner[log.Vehicle.OwnerId]);
-                var maximumExitTimeUtc = timing.DeadlineUtc;
-                var overstayHours = ActiveSessionTiming.GetOverstayHours(log, nowUtc, sysSettings, maximumExitTimeUtc);
+                var maximumExitTimeUtc = timing.MaximumExitTime;
+                var overstayHours = timing.OverstayHours;
 
                 var ownerProfile = log.Vehicle.Owner?.UserProfile;
                 var ownerPhoneNumber = ownerProfile?.UserAccount?.PhoneNumber
@@ -126,8 +122,6 @@ public class GetActiveParkingSessionHandler
                     EntryTime: log.EntryTime,
                     MaximumExitTime: PersonnelParkingPolicy.IsFaculty(personnel) ? null : maximumExitTimeUtc,
                     OverstayHours: overstayHours,
-                    Amount: amount,
-
                     TotalParkingHours: $"{totalHours:F2} hours",
                     EntryMethod: log.EntryMethod.ToString()
                 ));

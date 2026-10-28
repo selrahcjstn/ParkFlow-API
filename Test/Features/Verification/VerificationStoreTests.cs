@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Application.Features.Verification;
@@ -20,11 +21,24 @@ public class PostgresVerificationFactAttribute : FactAttribute
 {
     public PostgresVerificationFactAttribute()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PARKFLOW_VERIFICATION_TEST_CONNECTION")))
-            Skip = "Set PARKFLOW_VERIFICATION_TEST_CONNECTION to a disposable PostgreSQL test database.";
+        if (!IsDisposableLocal(Environment.GetEnvironmentVariable("PARKFLOW_VERIFICATION_TEST_CONNECTION")))
+            Skip = "Requires a disposable local *_verification_test database via PARKFLOW_VERIFICATION_TEST_CONNECTION.";
+    }
+
+    public static bool IsDisposableLocal(string? connection)
+    {
+        if (string.IsNullOrWhiteSpace(connection)) return false;
+        try
+        {
+            var target = new NpgsqlConnectionStringBuilder(connection);
+            return target.Host is "localhost" or "127.0.0.1" &&
+                target.Database?.EndsWith("_verification_test", StringComparison.Ordinal) == true;
+        }
+        catch (ArgumentException) { return false; }
     }
 }
 
+[Collection("Parking deadline settings")]
 public class VerificationStoreTests
 {
     [PostgresVerificationFact]
@@ -67,15 +81,15 @@ public class VerificationStoreTests
         var handler = new UploadCorDocumentHandler(new CorSubmissionRepository(db), cloud, new FakeUserContext { UserId = user.Id },
             documentReader: reader, verificationStore: store, verificationService: service);
         using var stream = new MemoryStream(DocumentReaderTests.DigitalPdf()); var response = await handler.Handle(new(new FormFile(stream, 0, stream.Length, "File", "cor.pdf")), default);
-        Assert.True(response.IsSuccess); Assert.NotNull(response.Data!.CorPreview); Assert.True(response.Data.CorPreview.CanConfirm);
-        Assert.Equal(7, response.Data.CorPreview.Week.Count); Assert.Equal(4, response.Data.CorPreview.Items.Count);
-        Assert.Equal(1, reader.Preflights); Assert.Equal(0, reader.OcrReads);
+        Assert.True(response.IsSuccess); Assert.NotNull(response.Data!.CorPreview); Assert.False(response.Data.CorPreview.CanConfirm);
+        Assert.Equal(7, response.Data.CorPreview.Week.Count); Assert.Empty(response.Data.CorPreview.Items);
+        Assert.Equal(0, reader.Preflights); Assert.Equal(1, reader.Validations); Assert.Equal(0, reader.OcrReads);
         Assert.Equal(AccountStatus.PendingVerification, (await db.UserAccounts.AsNoTracking().SingleAsync()).Status);
         Assert.Equal(OnboardingStep.Profile, (await db.UserAccounts.AsNoTracking().SingleAsync()).OnboardingStep);
         Assert.Empty(await db.Students.ToListAsync()); Assert.Empty(await db.ParkingSchedules.ToListAsync());
-        var record = (await store.FindCurrentCorAsync(user.Id, default))!; Assert.NotEqual(VerificationState.Approved, record.Status); Assert.Equal(1, record.Attempts);
+        var record = (await store.FindCurrentCorAsync(user.Id, default))!; Assert.NotEqual(VerificationState.Approved, record.Status); Assert.Equal(0, record.Attempts); Assert.Equal(VerificationRequests.AwaitingInformationFetch, record.OcrOutcome); Assert.Null(await store.ClaimAsync(TimeSpan.FromMinutes(1), default));
         await service.ProcessPreparedCorAsync(user.Id, record.SubjectId, response.Data.SecureUrl, default);
-        Assert.Equal(1, (await store.FindCurrentCorAsync(user.Id, default))!.Attempts); Assert.Equal(0, reader.OcrReads);
+        Assert.Equal(0, (await store.FindCurrentCorAsync(user.Id, default))!.Attempts); Assert.Equal(0, reader.OcrReads);
         Assert.Null(await new VerificationRequests(store, service).Handle(new GetCorSchedulePreview(Guid.NewGuid()), default));
     }
 
@@ -199,30 +213,33 @@ public class VerificationStoreTests
         if (verified) identity.MarkVerified(); db.Add(identity); await db.SaveChangesAsync();
         var store = new VerificationStore(db); await store.EnqueueAsync(VerificationType.Cor, corId, default);
         var claim = (await store.ClaimAsync(TimeSpan.FromMinutes(2), default))!;
-        var fields = CorTextVerification.Extract(CorScheduleTests.ScheduleTable) with { SourceDocumentUrl = "uploads/parkflow/cor/original.pdf" };
+        var fields = CorTextVerification.Extract(VerificationRulesTests.Text + "\n" + CorScheduleTests.ScheduleTable) with { SourceDocumentUrl = "uploads/parkflow/cor/original.pdf" };
         Assert.True(await store.CompleteAsync(claim, new(VerificationState.NeedsReview, "Complete Student profile before identity review", "DigitalPdfTextExtracted", JsonSerializer.Serialize(fields)), default));
         return (await store.FindAsync(claim.Id, default))!;
     }
 
     [PostgresVerificationFact]
-    public async Task StudentConfirmationSavesExistingEntitiesAtomicallyAndReusesExtractionWithoutApproving()
+    public async Task StudentConfirmationSavesExistingEntitiesAtomicallyWithoutApprovingAccount()
     {
         await using var fixture = await DatabaseFixture.Create(); var (user, cor) = await fixture.Seed();
         var record = await ScannedStudent(fixture, user.Id, cor.Id);
         await using var db = fixture.Context(); var store = new VerificationStore(db);
         var request = StudentConfirmation(record);
+        Assert.NotNull(request.Week);
         request.Week[0] = request.Week[0] with { StartTime = "06:30:00" };
         Assert.False(await store.ConfirmStudentFromCorAsync(Guid.NewGuid(), request, default));
-        Assert.False(await store.ConfirmStudentFromCorAsync(user.Id, request with { Version = request.Version - 1 }, default));
+        Assert.False(await store.ConfirmStudentFromCorAsync(user.Id, StudentConfirmation(record) with { Version = record.Version - 1 }, default));
         Assert.Empty(await db.UserProfiles.ToListAsync()); Assert.Empty(await db.ParkingSchedules.ToListAsync());
+        await Assert.ThrowsAsync<DocumentValidationException>(() => store.ConfirmStudentFromCorAsync(user.Id, request, default));
+        request = StudentConfirmation(record);
         Assert.True(await store.ConfirmStudentFromCorAsync(user.Id, request, default));
         var savedUser = await db.UserAccounts.AsNoTracking().Include(u => u.UserProfile).ThenInclude(p => p!.Student).SingleAsync();
         Assert.Equal(AccountStatus.PendingVerification, savedUser.Status); Assert.Equal(OnboardingStep.Vehicle, savedUser.OnboardingStep);
         Assert.Equal("09171234567", savedUser.PhoneNumber); Assert.Equal("Juan Miguel", savedUser.UserProfile!.FirstName);
         Assert.Equal("R.", savedUser.UserProfile.MiddleName); Assert.Equal("BS Information Technology (BSIT)", savedUser.UserProfile.Student!.Course);
         Assert.Equal(4, await db.ParkingSchedules.CountAsync());
-        Assert.Equal(TimeSpan.FromHours(6.5), (await db.ParkingSchedules.AsNoTracking().SingleAsync(s => s.DayOfWeek == DayOfWeek.Monday)).StartTime);
-        Assert.NotEqual(CorVerificationStatus.Verified, (await db.CorSubmissions.AsNoTracking().SingleAsync()).VerificationStatus);
+        Assert.Equal(TimeSpan.FromHours(7), (await db.ParkingSchedules.AsNoTracking().SingleAsync(s => s.DayOfWeek == DayOfWeek.Monday)).StartTime);
+        Assert.Equal(CorVerificationStatus.Verified, (await db.CorSubmissions.AsNoTracking().SingleAsync()).VerificationStatus);
         Assert.DoesNotContain(await store.ListAsync(user.Id, false, default), r => r.Status == VerificationState.Approved);
         var count = await db.VerificationAudits.CountAsync();
         Assert.True(await store.ConfirmStudentFromCorAsync(user.Id, request, default)); Assert.Equal(count, await db.VerificationAudits.CountAsync());
@@ -231,9 +248,10 @@ public class VerificationStoreTests
         Assert.Null(await store.FindCorExtractionByDocumentAsync(user.Id, "uploads/parkflow/cor/different.pdf", default));
         var preview = (await new VerificationRequests(store, null!).Handle(new GetCorSchedulePreview(user.Id), default))!;
         Assert.True(preview.InformationConfirmed); Assert.Equal("CICT", preview.StudentInformation!.College);
-        Assert.Equal("06:30:00", preview.Week[0].StartTime); Assert.Equal("1st Semester", preview.StudentInformation.Semester);
-        var current = (await store.ListAsync(user.Id, false, default)).Single(r => r.Type == VerificationType.Cor);
-        Assert.False(await store.ConfirmStudentFromCorAsync(user.Id, StudentConfirmation(current) with { Version = current.Version - 1 }, default));
+        Assert.Equal("07:00:00", preview.Week[0].StartTime); Assert.Equal("1", CorTextVerification.SemesterKey(preview.StudentInformation.Semester));
+        var current = (await store.FindCurrentCorAsync(user.Id, default))!;
+        var changed = StudentConfirmation(current) with { Information = StudentConfirmation(current).Information with { Section = "4B" }, Version = current.Version - 1 };
+        Assert.False(await store.ConfirmStudentFromCorAsync(user.Id, changed, default));
     }
 
     [PostgresVerificationFact]
@@ -268,29 +286,24 @@ public class VerificationStoreTests
         { await using var db = fixture.Context(); return await new VerificationStore(db).ConfirmStudentFromCorAsync(user.Id, request, default); }));
         Assert.All(results, Assert.True);
         await using var verify = fixture.Context(); Assert.Equal(1, await verify.Students.CountAsync()); Assert.Equal(4, await verify.ParkingSchedules.CountAsync());
-        Assert.Equal(1, await verify.VerificationAudits.CountAsync(a => a.Action == "StudentInformationConfirmed"));
+        Assert.Equal(0, await verify.VerificationAudits.CountAsync(a => a.Action == "StudentInformationConfirmed"));
     }
 
     [PostgresVerificationFact]
-    public async Task ConfirmedStudentRevisionIsReprocessedWithoutDownloadingOrRunningOcr()
+    public async Task ConfirmedStudentRevisionReusesExtractionWithoutNewWorkerOrOcr()
     {
         await using var fixture = await DatabaseFixture.Create(); var (user, cor) = await fixture.Seed();
         var record = await ScannedStudent(fixture, user.Id, cor.Id);
         await using var db = fixture.Context(); var store = new VerificationStore(db);
         Assert.True(await store.ConfirmStudentFromCorAsync(user.Id, StudentConfirmation(record), default));
+        var completed = (await store.FindCurrentCorAsync(user.Id, default))!;
         var reader = new NoSecondScan();
         var service = new VerificationService(store, reader, null!, new NoTrustedApproval(), null!, null!, new NoCache());
-        VerificationRecord? corClaim = null;
-        for (var attempt = 0; attempt < 3; attempt++)
-        {
-            var claim = (await store.ClaimAsync(TimeSpan.FromMinutes(2), default))!;
-            await service.ProcessAsync(claim, default);
-            if (claim.Type == VerificationType.Cor) { corClaim = claim; break; }
-        }
-        Assert.NotNull(corClaim);
-        var completed = (await store.FindAsync(corClaim.Id, default))!;
-        Assert.Equal(VerificationState.NeedsReview, completed.Status); Assert.Equal("DigitalPdfTextExtracted", completed.OcrOutcome);
+        await service.ProcessPreparedCorAsync(user.Id, cor.Id, cor.CorDocumentUrl, default);
+        Assert.Equal(VerificationState.Approved, completed.Status);
+        Assert.Equal("DigitalPdfTextExtracted", completed.OcrOutcome);
         Assert.NotNull(JsonSerializer.Deserialize<CorFields>(completed.ExtractedFieldsJson!)!.ConfirmedInformation);
+        Assert.Null(await store.ClaimAsync(TimeSpan.FromMinutes(2), default));
         Assert.Equal(0, reader.Reads);
     }
 
@@ -316,23 +329,22 @@ public class VerificationStoreTests
     }
 
     [PostgresVerificationFact]
-    public async Task UnreadableScheduleCanBeCorrectedButRejectedOrReplacedCorCannotBeConfirmed()
+    public async Task UnreadableScheduleCannotBeManuallyCorrectedAndRejectedOrReplacedCorCannotBeConfirmed()
     {
         await using var fixture = await DatabaseFixture.Create(); var (user, cor) = await fixture.Seed();
         var record = await ScannedStudent(fixture, user.Id, cor.Id);
         await using var db = fixture.Context(); var store = new VerificationStore(db);
+        var originalFields = record.ExtractedFieldsJson;
         var tracked = (await db.VerificationRecords.FindAsync(record.Id))!;
-        tracked.ExtractedFieldsJson = JsonSerializer.Serialize(CorTextVerification.Extract("Unknown 08:00-10:00") with { SourceDocumentUrl = cor.CorDocumentUrl }); await db.SaveChangesAsync();
+        tracked.ExtractedFieldsJson = JsonSerializer.Serialize(CorTextVerification.Extract(VerificationRulesTests.Text + "\nUnknown 08:00-10:00") with { SourceDocumentUrl = cor.CorDocumentUrl }); await db.SaveChangesAsync();
         var preview = (await new VerificationRequests(store, null!).Handle(new GetCorSchedulePreview(user.Id), default))!;
-        Assert.True(preview.CanConfirm); Assert.All(preview.Week, d => Assert.Null(d.HasClasses));
-        var request = StudentConfirmation(record, preview.Week);
-        await Assert.ThrowsAsync<DocumentValidationException>(() => store.ConfirmStudentFromCorAsync(user.Id, request, default));
+        Assert.False(preview.CanConfirmSchedule);
+        await Assert.ThrowsAsync<DocumentValidationException>(() => store.ConfirmStudentFromCorAsync(user.Id, StudentConfirmation(record, preview.Week), default));
         Assert.Empty(await db.Students.ToListAsync()); Assert.Empty(await db.ParkingSchedules.ToListAsync());
-        Assert.True(await store.ConfirmStudentFromCorAsync(user.Id, StudentConfirmation(record), default));
-        var current = (await store.ListAsync(user.Id, false, default)).Single(r => r.Type == VerificationType.Cor);
-        Assert.True(await store.ReviewAsync(current.Id, current.Version, current.Fingerprint, new(VerificationState.Rejected, "Unreadable document"), Guid.NewGuid(), default));
-        var different = StudentConfirmation(current) with { Information = StudentConfirmation(current).Information with { Section = "4B" } };
-        Assert.False(await store.ConfirmStudentFromCorAsync(user.Id, different, default));
+        tracked = (await db.VerificationRecords.FindAsync(record.Id))!;
+        tracked.ExtractedFieldsJson = originalFields; await db.SaveChangesAsync();
+        Assert.True(await store.ReviewAsync(record.Id, record.Version, record.Fingerprint, new(VerificationState.Rejected, "Unreadable document"), Guid.NewGuid(), default));
+        Assert.False(await store.ConfirmStudentFromCorAsync(user.Id, StudentConfirmation(record), default));
         var currentCor = (await db.CorSubmissions.FindAsync(cor.Id))!;
         currentCor.UpdateSubmission(null, "uploads/parkflow/cor/new.pdf", CorVerificationStatus.Pending); await new CorSubmissionRepository(db).UpdateCorSubmissionAsync(currentCor);
         Assert.False(await store.ConfirmStudentFromCorAsync(user.Id, StudentConfirmation(record), default));
@@ -341,7 +353,7 @@ public class VerificationStoreTests
     [PostgresVerificationFact]
     public async Task VehicleDocumentsStayManualWithoutNewVerificationRecordsOrAudits()
     {
-        await using var fixture = await DatabaseFixture.Create(); var (user, _) = await fixture.Seed();
+        await using var fixture = await DatabaseFixture.Create(); var (user, _) = await fixture.Seed(driver: true);
         await using var db = fixture.Context(); var store = new VerificationStore(db); var vehicles = new VehicleRepository(db);
         var vehicle = new Vehicle(user.Id, "ABC1234", "Honda", "hash", VehicleType.Motorcycle,
             orcrDocumentUrl: "uploads/parkflow/orcr/registration.pdf", vehiclePictureUrl: "uploads/parkflow/motor-pictures/plate.jpg");
@@ -364,7 +376,7 @@ public class VerificationStoreTests
     [PostgresVerificationFact]
     public async Task OldVehicleJobsCannotProcessOrOverwriteManualReviewAndHistoryIsPreserved()
     {
-        await using var fixture = await DatabaseFixture.Create(); var (user, _) = await fixture.Seed();
+        await using var fixture = await DatabaseFixture.Create(); var (user, _) = await fixture.Seed(driver: true);
         await using var db = fixture.Context(); var store = new VerificationStore(db);
         var vehicle = new Vehicle(user.Id, "DEF5678", "Honda", "hash", VehicleType.Motorcycle,
             orcrDocumentUrl: "uploads/orcr.pdf", vehiclePictureUrl: "uploads/plate.jpg");
@@ -382,22 +394,19 @@ public class VerificationStoreTests
     }
 
     [PostgresVerificationFact]
-    public async Task ScheduleFlaggedOnlyByRemovedDailyLimitIsReprocessedWithoutOcr()
+    public async Task LegacyScheduleReviewIsRetiredWithoutOcrAndHistoryIsPreserved()
     {
-        await using var fixture = await DatabaseFixture.Create(); var (_, cor) = await fixture.Seed();
+        await using var fixture = await DatabaseFixture.Create(); var (user, cor) = await fixture.Seed();
         await using var db = fixture.Context(); var store = new VerificationStore(db);
-        await db.CorSubmissions.Where(c => c.Id == cor.Id).ExecuteUpdateAsync(u => u.SetProperty(c => c.VerificationStatus, CorVerificationStatus.Verified));
-        db.AddRange(CorTextVerification.ExtractSchedules(CorScheduleTests.ScheduleTable).Items.Select(s => new ParkingSchedule(cor.Id, s.Day, s.Start, s.End)));
-        await db.SaveChangesAsync();
-        var policy = await store.GetPolicyAsync(default); policy.ScheduleAutomaticApproval = true;
-        Assert.True(await store.UpdatePolicyAsync(policy, Guid.NewGuid(), default));
-        await store.EnqueueAsync(VerificationType.Schedule, cor.Id, default);
-        var original = (await store.ClaimAsync(TimeSpan.FromMinutes(1), default))!;
-        Assert.True(await store.CompleteAsync(original, new(VerificationState.NeedsReview, "Daily schedule exceeds the university parking limit.") { PolicyVersion = policy.Version }, default));
-        var reclaimed = (await store.ClaimAsync(TimeSpan.FromMinutes(1), default))!;
-        Assert.Equal(original.Id, reclaimed.Id);
-        Assert.True(await store.CompleteAsync(reclaimed, new(VerificationState.Approved, "Valid class intervals") { PolicyVersion = policy.Version }, default));
-        Assert.Equal(VerificationState.Approved, (await store.FindAsync(reclaimed.Id, default))!.Status);
+        var legacy = new VerificationRecord { Type = VerificationType.Schedule, SubjectId = cor.Id, UserAccountId = user.Id,
+            Fingerprint = "legacy", Status = VerificationState.NeedsReview, Reason = "Daily schedule exceeds the university parking limit." };
+        db.Add(legacy); await db.SaveChangesAsync();
+        Assert.Null(await store.EnqueueAsync(VerificationType.Schedule, cor.Id, default));
+        var preserved = (await store.FindAsync(legacy.Id, default))!;
+        Assert.False(preserved.IsCurrent); Assert.Equal(VerificationState.NeedsReview, preserved.Status);
+        Assert.Equal(CorVerificationStatus.Verified, (await db.CorSubmissions.AsNoTracking().SingleAsync()).ScheduleVerificationStatus);
+        Assert.Null(await store.ClaimAsync(TimeSpan.FromMinutes(1), default));
+        Assert.Single(await db.VerificationRecords.ToListAsync());
     }
 
     [PostgresVerificationFact]
@@ -407,20 +416,24 @@ public class VerificationStoreTests
         await using var db = fixture.Context(); var store = new VerificationStore(db);
         await store.EnqueueAsync(VerificationType.Cor, cor.Id, default);
         var claim = (await store.ClaimAsync(TimeSpan.FromMinutes(2), default))!;
-        var fields = CorTextVerification.Extract(CorScheduleTests.ScheduleTable);
+        var fields = CorTextVerification.Extract(VerificationRulesTests.Text + "\n" + CorScheduleTests.ScheduleTable);
         Assert.True(await store.CompleteAsync(claim, new(VerificationState.PreVerified, "Review authenticity", "DigitalPdfTextExtracted", JsonSerializer.Serialize(fields)) { PolicyVersion = 0 }, default));
         var record = (await store.FindAsync(claim.Id, default))!;
         Assert.False(await store.ConfirmExtractedSchedulesAsync(record.Id, record.Version, Guid.NewGuid(), default));
         Assert.False(await store.ConfirmExtractedSchedulesAsync(record.Id, record.Version - 1, user.Id, default));
         Assert.True(await store.ConfirmExtractedSchedulesAsync(record.Id, record.Version, user.Id, default));
-        Assert.True(await store.ConfirmExtractedSchedulesAsync(record.Id, record.Version, user.Id, default));
+        var confirmed = (await store.FindAsync(record.Id, default))!;
+        Assert.False(await store.ConfirmExtractedSchedulesAsync(record.Id, record.Version, user.Id, default));
+        Assert.True(await store.ConfirmExtractedSchedulesAsync(record.Id, confirmed.Version, user.Id, default));
         Assert.Equal(4, await db.ParkingSchedules.CountAsync());
         Assert.Equal(1, (await store.FindAsync(record.Id, default))!.Attempts);
-        Assert.Single(await store.AuditAsync(record.Id, default), a => a.Action == "ScheduleConfirmed");
+        Assert.Empty(await store.AuditAsync(record.Id, default));
+        db.ChangeTracker.Clear();
         var currentCor = (await new CorSubmissionRepository(db).GetCorSubmissionAsync(cor.Id))!;
         currentCor.UpdateSubmission(null, null, null, "uploads/orcr.pdf", "uploads/motor.jpg");
         await new CorSubmissionRepository(db).UpdateCorSubmissionAsync(currentCor);
-        Assert.Single(await store.ListAsync(user.Id, true, default), r => r.Type == VerificationType.Cor);
+        Assert.Single(await db.VerificationRecords.AsNoTracking().Where(r => r.Type == VerificationType.Cor).ToListAsync());
+        Assert.Empty(await store.ListAsync(user.Id, true, default));
         currentCor.UpdateSubmission(null, "uploads/parkflow/cor/replacement.pdf", CorVerificationStatus.Pending);
         await new CorSubmissionRepository(db).UpdateCorSubmissionAsync(currentCor);
         Assert.False(await store.ConfirmExtractedSchedulesAsync(record.Id, record.Version, user.Id, default));
@@ -441,7 +454,7 @@ public class VerificationStoreTests
     [PostgresVerificationFact]
     public async Task IdenticalCorUpdateKeepsItsExistingDecisionAndLegacyStatus()
     {
-        await using var fixture = await DatabaseFixture.Create(); var (_, cor) = await fixture.Seed();
+        await using var fixture = await DatabaseFixture.Create(); var (_, cor) = await fixture.Seed(personnel: true);
         await using var db = fixture.Context(); var store = new VerificationStore(db);
         var record = (await store.EnqueueAsync(VerificationType.Cor, cor.Id, default))!;
         Assert.True(await store.ReviewAsync(record.Id, record.Version, record.Fingerprint,
@@ -485,37 +498,31 @@ public class VerificationStoreTests
     }
 
     [PostgresVerificationFact]
-    public async Task AccountIdentityEditsAndJobsCommitTogetherWhilePhotoEditsPreserveApproval()
+    public async Task StudentProfileEditsRetainVehicleBasedApprovalWithoutAccountReviewJobs()
     {
-        await using var fixture = await DatabaseFixture.Create();
-        var (user, _) = await fixture.Seed();
+        await using var fixture = await DatabaseFixture.Create(); var (user, _) = await fixture.Seed(driver: true);
         await using var db = fixture.Context();
-        var profile = new UserProfile(user.Id, "Juan", "Cruz", null, null);
+        var profile = await db.UserProfiles.SingleAsync(); profile.ReviewLicense(true, Guid.NewGuid(), "Checked");
         var student = new Student(profile.Id, "2023106763", "BSCS", "1A", 1);
         var identity = AuthIdentity.CreateManual(user.Id, "student@example.test", "hash", true); identity.MarkVerified();
-        db.Add(profile); db.Add(student); db.Add(identity); await db.SaveChangesAsync();
-        var store = new VerificationStore(db);
-        var initial = (await store.EnqueueAsync(VerificationType.Account, user.Id, default))!;
-        Assert.True(await store.ReviewAsync(initial.Id, initial.Version, initial.Fingerprint,
-            new(VerificationState.Approved, "Institutional identity checked manually"), Guid.NewGuid(), default));
+        var vehicle = new Vehicle(user.Id,"IDN1234","Honda","hash",VehicleType.Car,"uploads/orcr.pdf","uploads/car.jpg",CorVerificationStatus.Verified);
+        db.AddRange(student,identity,vehicle); await db.SaveChangesAsync(); var store = new VerificationStore(db);
+        Assert.Null(await store.EnqueueAsync(VerificationType.Account,user.Id,default));
+        Assert.Equal(AccountStatus.Active,(await db.UserAccounts.AsNoTracking().SingleAsync()).Status);
         await using (var edit = fixture.Context())
         {
             var source = (await new UserProfileRepository(edit).GetByUserIdAsync(user.Id))!;
-            source.UpdateProfile(null, null, null, "uploads/photo.png");
-            await new UserProfileRepository(edit).UpdateAsync(source);
+            source.UpdateProfile(null,null,null,"uploads/replacement-profile.png"); await new UserProfileRepository(edit).UpdateAsync(source);
         }
-        Assert.Equal(AccountStatus.Active, (await db.UserAccounts.AsNoTracking().SingleAsync(x => x.Id == user.Id)).Status);
-        Assert.Single(await store.ListAsync(user.Id, true, default));
         await using (var edit = fixture.Context())
         {
             var source = (await new StudentRepository(edit).GetByUserProfileIdAsync(profile.Id))!;
-            source.UpdateDetails(source.StudentNumber, "BSIT", source.Section, source.YearLevel);
-            await new StudentRepository(edit).UpdateAsync(source);
+            source.UpdateDetails(source.StudentNumber,"BSIT",source.Section,source.YearLevel); await new StudentRepository(edit).UpdateAsync(source);
         }
-        Assert.Equal(AccountStatus.PendingVerification, (await db.UserAccounts.AsNoTracking().SingleAsync(x => x.Id == user.Id)).Status);
-        var history = await store.ListAsync(user.Id, true, default);
-        Assert.Equal(2, history.Count); Assert.Single(history, x => x.IsCurrent);
-        Assert.Equal(VerificationState.Pending, history.Single(x => x.IsCurrent).Status);
+        Assert.Equal(AccountStatus.Active,(await db.UserAccounts.AsNoTracking().SingleAsync()).Status);
+        Assert.Equal("BSIT",(await db.Students.AsNoTracking().SingleAsync()).Course);
+        Assert.Empty(await store.ListAsync(user.Id,true,default));
+        Assert.Empty(await db.VerificationRecords.ToListAsync());
     }
 
     [PostgresVerificationFact]
@@ -564,7 +571,7 @@ public class VerificationStoreTests
     [PostgresVerificationFact]
     public async Task ResubmissionPreservesHistoryAndDiscardsOldWorkerDecision()
     {
-        await using var fixture = await DatabaseFixture.Create(); var (user, cor) = await fixture.Seed();
+        await using var fixture = await DatabaseFixture.Create(); var (user, cor) = await fixture.Seed(personnel: true);
         await using var first = fixture.Context(); var store = new VerificationStore(first);
         var original = await store.EnqueueAsync(VerificationType.Cor, cor.Id, default);
         var claim = (await store.ClaimAsync(TimeSpan.FromMinutes(3), default))!;
@@ -584,7 +591,7 @@ public class VerificationStoreTests
     [PostgresVerificationFact]
     public async Task ManualDecisionWinsAgainstInFlightWorkerAndStaleReviewer()
     {
-        await using var fixture = await DatabaseFixture.Create(); var (_, cor) = await fixture.Seed();
+        await using var fixture = await DatabaseFixture.Create(); var (_, cor) = await fixture.Seed(personnel: true);
         await using var db = fixture.Context(); var store = new VerificationStore(db);
         await store.EnqueueAsync(VerificationType.Cor, cor.Id, default);
         var claim = (await store.ClaimAsync(TimeSpan.FromMinutes(3), default))!;
@@ -618,7 +625,7 @@ public class VerificationStoreTests
     [PostgresVerificationFact]
     public async Task PolicyChangesAreAuditedAndCannotBypassTrustedChecks()
     {
-        await using var fixture = await DatabaseFixture.Create(); var (_, cor) = await fixture.Seed();
+        await using var fixture = await DatabaseFixture.Create(); var (_, cor) = await fixture.Seed(personnel: true);
         await using var db = fixture.Context(); var store = new VerificationStore(db);
         var actor = Guid.NewGuid(); var policy = await store.GetPolicyAsync(default);
         policy.CorAutomaticApproval = true;
@@ -640,6 +647,7 @@ public class VerificationStoreTests
             await using var db = fixture.Context();
             try { await new VehicleRepository(db).AddAsync(new Vehicle(user.Id, plate, "Honda", Guid.NewGuid().ToString(), VehicleType.Motorcycle)); return true; }
             catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: "23505" }) { return false; }
+            catch (ParkFlow.Application.Common.VehiclePlateConflictException) { return false; }
         }
         var results = await Task.WhenAll(Register("ABC-1234"), Register("abc 1234"));
         Assert.Single(results, x => x);
@@ -650,26 +658,46 @@ public class VerificationStoreTests
         public AppDbContext Context() => new(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(connection, o => o.EnableRetryOnFailure()).Options);
         public static async Task<DatabaseFixture> Create()
         {
-            var builder = new NpgsqlConnectionStringBuilder(Environment.GetEnvironmentVariable("PARKFLOW_VERIFICATION_TEST_CONNECTION"));
-            if (builder.Database?.EndsWith("_verification_test", StringComparison.Ordinal) != true)
-                throw new InvalidOperationException("The disposable test database must end in _verification_test.");
+            var connection = Environment.GetEnvironmentVariable("PARKFLOW_VERIFICATION_TEST_CONNECTION");
+            if (!PostgresVerificationFactAttribute.IsDisposableLocal(connection))
+                throw new InvalidOperationException("Verification tests require a disposable local database ending _verification_test.");
+            var builder = new NpgsqlConnectionStringBuilder(connection);
             var schema = "parkflow_verification_" + Guid.NewGuid().ToString("N"); builder.SearchPath = schema;
             var fixture = new DatabaseFixture(builder.ConnectionString, schema);
             await using var db = fixture.Context();
             // The identifier is generated exclusively from a fixed prefix and GUID.
             var createSchema = "CREATE SCHEMA \"" + schema + "\"";
             await db.Database.ExecuteSqlRawAsync(createSchema);
-            await db.Database.ExecuteSqlRawAsync(db.Database.GenerateCreateScript());
+            // Execute generated DDL verbatim: EF defaults contain JSON braces, which
+            // ExecuteSqlRaw's format-string processing would otherwise interpret.
+            await db.Database.OpenConnectionAsync();
+            await using (var transaction = await db.Database.BeginTransactionAsync())
+            {
+            await using (var create = db.Database.GetDbConnection().CreateCommand())
+            {
+                create.Transaction = transaction.GetDbTransaction();
+                create.CommandText = db.Database.GenerateCreateScript() + ParkFlow.Persistence.Migrations.EnforceVehiclePlateOwnership.PreflightSql + ParkFlow.Persistence.Migrations.EnforceVehiclePlateOwnership.AuthoritySql;
+                await create.ExecuteNonQueryAsync();
+            }
+            await transaction.CommitAsync();
+            }
             await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX \"IX_Vehicles_NormalizedPlate\" ON \"Vehicles\" (upper(replace(replace(\"PlateNumber\", '-', ''), ' ', '')))");
             return fixture;
         }
-        public async Task<(UserAccount, CorSubmission)> Seed()
+        public async Task<(UserAccount, CorSubmission)> Seed(bool personnel = false, bool driver = false)
         {
             await using var db = Context();
             var account = new UserAccount("hash", "phone"); account.Verify();
             db.Add(account); await db.SaveChangesAsync();
             var cor = new CorSubmission(account.Id, "2026-2027", "uploads/parkflow/cor/original.pdf", verificationStatus: CorVerificationStatus.Pending);
-            db.Add(cor); await db.SaveChangesAsync(); return (account, cor);
+            db.Add(cor);
+            if (personnel || driver)
+            {
+                var profile = new UserProfile(account.Id, "Juan", "Cruz", null, "uploads/profile.jpg");
+                profile.SubmitLicense("uploads/license.jpg"); db.Add(profile);
+                if (personnel) db.Add(new Personnel(profile.Id, "EMP-SYNTHETIC", "CICT", Roles.UniversityStaff));
+            }
+            await db.SaveChangesAsync(); return (account, cor);
         }
         public async ValueTask DisposeAsync()
         {

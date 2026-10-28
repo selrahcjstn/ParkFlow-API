@@ -10,6 +10,5 @@ public record CreateManualParkingLogCommand(
     VehicleType VehicleType,
     string? PhoneNumber,
     string? Brand,
-    Guid UserId,
-    bool AcceptUnscheduledFee = false
+    Guid UserId
 ) : IRequest<Result<CreateParkingLogResponse>>;

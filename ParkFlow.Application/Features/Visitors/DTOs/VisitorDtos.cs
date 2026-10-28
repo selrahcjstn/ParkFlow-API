@@ -11,7 +11,8 @@ public record VisitorDto(
     string? ContactNumber,
     DateTime? LastVisit,
     int TotalVisits,
-    bool IsInside
+    bool IsInside,
+    IEnumerable<VisitorVehicleDto>? Vehicles = null
 );
 
 public record VisitSessionDto(
@@ -24,7 +25,14 @@ public record VisitSessionDto(
     string? ExitGuardName,
     string? EntryGate,
     string? ExitGate,
-    string Status
+    string Status,
+    Guid? VisitorVehicleId = null,
+    string? PlateNumber = null,
+    string? Brand = null,
+    int? VehicleType = null,
+    string? DriversLicenseUrl = null,
+    string? ProfilePictureUrl = null,
+    string? VehiclePictureUrl = null
 );
 
 public record VisitorDetailDto(
@@ -56,7 +64,9 @@ public record CreateVisitorEntryCommand(
     Microsoft.AspNetCore.Http.IFormFile? License = null,
     Microsoft.AspNetCore.Http.IFormFile? ProfilePhoto = null,
     Microsoft.AspNetCore.Http.IFormFile? VehiclePhoto = null,
-    bool LicenseVerified = false
+    bool LicenseVerified = false,
+    Guid? ExistingVisitorId = null,
+    bool IdentityConfirmed = false
 ) : MediatR.IRequest<Common.Result<VisitorEntryResponse>>;
 
 public record VisitorEntryResponse(
@@ -71,13 +81,15 @@ public record VisitorEntryResponse(
     string? Destination,
     string Status,
     bool IsReturning,
-    decimal EntryFee = 0m
+    Guid? VisitorVehicleId = null
 );
 
 public record ExitVisitorSessionCommand(
     string PlateNumber,
     Guid? GuardUserId,
-    string? ExitGate = null
+    string? ExitGate = null,
+    Guid? VisitorVehicleId = null,
+    Guid? SessionId = null
 ) : MediatR.IRequest<Common.Result<VisitorExitResponse>>;
 
 public record VisitorExitResponse(
@@ -92,9 +104,7 @@ public record VisitorExitResponse(
     string? Purpose,
     string? Destination,
     string Status,
-    decimal ChargeAmount,
-    string ReferenceNumber,
-    string SettlementStatus
+    Guid? VisitorVehicleId = null
 );
 
 public record UnifiedPlateLookupDto(
@@ -122,8 +132,12 @@ public record UnifiedPlateLookupDto(
     string? Purpose = null,
     string? Destination = null,
     string? EntryMethod = null,
-    decimal? EntryFee = null,
     string? DriversLicenseUrl = null,
     string? ProfilePictureUrl = null,
-    string? VehiclePictureUrl = null
+    string? VehiclePictureUrl = null,
+    Guid? VisitorVehicleId = null,
+    bool IdentityConfirmed = false
 );
+
+public record VisitorVehicleDto(Guid Id, Guid VisitorId, string PlateNumber, string Brand, int VehicleType,
+    string? VehiclePictureUrl, bool IsInside, Guid? ActiveSessionId, DateTime? EntryTime, int TotalVisits);

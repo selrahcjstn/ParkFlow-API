@@ -20,9 +20,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
     private readonly IStudentRepository _studentRepository;
     private readonly IPersonnelRepository _personnelRepository;
     private readonly IAdminRepository _adminRepository;
-    private readonly IViolationRepository _violationRepository;
     private readonly IParkingService _parkingService;
-    private readonly IViolationService _violationService;
     private readonly IParkingLogRoleService _parkingLogRoleService;
     private readonly IValidator<ExitParkingLogCommand> _validator;
     private readonly ISignalRNotificationSender _notificationSender;
@@ -42,9 +40,9 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         IStudentRepository studentRepository,
         IPersonnelRepository personnelRepository,
         IAdminRepository adminRepository,
-        IViolationRepository violationRepository,
+
         IParkingService parkingService,
-        IViolationService violationService,
+
         IParkingLogRoleService parkingLogRoleService,
         IValidator<ExitParkingLogCommand> validator,
         ISignalRNotificationSender notificationSender,
@@ -63,9 +61,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         _studentRepository = studentRepository;
         _personnelRepository = personnelRepository;
         _adminRepository = adminRepository;
-        _violationRepository = violationRepository;
         _parkingService = parkingService;
-        _violationService = violationService;
         _parkingLogRoleService = parkingLogRoleService;
         _validator = validator;
         _notificationSender = notificationSender;
@@ -188,7 +184,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             : new List<ParkFlow.Domain.Entities.ParkingReservation>();
         bool IsReservationDateMatch(ParkFlow.Domain.Entities.ParkingReservation res)
         {
-            return ReservationSessionWindow.CoversEntry(res, active.EntryTime, SystemSettingsStore.Current);
+            return ReservationSessionWindow.CoversEntry(res, active.EntryTime);
         }
 
         var entryReservation = userReservations.FirstOrDefault(r => 

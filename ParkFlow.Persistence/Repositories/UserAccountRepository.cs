@@ -165,14 +165,6 @@ public class UserAccountRepository(AppDbContext appDbContext) : IUserAccountRepo
         }
 
         var logs = await logQuery.ToListAsync();
-        var logIds = logs.Select(l => l.Id).ToList();
-
-        // 4. Delete Violations linked to those parking logs
-        if (logIds.Count > 0)
-        {
-            var violations = await _appDbContext.Violations.Where(v => v.ParkingLogId.HasValue && logIds.Contains(v.ParkingLogId.Value)).ToListAsync();
-            _appDbContext.Violations.RemoveRange(violations);
-        }
 
         // 5. Delete ParkingLogs & Vehicles
         if (logs.Count > 0) _appDbContext.ParkingLogs.RemoveRange(logs);

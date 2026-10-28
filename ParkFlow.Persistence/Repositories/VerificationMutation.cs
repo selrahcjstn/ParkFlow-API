@@ -19,7 +19,9 @@ internal static class VerificationMutation
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({type.ToString() + id}, 0))", ct);
             var store = new VerificationStore(db);
             var previous = type == VerificationType.Account ? await store.GetSubjectAsync(type, id, default) : null;
-            await save();
+            try { await save(); }
+            catch (DbUpdateException error) when (type == VerificationType.Vehicle && error.InnerException is Npgsql.PostgresException { SqlState: "23505", ConstraintName: "PK_VehiclePlateOwnership" })
+            { throw new ParkFlow.Application.Common.VehiclePlateConflictException("This plate has an existing registered or visitor owner. Refresh the plate lookup; ownership has not been transferred."); }
             if (type == VerificationType.Account)
             {
                 var current = await store.GetSubjectAsync(type, id, default);

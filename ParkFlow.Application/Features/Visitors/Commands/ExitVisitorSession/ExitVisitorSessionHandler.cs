@@ -40,19 +40,19 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
 
     public async Task<Result<VisitorExitResponse>> Handle(ExitVisitorSessionCommand request, CancellationToken cancellationToken)
     {
-        var normalizedPlate = request.PlateNumber.Trim().ToUpper();
-
-        var visitor = await _visitorRepository.GetByPlateNumberAsync(normalizedPlate);
-        if (visitor == null)
-        {
-            return Result<VisitorExitResponse>.Failure("Visitor record not found.", ErrorCode.NotFound);
-        }
-
-        var activeSession = await _visitorRepository.GetActiveVisitSessionByVisitorIdAsync(visitor.Id);
+        var normalizedPlate = VisitorVehicle.NormalizePlate(request.PlateNumber);
+        if (string.IsNullOrWhiteSpace(normalizedPlate))
+            return Result<VisitorExitResponse>.Failure("Plate number is required.", ErrorCode.BadRequest);
+        var vehicle = await _visitorRepository.GetVehicleByPlateNumberAsync(normalizedPlate);
+        if (vehicle == null) return Result<VisitorExitResponse>.Failure("Visitor vehicle not found.", ErrorCode.NotFound);
+        if (request.VisitorVehicleId.HasValue && request.VisitorVehicleId != vehicle.Id)
+            return Result<VisitorExitResponse>.Failure("The selected vehicle does not match this plate.", ErrorCode.Conflict);
+        var visitor = vehicle.Visitor;
+        var activeSession = await _visitorRepository.GetActiveVisitSessionByVehicleIdAsync(vehicle.Id);
         if (activeSession == null)
-        {
-            return Result<VisitorExitResponse>.Failure("No active visit session found for this visitor (visitor is not inside campus).", ErrorCode.NotFound);
-        }
+            return Result<VisitorExitResponse>.Failure("No active visit session found for this vehicle.", ErrorCode.NotFound);
+        if (request.SessionId.HasValue && request.SessionId != activeSession.Id)
+            return Result<VisitorExitResponse>.Failure("This visit has changed. Search the vehicle again before exit.", ErrorCode.Conflict);
 
         // Resolve Guard / Admin
         Guid? guardProfileId = null;
@@ -84,6 +84,11 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
             }
         }
 
+        if (!request.GuardUserId.HasValue)
+            return Result<VisitorExitResponse>.Failure("An authorized guard or admin is required.", ErrorCode.Forbidden);
+        var actor = await _userProfileRepository.GetByUserIdAsync(request.GuardUserId.Value);
+        if (actor == null || (guardProfileId == null && await _adminRepository.GetByUserProfileIdAsync(actor.Id) == null))
+            return Result<VisitorExitResponse>.Failure("An authorized guard or admin is required.", ErrorCode.Forbidden);
         activeSession.MarkExit(guardProfileId, exitGate);
         if (!await _visitorRepository.CompleteVisitSessionAsync(activeSession))
         {
@@ -100,7 +105,8 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
                 {
                     visitorId = visitor.Id,
                     sessionId = activeSession.Id,
-                    plateNumber = visitor.PlateNumber,
+                    plateNumber = vehicle.PlateNumber,
+                    visitorVehicleId = vehicle.Id,
                     exitTime = activeSession.ExitTime,
                 });
                 await _signalRNotificationSender.SendToAllAsync("ParkingSessionUpdated", new { });
@@ -116,15 +122,15 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
             VisitorId: visitor.Id,
             SessionId: activeSession.Id,
             FullName: visitor.FullName,
-            PlateNumber: visitor.PlateNumber,
-            Brand: visitor.Brand,
-            VehicleType: visitor.VehicleType.ToString(),
+            PlateNumber: vehicle.PlateNumber,
+            Brand: vehicle.Brand,
+            VehicleType: vehicle.VehicleType.ToString(),
             EntryTime: activeSession.EntryTime,
             ExitTime: activeSession.ExitTime ?? DateTime.UtcNow,
             Purpose: activeSession.Purpose,
             Destination: activeSession.Destination,
             Status: activeSession.Status.ToString(),
-            ChargeAmount: 0m, ReferenceNumber: string.Empty, SettlementStatus: "NotRequired"
+            VisitorVehicleId: vehicle.Id
         );
 
         return Result<VisitorExitResponse>.Success(response, "Visitor exit recorded.");

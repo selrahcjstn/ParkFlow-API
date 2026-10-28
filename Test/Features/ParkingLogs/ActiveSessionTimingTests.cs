@@ -28,7 +28,7 @@ public class ActiveSessionTimingTests
         return log;
     }
 
-    private static (DateTime DeadlineUtc, bool HasReservation) Resolve(ParkingLog log, DateTime now,
+    private static (DateTime DeadlineUtc, bool HasReservation, bool IsSpecialReservation) Resolve(ParkingLog log, DateTime now,
         SystemSettingsDto? settings = null, CorSubmission[]? documents = null,
         ParkingSchedule[]? schedules = null, ParkingReservation[]? reservations = null) =>
         ActiveSessionTiming.Resolve(log, now, settings ?? new SystemSettingsDto(), documents ?? [],
@@ -47,23 +47,23 @@ public class ActiveSessionTimingTests
         var settings = new SystemSettingsDto { PersonnelFreeParkingEnd = "18:00" };
         var timing = Resolve(log, Utc(19), settings);
         Assert.Equal(Utc(18), timing.DeadlineUtc);
-        Assert.Equal(1, ActiveSessionTiming.GetOverstayHours(log, Utc(19), settings, timing.DeadlineUtc));
-        Assert.Equal(16, ActiveSessionTiming.GetOverstayHours(log, Utc(10, dayOffset: 1), settings, timing.DeadlineUtc));
+        Assert.Equal(role == Roles.UniversityStaff ? 0 : 1, ActiveSessionTiming.GetOverstayHours(log, Utc(19), settings, timing.DeadlineUtc));
+        Assert.Equal(role == Roles.UniversityStaff ? 0 : 16, ActiveSessionTiming.GetOverstayHours(log, Utc(10, dayOffset: 1), settings, timing.DeadlineUtc));
     }
 
     [Fact]
-    public void PersonnelEarlyChargesAreStillShownDuringTheFreeWindow()
+    public void FacultyHasNoChargeOrOverstayDuringTheStaffWindow()
     {
         var log = Log(Utc(4), role: Roles.UniversityStaff);
         var settings = new SystemSettingsDto();
         var timing = Resolve(log, Utc(10), settings);
-        Assert.Equal(1, ActiveSessionTiming.GetOverstayHours(log, Utc(10), settings, timing.DeadlineUtc));
+        Assert.Equal(0, ActiveSessionTiming.GetOverstayHours(log, Utc(10), settings, timing.DeadlineUtc));
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void ScheduleSelectionMatchesEntryTimeAndSupportsExistingDocumentFallback(bool verified)
+    public void ScheduleSelectionMatchesCheckoutAndRequiresVerifiedCor(bool verified)
     {
         var log = Log(Utc(8));
         var document = new CorSubmission(log.Vehicle.OwnerId, "term-1", "doc-url");
@@ -75,8 +75,8 @@ public class ActiveSessionTimingTests
         ];
         var settings = new SystemSettingsDto();
         var timing = Resolve(log, Utc(10), settings, [document], schedules);
-        Assert.Equal(Utc(9, 15), timing.DeadlineUtc);
-        Assert.Equal(0.75, ActiveSessionTiming.GetOverstayHours(log, Utc(10), settings, timing.DeadlineUtc));
+        Assert.Equal(verified ? Utc(9, 15) : Utc(22), timing.DeadlineUtc);
+        Assert.Equal(verified ? 0.75 : 0, ActiveSessionTiming.GetOverstayHours(log, Utc(10), settings, timing.DeadlineUtc));
     }
 
     [Theory]
@@ -131,12 +131,11 @@ public class ActiveSessionTimingTests
         var schedules = new FakeParkingScheduleRepositoryWithMock([schedule]);
         var counts = await new GetSessionCountHandler(repository, documents, schedules, reservations)
             .Handle(new GetSessionCountQuery(500), default);
-        var sessions = await new GetActiveParkingSessionHandler(repository, schedules, documents,
-            new FakeViolationService(), new FakeAdminRepository(), new ParkingLogRoleService(), reservations)
+        var sessions = await new GetActiveParkingSessionHandler(repository, schedules, documents, new FakeAdminRepository(), new ParkingLogRoleService(), reservations)
             .Handle(new GetActiveParkingSessionQuery(500), default);
         Assert.True(counts.IsSuccess);
         Assert.True(sessions.IsSuccess);
-        Assert.Equal(5, counts.Data!.OverstayCount);
+        Assert.Equal(4, counts.Data!.OverstayCount);
         Assert.Equal(sessions.Data!.Count(s => s.Status == "Overstay"), counts.Data.OverstayCount);
         Assert.Equal(5, counts.Data.ActiveSessionCount);
     }

@@ -90,7 +90,7 @@ public class SystemSettingsController : ControllerBase
         }
         catch { }
 
-        return Ok(Result<SystemSettingsDto>.Success(updated, "Violation rate per hour and system settings updated successfully."));
+        return Ok(Result<SystemSettingsDto>.Success(updated, "System settings updated successfully."));
     }
 
     [Authorize(Policy = "SuperAdminOnly")]

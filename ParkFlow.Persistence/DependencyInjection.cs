@@ -23,7 +23,6 @@ namespace ParkFlow.Persistence
                         npgsqlOptions.CommandTimeout(30);
                         npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
                     });
-                options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
             });
 
             services.AddScoped<IDriverDocumentRepository, DriverDocumentRepository>();
@@ -41,7 +40,6 @@ namespace ParkFlow.Persistence
             services.AddScoped<IGuardRepository, GuardRepository>();
             services.AddScoped<IAdminRepository, AdminRepository>();
             services.AddScoped<IParkingLogRepository, ParkingLogRepository>();
-            services.AddScoped<IViolationRepository, ViolationRepository>();
             services.AddScoped<IEmailOtpRepository, EmailOtpRepository>();
             services.AddScoped<IDashboardRepository, DashboardRepository>();
             services.AddScoped<IParkingReservationRepository, ParkingReservationRepository>();

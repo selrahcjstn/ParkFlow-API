@@ -20,7 +20,6 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
     private readonly IStudentRepository _studentRepository;
     private readonly IPersonnelRepository _personnelRepository;
     private readonly IAdminRepository _adminRepository;
-    private readonly IViolationRepository _violationRepository;
     private readonly IParkingService _parkingService;
     private readonly IScheduleService _scheduleService;
     private readonly IParkingLogRoleService _parkingLogRoleService;
@@ -28,6 +27,8 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
     private readonly INotificationService? _notificationService;
     private readonly IParkingReservationRepository? _reservationRepository;
     private readonly ICacheService? _cacheService;
+
+    private readonly TimeProvider _timeProvider;
 
     public CreateManualParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -40,15 +41,17 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         IStudentRepository studentRepository,
         IPersonnelRepository personnelRepository,
         IAdminRepository adminRepository,
-        IViolationRepository violationRepository,
+
         IParkingService parkingService,
         IScheduleService scheduleService,
         IParkingLogRoleService parkingLogRoleService,
         ISignalRNotificationSender signalRNotificationSender,
         INotificationService? notificationService = null,
         IParkingReservationRepository? reservationRepository = null,
-        ICacheService? cacheService = null)
+        ICacheService? cacheService = null,
+        TimeProvider? timeProvider = null)
     {
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
         _userProfileRepository = userProfileRepository;
@@ -59,7 +62,6 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         _studentRepository = studentRepository;
         _personnelRepository = personnelRepository;
         _adminRepository = adminRepository;
-        _violationRepository = violationRepository;
         _parkingService = parkingService;
         _scheduleService = scheduleService;
         _parkingLogRoleService = parkingLogRoleService;
@@ -141,7 +143,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
         DateTime? maximumExitTimeUtc = null;
 
         var userReservations = _reservationRepository != null ? await _reservationRepository.GetByUserIdAsync(vehicle.OwnerId) : [];
-        var utcNow = DateTime.UtcNow;
+        var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
         var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(utcNow);
         var phNowDate = philippinesNow.Date;
 
@@ -205,8 +207,7 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
             }
             else
             {
-                var earlyBuffer = systemSettings.IsEarlyParkingAllowed ? systemSettings.EarlyParkingMinutes : 0;
-                var earliestResEntry = todayApprovedReservation.StartTime.Subtract(TimeSpan.FromMinutes(earlyBuffer));
+                var earliestResEntry = todayApprovedReservation.StartTime;
                 if (philippinesNow.TimeOfDay < earliestResEntry)
                 {
                     return Result<CreateParkingLogResponse>.Failure(

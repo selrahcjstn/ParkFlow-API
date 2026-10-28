@@ -13,6 +13,11 @@ public class Visitor : BaseEntity
     public string? ProfilePictureUrl { get; set; }
     public string? VehiclePictureUrl { get; set; }
 
+    public Guid? LicenseVerifiedBy { get; set; }
+    public DateTime? LicenseVerifiedAt { get; set; }
+    public ICollection<VisitorVehicle> Vehicles { get; set; } = new List<VisitorVehicle>();
+
+    // Legacy vehicle columns remain unchanged during the client transition.
     public ICollection<VisitSession> VisitSessions { get; set; } = new List<VisitSession>();
 
     public Visitor() { }

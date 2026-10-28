@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ParkFlow.Application.Common;
 using ParkFlow.Application.Features.ParkingLogs.Commands.CreateParkingLog;
@@ -21,11 +22,16 @@ public class ParkingLogController : ControllerBase
 {
     private readonly IMediator _mediator;
     private readonly IUserContext? _userContext;
+    private readonly IVehicleRepository? _vehicleRepository;
+    private readonly IAuthorizationService? _authorization;
 
-    public ParkingLogController(IMediator mediator, IUserContext? userContext = null)
+    public ParkingLogController(IMediator mediator, IUserContext? userContext = null,
+        IVehicleRepository? vehicleRepository = null, IAuthorizationService? authorization = null)
     {
         _mediator = mediator;
         _userContext = userContext;
+        _vehicleRepository = vehicleRepository;
+        _authorization = authorization;
     }
 
     [HttpPost("preview"), Microsoft.AspNetCore.Authorization.Authorize(Policy = "GuardOrAdmin")]
@@ -87,6 +93,7 @@ public class ParkingLogController : ControllerBase
         var result = await _mediator.Send(effectiveCommand);
         return this.ToActionResult(result);
     }
+    [Authorize(Policy = "GuardOrAdmin")]
     [HttpGet("active-sessions")]
     public async Task<ActionResult<Result<IEnumerable<GetActiveParkingSessionResponse>>>> GetActiveSessions(
         [FromQuery] int parkingCapacity = 100)
@@ -109,13 +116,23 @@ public class ParkingLogController : ControllerBase
         return this.ToActionResult(result);
     }
 
+    [Authorize]
     [HttpGet("active/vehicle/{vehicleId:guid}")]
     public async Task<ActionResult<Result<ActiveParkingSessionResponse>>> GetActiveSessionByVehicleId(Guid vehicleId)
     {
+        var callerId = _userContext?.GetUserId() ?? Guid.Empty;
+        if (User.Identity?.IsAuthenticated != true || callerId == Guid.Empty) return Unauthorized();
+        var canReadFleet = _authorization != null && (await _authorization.AuthorizeAsync(User, null, "GuardOrAdmin")).Succeeded;
+        if (!canReadFleet)
+        {
+            var vehicle = _vehicleRepository == null ? null : await _vehicleRepository.GetByIdAsync(vehicleId);
+            if (vehicle == null || vehicle.OwnerId != callerId) return NotFound();
+        }
         var result = await _mediator.Send(new GetActiveSessionByVehicleIdQuery(vehicleId));
         return this.ToActionResult(result);
     }
 
+    [Authorize(Policy = "GuardOrAdmin")]
     [HttpGet("history/page/{pageNumber:int}/{pageSize:int}")]
     public async Task<ActionResult<Result<ParkFlow.Application.Features.History.DTOs.PagedParkingHistoryResponse>>> GetParkingHistory(
         int pageNumber,

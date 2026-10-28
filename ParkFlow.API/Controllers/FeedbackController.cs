@@ -20,8 +20,8 @@ namespace ParkFlow.API.Controllers;
 
 public record CreateFeedbackRequest(string Category, int Rating, string Description, string? AttachmentUrl);
 public record UpdateRatingRequest(int Rating);
+public record ReplyToFeedbackRequest(string ReplyMessage, bool MarkResolved = false);
 public record UpdateFeedbackStatusRequest(FeedbackStatus Status, string? AdminNotes);
-public record ReplyToFeedbackRequest(string ReplyMessage, decimal? InvoiceAmount = null, string? InvoiceDescription = null, bool MarkResolved = false);
 
 [Route("api/feedbacks")]
 [ApiController]
@@ -119,7 +119,7 @@ public class FeedbackController : ControllerBase
     }
 
     /// <summary>
-    /// Sends an admin reply/answer (and optional invoice) to feedback sender.
+    /// Sends an admin reply/answer to feedback sender.
     /// </summary>
     [HttpPost("{id:guid}/reply")]
     [Authorize]
@@ -130,8 +130,6 @@ public class FeedbackController : ControllerBase
         var command = new ReplyToFeedbackCommand(
             id,
             request.ReplyMessage,
-            request.InvoiceAmount,
-            request.InvoiceDescription,
             request.MarkResolved
         );
 

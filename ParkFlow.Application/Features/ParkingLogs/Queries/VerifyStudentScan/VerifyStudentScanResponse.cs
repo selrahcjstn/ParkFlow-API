@@ -28,6 +28,4 @@ public class VerifyStudentScanResponse
     public string? VehicleType { get; set; }
     public string? VehicleQrCodeHash { get; set; }
     public bool IsCurrentlyParked { get; set; }
-    public bool HasActiveViolation { get; set; }
-    public string? ViolationNotice { get; set; }
 }

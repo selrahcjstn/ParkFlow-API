@@ -5,29 +5,19 @@ namespace ParkFlow.Application.Common
 {
     public class VehicleParkingSettingsDto
     {
-        // Legacy monetary fields stay zero until their contracts retire in Phase 3.
         public int TotalCapacity { get; set; } = 250;
         public int ReservationAllocationSlots { get; set; } = 75;
-        public decimal ViolationRatePerHour { get => 0m; set { } }
-        public decimal BaseFee { get => 0m; set { } }
-        public decimal EntryFee { get => 0m; set { } }
-        public decimal DailyOverstayFee { get => 0m; set { } }
         public VehicleParkingSettingsDto Copy() => (VehicleParkingSettingsDto)MemberwiseClone();
     }
 
     public class SystemSettingsDto
     {
-        public decimal ViolationRatePerHour { get => 0m; set { } }
-        public string FeeCalculationMode { get => "no_fee"; set { } }
-        public decimal BaseFee { get => 0m; set { } }
         public string PersonnelFreeParkingStart { get; set; } = "05:00";
         public string PersonnelFreeParkingEnd { get; set; } = "21:00";
 
         public bool IsGracePeriodEnabled { get; set; } = true;
         public int GracePeriodMinutes { get; set; } = 15;
 
-        public bool IsEarlyParkingAllowed { get; set; } = true;
-        public int EarlyParkingMinutes { get; set; } = 15;
 
         public string AcademicYear { get; set; } = "2026-2027";
         public string CurrentSemester { get; set; } = "1st Semester";
@@ -35,7 +25,7 @@ namespace ParkFlow.Application.Common
 
         public VehicleParkingSettingsDto CarParking { get; set; } = new();
         public VehicleParkingSettingsDto MotorcycleParking { get; set; } = new();
-        // Legacy electric bikes use motorcycle spaces and rates.
+        // Legacy electric bikes use motorcycle spaces.
         public VehicleParkingSettingsDto ForVehicle(VehicleType type) => type == VehicleType.Car ? CarParking : MotorcycleParking;
 
         public int MaxParkingHours { get; set; } = 8;
@@ -60,15 +50,10 @@ namespace ParkFlow.Application.Common
                 {
                     return new SystemSettingsDto
                     {
-                        ViolationRatePerHour = _settings.ViolationRatePerHour,
-                        FeeCalculationMode = _settings.FeeCalculationMode ?? "per_hour",
-                        BaseFee = _settings.BaseFee,
                         PersonnelFreeParkingStart = _settings.PersonnelFreeParkingStart,
                         PersonnelFreeParkingEnd = _settings.PersonnelFreeParkingEnd,
                         IsGracePeriodEnabled = _settings.IsGracePeriodEnabled,
                         GracePeriodMinutes = _settings.GracePeriodMinutes,
-                        IsEarlyParkingAllowed = _settings.IsEarlyParkingAllowed,
-                        EarlyParkingMinutes = _settings.EarlyParkingMinutes,
                         AcademicYear = _settings.AcademicYear,
                         CurrentSemester = _settings.CurrentSemester,
                         LastResetDate = _settings.LastResetDate,
@@ -87,7 +72,6 @@ namespace ParkFlow.Application.Common
         }
 
         public static void Update(
-            decimal rate,
             int gracePeriod,
             string academicYear,
             string semester,
@@ -97,11 +81,7 @@ namespace ParkFlow.Application.Common
             bool maintenanceMode = false,
             bool rfidInstantScanEnabled = true,
             bool autoApproveVerification = false,
-            string? feeCalculationMode = null,
-            decimal? baseFee = null,
             bool? isGracePeriodEnabled = null,
-            bool? isEarlyParkingAllowed = null,
-            int? earlyParkingMinutes = null,
             string? personnelFreeParkingStart = null,
             string? personnelFreeParkingEnd = null,
             int? reservationAllocationSlots = null,
@@ -110,7 +90,6 @@ namespace ParkFlow.Application.Common
         {
             lock (_lock)
             {
-                _settings.ViolationRatePerHour = rate;
                 _settings.GracePeriodMinutes = gracePeriod;
                 if (!string.IsNullOrWhiteSpace(academicYear)) _settings.AcademicYear = academicYear;
                 if (!string.IsNullOrWhiteSpace(semester)) _settings.CurrentSemester = semester;
@@ -129,19 +108,13 @@ namespace ParkFlow.Application.Common
                         _settings.CarParking.ReservationAllocationSlots = reservationAllocationSlots.Value / 2;
                         _settings.MotorcycleParking.ReservationAllocationSlots = reservationAllocationSlots.Value - reservationAllocationSlots.Value / 2;
                     }
-                    _settings.CarParking.ViolationRatePerHour = _settings.MotorcycleParking.ViolationRatePerHour = rate;
-                    if (baseFee.HasValue) _settings.CarParking.BaseFee = _settings.MotorcycleParking.BaseFee = baseFee.Value;
                 }
                 _settings.MaxVehiclesPerUser = maxVehiclesPerUser;
                 _settings.MaintenanceMode = maintenanceMode;
                 _settings.RfidInstantScanEnabled = rfidInstantScanEnabled;
                 _settings.AutoApproveVerification = autoApproveVerification;
 
-                if (!string.IsNullOrWhiteSpace(feeCalculationMode)) _settings.FeeCalculationMode = feeCalculationMode;
-                if (baseFee.HasValue) _settings.BaseFee = baseFee.Value;
                 if (isGracePeriodEnabled.HasValue) _settings.IsGracePeriodEnabled = isGracePeriodEnabled.Value;
-                if (isEarlyParkingAllowed.HasValue) _settings.IsEarlyParkingAllowed = isEarlyParkingAllowed.Value;
-                if (earlyParkingMinutes.HasValue) _settings.EarlyParkingMinutes = earlyParkingMinutes.Value;
                 if (personnelFreeParkingStart != null) _settings.PersonnelFreeParkingStart = personnelFreeParkingStart;
                 if (personnelFreeParkingEnd != null) _settings.PersonnelFreeParkingEnd = personnelFreeParkingEnd;
             }

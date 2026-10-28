@@ -63,9 +63,9 @@ public class GetSessionCountHandler
             foreach (var log in activeLogs)
             {
                 if (log.Vehicle == null) continue;
-                var timing = ActiveSessionTiming.Resolve(log, nowUtc, sysSettings, corSubmissions,
+                var timing = ActiveSessionTiming.ResolveActive(log, nowUtc, sysSettings, corSubmissions,
                     schedulesBySubmission, reservationsByOwner[log.Vehicle.OwnerId]);
-                if (ActiveSessionTiming.GetOverstayHours(log, nowUtc, sysSettings, timing.DeadlineUtc) > 0)
+                if (timing.OverstayHours > 0)
                 {
                     overstayCount++;
                 }

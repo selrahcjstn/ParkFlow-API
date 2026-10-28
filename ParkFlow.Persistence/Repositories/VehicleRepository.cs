@@ -19,6 +19,7 @@ public class VehicleRepository : IVehicleRepository
     {
         await VerificationMutation.RunAsync(_appDbContext, VerificationType.Vehicle, vehicle.Id, async () =>
         {
+            await VehiclePlateGuard.EnsureRegisteredVehicleAsync(_appDbContext, vehicle);
             await _appDbContext.Set<Vehicle>().AddAsync(vehicle);
             await _appDbContext.SaveChangesAsync();
         }, ownerId: vehicle.OwnerId);
@@ -101,6 +102,7 @@ public class VehicleRepository : IVehicleRepository
     {
         await VerificationMutation.RunAsync(_appDbContext, VerificationType.Vehicle, vehicle.Id, async () =>
         {
+            await VehiclePlateGuard.EnsureRegisteredVehicleAsync(_appDbContext, vehicle);
             var entry = _appDbContext.Entry(vehicle);
             if (entry.State == EntityState.Detached) _appDbContext.Set<Vehicle>().Update(vehicle);
             await _appDbContext.SaveChangesAsync();

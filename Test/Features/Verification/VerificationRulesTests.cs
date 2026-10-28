@@ -22,7 +22,7 @@ public class VerificationRulesTests
     [InlineData("Student Name: Someone Else", "Student name")]
     [InlineData("Student Number: 2023000000", "Student number")]
     [InlineData("Course: BSIT", "Course")]
-    [InlineData("Academic Year: 2025-2026", "Academic year")]
+    [InlineData("Academic Year: 2025-2026", "School year")]
     [InlineData("Semester: Second Semester", "Semester")]
     public void MismatchedFieldsRequireReview(string replacement, string label)
     {
@@ -33,10 +33,10 @@ public class VerificationRulesTests
     }
 
     [Fact]
-    public void MissingFieldsAndUnsetUniversityPolicyRequireReview()
+    public void MissingFieldsRequireReviewAndLegacyPolicyCannotOverrideCurrentTerm()
     {
         Assert.Equal(5, CorTextVerification.Compare(new(null, null, null, null, null), Subject(), Policy()).Count);
-        Assert.Contains(CorTextVerification.Compare(CorTextVerification.Extract(Text), Subject(), new()), x => x.Contains("not been configured"));
+        Assert.Empty(CorTextVerification.Compare(CorTextVerification.Extract(Text), Subject(), new()));
     }
 
     [Theory]

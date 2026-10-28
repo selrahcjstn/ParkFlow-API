@@ -28,6 +28,7 @@ public class CloudinaryService : ICloudinaryService
             );
 
             _cloudinary = new CloudinaryDotNet.Cloudinary(account);
+            _cloudinary.Api.Secure = true;
             _isCloudinaryConfigured = true;
         }
     }
@@ -178,13 +179,14 @@ public class CloudinaryService : ICloudinaryService
                     ? ResourceType.Raw
                     : ResourceType.Image;
 
-                return _cloudinary.DownloadPrivate(
+                var downloadUrl = _cloudinary.DownloadPrivate(
                     publicId,
                     attachment: attachment,
                     format: "",
                     type: "upload",
                     resourceType: resourceType == ResourceType.Raw ? "raw" : "image"
                 );
+                return Uri.TryCreate(downloadUrl, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && uri.UserInfo.Length == 0 ? downloadUrl : null;
             }
             catch (Exception)
             {

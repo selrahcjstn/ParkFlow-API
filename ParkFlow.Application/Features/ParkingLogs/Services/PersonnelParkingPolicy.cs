@@ -47,5 +47,4 @@ public static class PersonnelParkingPolicy
         return early + late;
     }
 
-    public static decimal CalculateCharge(DateTime entryUtc, DateTime nowUtc, SystemSettingsDto settings, VehicleType vehicleType = VehicleType.Motorcycle) => 0m;
 }

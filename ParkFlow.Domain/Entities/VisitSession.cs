@@ -11,7 +11,9 @@ public enum VisitSessionStatus
 
 public class VisitSession : BaseEntity
 {
-    public const decimal ParkingFee = 20m;
+
+    public Guid VisitorVehicleId { get; set; }
+    public VisitorVehicle VisitorVehicle { get; set; } = null!;
 
     public Guid VisitorId { get; set; }
     public Visitor Visitor { get; set; } = null!;

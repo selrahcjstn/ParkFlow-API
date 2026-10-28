@@ -33,22 +33,10 @@ public class DashboardMetricsTests
         var result = await handler.Handle(new GetDashboardSummaryQuery(), CancellationToken.None);
         Assert.True(result.IsSuccess);
         Assert.Equal(12, result.Data!.ActiveParking);
-        Assert.Equal(108.1m, result.Data.TodayRevenue);
         Assert.Equal(12.5m, result.Data.Trends!.RegisteredClientsPercent);
-        Assert.Equal(8.1m, result.Data.Trends.RevenuePercent);
-        Assert.Equal(-50m, result.Data.Trends.PendingChargesPercent);
         Assert.Equal(new DateTime(2026, 10, 11), result.Data.Trends.ComparisonDate);
     }
 
-    [Fact]
-    public async Task PendingZeroDoesNotFallBackToAllCharges()
-    {
-        var capture = new QueryCapture(0);
-        await using var db = Context(capture);
-        Assert.Equal(0, await new DashboardRepository(db).GetActiveViolationsCountAsync());
-        var query = Assert.Single(capture.Commands);
-        Assert.Contains("\"SettlementStatus\" <> 1", query.Sql);
-    }
 
     [Fact]
     public async Task OccupancyIncludesVisitorsWithoutTruncatingRegisteredCount()
@@ -58,7 +46,6 @@ public class DashboardMetricsTests
         Assert.Equal(1005, await new DashboardRepository(db).GetActiveParkingCountAsync());
         Assert.Equal(2, capture.Commands.Count);
         Assert.Contains("\"ParkingLogs\"", capture.Commands[0].Sql);
-        Assert.Contains("\"VisitSessions\"", capture.Commands[1].Sql);
         foreach (var query in capture.Commands)
         {
             Assert.Contains("\"ExitTime\" IS NULL", query.Sql);
@@ -68,52 +55,37 @@ public class DashboardMetricsTests
     }
 
     [Fact]
-    public async Task RevenueUsesOnlyRecordedPaymentTimesAndThePhilippineCalendarDay()
+    public async Task NotificationUnreadCountExcludesRetiredFinancialMessagesInTheDatabaseQuery()
     {
-        var capture = new QueryCapture(0m);
+        var capture = new QueryCapture(0);
         await using var db = Context(capture);
-        var now = new DateTime(2026, 10, 11, 17, 0, 0, DateTimeKind.Utc); // Oct 12, 1 AM in Manila
-        Assert.Equal(0m, await new DashboardRepository(db).GetTodayRevenueAsync(now));
-        var query = Assert.Single(capture.Commands);
-        Assert.Contains("\"SettlementStatus\" = 1", query.Sql);
-        Assert.Contains("\"UpdatedAt\" >=", query.Sql);
-        Assert.Contains("\"UpdatedAt\" <", query.Sql);
-        Assert.DoesNotContain("\"CreatedAt\"", query.Sql);
-        Assert.Contains(new DateTime(2026, 10, 11, 16, 0, 0, DateTimeKind.Utc), query.Dates);
-        Assert.Contains(new DateTime(2026, 10, 12, 16, 0, 0, DateTimeKind.Utc), query.Dates);
+        Assert.Equal(0, await new UserNotificationRepository(db).GetUnreadCountAsync(Guid.NewGuid()));
+        var query = Assert.Single(capture.Commands).Sql;
+        foreach (var field in new[] { "Type", "ActionRoute", "ReferenceCode", "Title", "Body", "IsRead", "UserAccountId" })
+            Assert.Contains($"\"{field}\"", query);
+        Assert.Contains("process-payment", query);
+        Assert.Contains("VIO-%", query);
+        Assert.Contains("penalty", query);
+        Assert.DoesNotContain("\"Violations\"", query);
     }
 
+
     [Fact]
-    public async Task DailyComparisonReconstructsYesterdayClosingUnpaidChargesIncludingThosePaidToday()
+    public async Task DailyComparisonUsesPriorManilaDayAndOnlyOperationalClients()
     {
-        var capture = new QueryCapture(80, 100m, false, 20);
+        var capture = new QueryCapture(80);
         await using var db = Context(capture);
         var comparison = await new DashboardRepository(db).GetDailyComparisonAsync(
             new DateTime(2026, 10, 11, 17, 0, 0, DateTimeKind.Utc));
         Assert.Equal(80, comparison.RegisteredClients);
-        Assert.Equal(100m, comparison.Revenue);
-        Assert.Equal(20, comparison.PendingCharges);
+        Assert.Single(capture.Commands);
+        Assert.DoesNotContain("Violations", capture.Commands[0].Sql);
         Assert.Equal(new DateTime(2026, 10, 11), comparison.Date);
         Assert.Contains("\"CreatedAt\" <", capture.Commands[0].Sql);
         Assert.Contains("\"Admins\"", capture.Commands[0].Sql);
         Assert.Contains("\"Guards\"", capture.Commands[0].Sql);
-        Assert.Contains(new DateTime(2026, 10, 10, 16, 0, 0, DateTimeKind.Utc), capture.Commands[1].Dates);
-        Assert.Contains(new DateTime(2026, 10, 11, 16, 0, 0, DateTimeKind.Utc), capture.Commands[1].Dates);
-        Assert.Contains("\"CreatedAt\" <", capture.Commands[3].Sql);
-        Assert.Contains("\"SettlementStatus\" <> 1 OR", capture.Commands[3].Sql);
-        Assert.Contains("\"UpdatedAt\" >=", capture.Commands[3].Sql);
     }
 
-    [Fact]
-    public async Task MissingLegacyPaymentDatesDoNotProduceInventedComparisons()
-    {
-        var capture = new QueryCapture(10, 0m, true);
-        await using var db = Context(capture);
-        var comparison = await new DashboardRepository(db).GetDailyComparisonAsync(DateTime.UtcNow);
-        Assert.Null(comparison.Revenue);
-        Assert.Null(comparison.PendingCharges);
-        Assert.Equal(3, capture.Commands.Count);
-    }
 
     private static AppDbContext Context(QueryCapture capture) => new(new DbContextOptionsBuilder<AppDbContext>()
         .UseNpgsql("Host=localhost;Database=not_used;Username=not_used;Password=not_used")
@@ -148,10 +120,8 @@ public class DashboardMetricsTests
     {
         public Task<int> GetTotalUsersCountAsync() => Task.FromResult(90);
         public Task<int> GetActiveParkingCountAsync() => Task.FromResult(12);
-        public Task<decimal> GetTodayRevenueAsync(DateTime? asOfUtc = null) => Task.FromResult(108.1m);
-        public Task<int> GetActiveViolationsCountAsync() => Task.FromResult(10);
         public Task<DashboardDailyComparison> GetDailyComparisonAsync(DateTime asOfUtc)
-            => Task.FromResult(new DashboardDailyComparison(80, 100m, 20, new DateTime(2026, 10, 11)));
+            => Task.FromResult(new DashboardDailyComparison(80, new DateTime(2026, 10, 11)));
         public Task<Dictionary<DateTime, (int CheckIns, int CheckOuts)>> GetActivityOverLast7DaysAsync()
             => Task.FromResult(new Dictionary<DateTime, (int, int)>());
     }

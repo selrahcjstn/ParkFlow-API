@@ -129,11 +129,8 @@ public class FakeEmailService : IEmailService
 
 public class CreateReservationRestrictionTests
 {
-    [Theory]
-    [InlineData(1)]
-    [InlineData(2)]
-    [InlineData(3)]
-    public async Task UnpaidViolations_BlockReservationUntilSettled(int unpaidCount)
+    [Fact]
+    public async Task VerifiedVehicleCanReserveWithoutFinancialServices()
     {
         var user = new UserAccount("hash", "09123456789");
         user.Verify();
@@ -141,15 +138,13 @@ public class CreateReservationRestrictionTests
         var vehicle = new Vehicle(user.Id, "ABC-1234", "Toyota", "qr", VehicleType.Car);
         vehicle.UpdateVerificationStatus(CorVerificationStatus.Verified);
         _vehicleRepo.Vehicles.Add(vehicle);
-        var violations = new Test.Features.Violations.FakeViolationRepository { ActiveViolationCount = unpaidCount };
         var handler = new CreateReservationHandler(_reservationRepo, _userRepo, _vehicleRepo,
-            _validator, _notifSender, _emailService, violationRepository: violations);
+            _validator, _notifSender, _emailService);
         var command = new CreateReservationCommand(user.Id, DateTime.UtcNow.Date.AddDays(2),
             TimeSpan.FromHours(8), TimeSpan.FromHours(17), "Campus visit", null, ReservationType.Normal, vehicle.Id);
 
         var allowed = await handler.Handle(command, default);
         Assert.True(allowed.IsSuccess, allowed.Message);
-        Assert.Equal(unpaidCount, violations.ActiveViolationCount);
         Assert.Single(_reservationRepo.Reservations);
     }
 
@@ -246,7 +241,7 @@ public class CreateReservationRestrictionTests
 
         Assert.False(res2.IsSuccess);
         Assert.Equal(ErrorCode.Conflict, res2.ErrorCode);
-        Assert.Contains("Only one reservation per day is allowed", res2.Message);
+        Assert.Contains("one upcoming or active reservation", res2.Message);
         Assert.Single(_reservationRepo.Reservations);
     }
 
@@ -297,7 +292,7 @@ public class CreateReservationRestrictionTests
 
         Assert.False(res2.IsSuccess);
         Assert.Equal(ErrorCode.Conflict, res2.ErrorCode);
-        Assert.Contains("Only one reservation per day is allowed", res2.Message);
+        Assert.Contains("one upcoming or active reservation", res2.Message);
         Assert.Single(_reservationRepo.Reservations);
     }
 

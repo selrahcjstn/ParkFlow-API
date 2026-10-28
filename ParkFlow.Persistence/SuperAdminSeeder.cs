@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
@@ -15,10 +16,10 @@ public static class SuperAdminSeeder
 {
     public static async Task SeedSuperAdminAsync(IServiceProvider serviceProvider)
     {
-        Console.WriteLine("🌱 Checking database migrations and administrator accounts...");
+        Console.WriteLine("🌱 Checking database readiness and administrator accounts...");
         using var scope = serviceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await dbContext.Database.MigrateAsync();
+        await DatabaseStartupCheck.EnsureReadyAsync(dbContext);
 
         var userAccountRepository = scope.ServiceProvider.GetRequiredService<IUserAccountRepository>();
         var authIdentityRepository = scope.ServiceProvider.GetRequiredService<IAuthIdentityRepository>();
@@ -26,14 +27,29 @@ public static class SuperAdminSeeder
         var adminRepository = scope.ServiceProvider.GetRequiredService<IAdminRepository>();
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
 
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+
+        var includeTestData = bool.TryParse(configuration["Seeding:IncludeTestData"], out var enabled) && enabled;
+        if (includeTestData && scope.ServiceProvider.GetService<IHostEnvironment>()?.IsDevelopment() != true)
+            throw new InvalidOperationException("Seeding:IncludeTestData requires an explicit Development host. No sample accounts were provisioned.");
+
         // 1. SuperAdmin Account
-        var superAdminEmail = "superadmin6767@gmail.com";
-        var superAdminPassword = passwordHasher.HashPassword("SuperAdmin123!");
+        var superAdminEmail = BootstrapEmail(configuration, "SuperAdmin");
         var existingSuperAdmin = await userAccountRepository.GetByEmailAsync(superAdminEmail);
-        var migratedSuperAdmin = false;
+        var adminEmail = BootstrapEmail(configuration, "Admin");
+        var existingAdmin = await userAccountRepository.GetByEmailAsync(adminEmail);
         // Rename the original seeded account instead of deleting its profile/history
         // or creating another account with elevated permissions.
-        var previousSuperAdmin = await userAccountRepository.GetByEmailAsync("superadmin@parkflow.com");
+        var previousEmail = configuration["Seeding:SuperAdmin:PreviousEmail"];
+        var previousSuperAdmin = string.IsNullOrWhiteSpace(previousEmail) || string.Equals(superAdminEmail, previousEmail, StringComparison.OrdinalIgnoreCase)
+            ? null : await userAccountRepository.GetByEmailAsync(previousEmail);
+        // Validate missing-account secrets before performing any account writes.
+        var superAdminPassword = existingSuperAdmin?.PasswordHash ?? previousSuperAdmin?.PasswordHash;
+        if (existingSuperAdmin == null && previousSuperAdmin == null)
+            superAdminPassword = BootstrapPassword(configuration, "SuperAdmin", passwordHasher);
+        var adminPassword = existingAdmin?.PasswordHash;
+        if (existingAdmin == null)
+            adminPassword = BootstrapPassword(configuration, "Admin", passwordHasher);
         if (previousSuperAdmin != null)
         {
             if (existingSuperAdmin != null)
@@ -41,23 +57,22 @@ public static class SuperAdminSeeder
             if (previousSuperAdmin.UserProfile?.Admin?.RoleLevel != RoleLevel.SuperAdmin)
                 throw new InvalidOperationException("The previous Super Admin email no longer belongs to a Super Admin account.");
 
-            var previousIdentity = await authIdentityRepository.GetByEmailAsync("superadmin@parkflow.com")
+            var previousIdentity = await authIdentityRepository.GetByEmailAsync(previousEmail!)
                 ?? throw new InvalidOperationException("The previous Super Admin login identity was not found.");
             if (previousIdentity.Provider != AuthProvider.Manual)
                 throw new InvalidOperationException("The previous Super Admin login is not a manual login identity.");
             previousIdentity.UpdateEmail(superAdminEmail);
             await authIdentityRepository.UpdateAsync(previousIdentity);
             existingSuperAdmin = previousSuperAdmin;
-            migratedSuperAdmin = true;
         }
         if (existingSuperAdmin == null)
         {
-            var user = new UserAccount(superAdminPassword, "+639000000000");
+            var user = new UserAccount(superAdminPassword!, "+639000000000");
             user.UpdateOnboardingStep(OnboardingStep.Done);
             user.Verify();
             await userAccountRepository.AddAsync(user);
 
-            var identity = AuthIdentity.CreateManual(user.Id, superAdminEmail, superAdminPassword, isPrimary: true);
+            var identity = AuthIdentity.CreateManual(user.Id, superAdminEmail, superAdminPassword!, isPrimary: true);
             identity.MarkVerified();
             await authIdentityRepository.AddAsync(identity);
 
@@ -71,22 +86,17 @@ public static class SuperAdminSeeder
         {
             existingSuperAdmin.Verify();
             existingSuperAdmin.UpdateOnboardingStep(OnboardingStep.Done);
-            // Apply the supplied default only on migration; do not overwrite later password changes.
-            if (migratedSuperAdmin)
-                existingSuperAdmin.UpdatePassword(superAdminPassword);
             await userAccountRepository.UpdateAsync(existingSuperAdmin);
 
             var identity = await authIdentityRepository.GetByEmailAsync(superAdminEmail);
             if (identity == null)
             {
-                var newIdentity = AuthIdentity.CreateManual(existingSuperAdmin.Id, superAdminEmail, superAdminPassword, isPrimary: true);
+                var newIdentity = AuthIdentity.CreateManual(existingSuperAdmin.Id, superAdminEmail, superAdminPassword ?? throw new InvalidOperationException("Existing Super Admin has no password hash. Repair its identity through the approved account recovery process."), isPrimary: true);
                 newIdentity.MarkVerified();
                 await authIdentityRepository.AddAsync(newIdentity);
             }
             else
             {
-                if (migratedSuperAdmin)
-                    identity.UpdatePasswordHash(superAdminPassword);
                 identity.MarkVerified();
                 await authIdentityRepository.UpdateAsync(identity);
             }
@@ -112,17 +122,14 @@ public static class SuperAdminSeeder
         }
 
         // 2. Regular Admin Account
-        var adminEmail = "admin@parkflow.com";
-        var adminPassword = passwordHasher.HashPassword("Admin123!");
-        var existingAdmin = await userAccountRepository.GetByEmailAsync(adminEmail);
         if (existingAdmin == null)
         {
-            var user = new UserAccount(adminPassword, "+639000000001");
+            var user = new UserAccount(adminPassword!, "+639000000001");
             user.UpdateOnboardingStep(OnboardingStep.Done);
             user.Verify();
             await userAccountRepository.AddAsync(user);
 
-            var identity = AuthIdentity.CreateManual(user.Id, adminEmail, adminPassword, isPrimary: true);
+            var identity = AuthIdentity.CreateManual(user.Id, adminEmail, adminPassword!, isPrimary: true);
             identity.MarkVerified();
             await authIdentityRepository.AddAsync(identity);
 
@@ -141,7 +148,7 @@ public static class SuperAdminSeeder
             var identity = await authIdentityRepository.GetByEmailAsync(adminEmail);
             if (identity == null)
             {
-                var newIdentity = AuthIdentity.CreateManual(existingAdmin.Id, adminEmail, adminPassword, isPrimary: true);
+                var newIdentity = AuthIdentity.CreateManual(existingAdmin.Id, adminEmail, adminPassword ?? throw new InvalidOperationException("Existing Admin has no password hash. Repair its identity through the approved account recovery process."), isPrimary: true);
                 newIdentity.MarkVerified();
                 await authIdentityRepository.AddAsync(newIdentity);
             }
@@ -154,8 +161,7 @@ public static class SuperAdminSeeder
 
         // Sample records must be explicitly enabled; normal restarts must not
         // repopulate a cleared database or overwrite existing administrator passwords.
-        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-        if (!bool.TryParse(configuration["Seeding:IncludeTestData"], out var includeTestData) || !includeTestData)
+        if (!includeTestData)
         {
             Console.WriteLine("✅ Administrator accounts verified. Test data seeding is disabled.");
             return;
@@ -170,11 +176,12 @@ public static class SuperAdminSeeder
         var qrCodeService = scope.ServiceProvider.GetRequiredService<IQrCodeService>();
 
         // 3. Guard Account
-        var guardEmail = "guard@parkflow.com";
-        var guardPassword = passwordHasher.HashPassword("Guard123!");
+        var guardEmail = BootstrapEmail(configuration, "Guard");
+        var guardPassword = (string?)null;
         var existingGuard = await userAccountRepository.GetByEmailAsync(guardEmail);
         if (existingGuard == null)
         {
+            guardPassword = BootstrapPassword(configuration, "Guard", passwordHasher);
             var user = new UserAccount(guardPassword, "+639000000002");
             user.UpdateOnboardingStep(OnboardingStep.Done);
             user.Verify();
@@ -194,19 +201,17 @@ public static class SuperAdminSeeder
         {
             existingGuard.Verify();
             existingGuard.UpdateOnboardingStep(OnboardingStep.Done);
-            existingGuard.UpdatePassword(guardPassword);
             await userAccountRepository.UpdateAsync(existingGuard);
 
             var identity = await authIdentityRepository.GetByEmailAsync(guardEmail);
             if (identity == null)
             {
-                var newIdentity = AuthIdentity.CreateManual(existingGuard.Id, guardEmail, guardPassword, isPrimary: true);
+                var newIdentity = AuthIdentity.CreateManual(existingGuard.Id, guardEmail, existingGuard.PasswordHash ?? throw new InvalidOperationException("Existing Guard requires approved account recovery."), isPrimary: true);
                 newIdentity.MarkVerified();
                 await authIdentityRepository.AddAsync(newIdentity);
             }
             else
             {
-                identity.UpdatePasswordHash(guardPassword);
                 identity.MarkVerified();
                 await authIdentityRepository.UpdateAsync(identity);
             }
@@ -217,7 +222,7 @@ public static class SuperAdminSeeder
         var existingStudent = await userAccountRepository.GetByEmailAsync(studentEmail);
         if (existingStudent == null)
         {
-            var hashedPassword = passwordHasher.HashPassword("Student123!");
+            var hashedPassword = passwordHasher.HashPassword(Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
             var user = new UserAccount(hashedPassword, "+639171234567");
             user.UpdateOnboardingStep(OnboardingStep.Done);
             user.Verify();
@@ -270,7 +275,7 @@ public static class SuperAdminSeeder
         var existingPersonnel = await userAccountRepository.GetByEmailAsync(personnelEmail);
         if (existingPersonnel == null)
         {
-            var hashedPassword = passwordHasher.HashPassword("Personnel123!");
+            var hashedPassword = passwordHasher.HashPassword(Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
             var user = new UserAccount(hashedPassword, "+639179876543");
             user.UpdateOnboardingStep(OnboardingStep.Done);
             user.Verify();
@@ -322,4 +327,22 @@ public static class SuperAdminSeeder
         await TestDataSeeder.SeedTestAccountsAndReservationsAsync(serviceProvider);
         Console.WriteLine("✅ Database and test accounts verified.");
     }
+    private static string BootstrapEmail(IConfiguration configuration, string account)
+    {
+        var key = $"Seeding:{account}:Email";
+        var email = configuration[key]?.Trim();
+        if (!System.Net.Mail.MailAddress.TryCreate(email, out var parsed) || parsed.Address != email)
+            throw new InvalidOperationException($"Missing or invalid bootstrap configuration {key}. Configure the existing administrator's email; accounts are never matched or merged by name.");
+        return email!;
+    }
+
+    private static string BootstrapPassword(IConfiguration configuration, string account, IPasswordHasher hasher)
+    {
+        var key = $"Seeding:{account}:Password";
+        var password = configuration[key];
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 12)
+            throw new InvalidOperationException($"Missing or invalid bootstrap secret {key}. Inject a unique password of at least 12 characters through secure configuration; existing passwords are never reset.");
+        return hasher.HashPassword(password);
+    }
+
 }

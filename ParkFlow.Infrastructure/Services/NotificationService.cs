@@ -62,18 +62,10 @@ public class NotificationService : INotificationService
             var payload = signalRData ?? dto;
             await _signalRNotificationSender.SendToUserAsync(userAccountId.ToString(), "ReceiveNotification", dto);
             
-            if (type == "overdue")
-            {
-                await _signalRNotificationSender.SendToUserAsync(userAccountId.ToString(), "ReceiveViolation", payload);
-            }
-            else if (type == "approved" && (actionRoute?.Contains("history") == true || title.Contains("Exit")))
+            if (type == "approved" && (actionRoute?.Contains("history") == true || title.Contains("Exit")))
             {
                 await _signalRNotificationSender.SendToUserAsync(userAccountId.ToString(), "ExitResponse", payload);
                 await _signalRNotificationSender.SendToUserAsync(userAccountId.ToString(), "ReceiveParkingReceipt", payload);
-            }
-            else if (title.Contains("Paid") || actionRoute?.Contains("violations") == true)
-            {
-                await _signalRNotificationSender.SendToUserAsync(userAccountId.ToString(), "PaymentProcessed", payload);
             }
             else if (type == "approved" || type == "registration_rejected" || type == "vehicle_approved" || type == "vehicle_rejected")
             {

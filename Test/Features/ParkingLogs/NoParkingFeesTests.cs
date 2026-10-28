@@ -8,20 +8,7 @@ namespace Test.Features.ParkingLogs;
 
 public class NoParkingFeesTests
 {
-    [Theory]
-    [InlineData(VehicleType.Motorcycle)]
-    [InlineData(VehicleType.ElectricBike)]
-    [InlineData(VehicleType.Car)]
-    public void LegacyRatesAndFeeModesCannotReEnableCharges(VehicleType type)
-    {
-        var settings = new SystemSettingsDto { FeeCalculationMode = "one_time_hourly", BaseFee = 100, ViolationRatePerHour = 999 };
-        var rates = settings.ForVehicle(type);
-        rates.EntryFee = 500; rates.BaseFee = 100; rates.DailyOverstayFee = 500; rates.ViolationRatePerHour = 999;
-        Assert.Equal("no_fee", settings.FeeCalculationMode);
-        Assert.Equal(0m, rates.EntryFee); Assert.Equal(0m, rates.BaseFee);
-        Assert.Equal(0m, rates.DailyOverstayFee); Assert.Equal(0m, rates.ViolationRatePerHour);
-        Assert.Equal(0m, new ViolationService().CalculatePenaltyForVehicle(TimeSpan.FromDays(30), type));
-    }
+
 
     [Theory]
     [InlineData(EntryMethod.QrCode)]
@@ -48,6 +35,5 @@ public class NoParkingFeesTests
         var timing = ActiveSessionTiming.ResolveCheckout(entry, EntryMethod.Manual, null, null, null, new(), exit);
         Assert.Equal(ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(day, new(23, 59, 59)), timing.MaximumExitTime);
         Assert.True(timing.OverstayHours > 8);
-        Assert.Equal(0m, new ViolationService().CalculatePenalty(TimeSpan.FromHours(timing.OverstayHours)));
     }
 }

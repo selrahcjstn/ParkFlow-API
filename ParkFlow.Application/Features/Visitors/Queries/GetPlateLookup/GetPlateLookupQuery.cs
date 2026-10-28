@@ -7,7 +7,7 @@ using ParkFlow.Domain.Enums;
 
 namespace ParkFlow.Application.Features.Visitors.Queries.GetPlateLookup;
 
-public record GetPlateLookupQuery(string PlateNumber) : IRequest<Result<UnifiedPlateLookupDto>>;
+public record GetPlateLookupQuery(string PlateNumber, bool IdentityConfirmed = false) : IRequest<Result<UnifiedPlateLookupDto>>;
 
 public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result<UnifiedPlateLookupDto>>
 {
@@ -44,7 +44,9 @@ public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result
             return Result<UnifiedPlateLookupDto>.Failure("Plate number is required.", ErrorCode.BadRequest);
         }
 
-        var normalizedPlate = request.PlateNumber.Trim().ToUpper();
+        var normalizedPlate = VisitorVehicle.NormalizePlate(request.PlateNumber);
+        if (!System.Text.RegularExpressions.Regex.IsMatch(normalizedPlate, "^[A-Z0-9]{2,20}$"))
+            return Result<UnifiedPlateLookupDto>.Failure("Enter a valid plate number.", ErrorCode.BadRequest);
 
         // 1. PRIORITY 1: Check registered ParkFlow vehicles
         var vehicle = await _vehicleRepository.GetByPlateNumberAsync(normalizedPlate);
@@ -93,10 +95,11 @@ public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result
         }
 
         // 2. PRIORITY 2: Check existing Visitors
-        var visitor = await _visitorRepository.GetByPlateNumberAsync(normalizedPlate);
-        if (visitor != null)
+        var visitorVehicle = await _visitorRepository.GetVehicleByPlateNumberAsync(normalizedPlate);
+        if (visitorVehicle != null)
         {
-            var activeSession = await _visitorRepository.GetActiveVisitSessionByVisitorIdAsync(visitor.Id);
+            var visitor = visitorVehicle.Visitor;
+            var activeSession = await _visitorRepository.GetActiveVisitSessionByVehicleIdAsync(visitorVehicle.Id);
             var isInside = activeSession != null;
 
             var dto = new UnifiedPlateLookupDto(
@@ -104,19 +107,21 @@ public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result
                 IsRegistered: false,
                 IsVisitor: true,
                 IsInside: isInside,
-                PlateNumber: visitor.PlateNumber,
-                VisitorId: visitor.Id,
-                FullName: visitor.FullName,
-                ContactNumber: visitor.ContactNumber,
-                Brand: visitor.Brand,
-                VehicleType: visitor.VehicleType.ToString(),
-                VehicleTypeValue: (int)visitor.VehicleType,
+                PlateNumber: visitorVehicle.PlateNumber,
+                VisitorId: request.IdentityConfirmed ? visitor.Id : null,
+                FullName: request.IdentityConfirmed ? visitor.FullName : null,
+                ContactNumber: request.IdentityConfirmed ? visitor.ContactNumber : null,
+                Brand: visitorVehicle.Brand,
+                VehicleType: visitorVehicle.VehicleType.ToString(),
+                VehicleTypeValue: (int)visitorVehicle.VehicleType,
                 ActiveSessionId: activeSession?.Id,
                 EntryTime: activeSession?.EntryTime,
-                Purpose: activeSession?.Purpose,
-                Destination: activeSession?.Destination,
-                EntryFee: 0m,
-                DriversLicenseUrl: activeSession?.DriversLicenseUrl ?? visitor.DriversLicenseUrl, ProfilePictureUrl: activeSession?.ProfilePictureUrl ?? visitor.ProfilePictureUrl, VehiclePictureUrl: activeSession?.VehiclePictureUrl ?? visitor.VehiclePictureUrl
+                Purpose: request.IdentityConfirmed ? activeSession?.Purpose : null,
+                Destination: request.IdentityConfirmed ? activeSession?.Destination : null,
+                DriversLicenseUrl: request.IdentityConfirmed ? visitor.DriversLicenseUrl : null,
+                ProfilePictureUrl: request.IdentityConfirmed ? visitor.ProfilePictureUrl : null,
+                VehiclePictureUrl: request.IdentityConfirmed ? visitorVehicle.VehiclePictureUrl : null,
+                VisitorVehicleId: visitorVehicle.Id, IdentityConfirmed: request.IdentityConfirmed
             );
 
             return Result<UnifiedPlateLookupDto>.Success(dto, "Visitor record found.");
@@ -128,8 +133,7 @@ public class GetPlateLookupHandler : IRequestHandler<GetPlateLookupQuery, Result
             IsRegistered: false,
             IsVisitor: false,
             IsInside: false,
-            PlateNumber: normalizedPlate,
-            EntryFee: 0m
+            PlateNumber: normalizedPlate
         ), "Plate not found in system.");
     }
 }

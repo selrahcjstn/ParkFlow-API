@@ -218,18 +218,6 @@ namespace ParkFlow.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<decimal?>("InvoiceAmount")
-                        .HasColumnType("numeric");
-
-                    b.Property<string>("InvoiceDescription")
-                        .HasColumnType("text");
-
-                    b.Property<string>("InvoiceNumber")
-                        .HasColumnType("text");
-
-                    b.Property<string>("InvoiceStatus")
-                        .HasColumnType("text");
-
                     b.Property<int>("Rating")
                         .HasColumnType("integer");
 
@@ -614,6 +602,32 @@ namespace ParkFlow.Persistence.Migrations
                     b.ToTable("UserNotifications");
                 });
 
+            modelBuilder.Entity("ParkFlow.Domain.Entities.VehiclePlateOwnership", b =>
+                {
+                    b.Property<string>("NormalizedPlateNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid?>("VehicleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("VisitorVehicleId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("NormalizedPlateNumber");
+
+                    b.HasIndex("VehicleId")
+                        .IsUnique();
+
+                    b.HasIndex("VisitorVehicleId")
+                        .IsUnique();
+
+                    b.ToTable("VehiclePlateOwnership", t =>
+                        {
+                            t.HasCheckConstraint("CK_VehiclePlateOwnerships_OneOwner", "(\"VehicleId\" IS NOT NULL) <> (\"VisitorVehicleId\" IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("ParkFlow.Domain.Entities.VerificationAudit", b =>
                 {
                     b.Property<Guid>("Id")
@@ -801,50 +815,6 @@ namespace ParkFlow.Persistence.Migrations
                     b.ToTable("VerificationRecords");
                 });
 
-            modelBuilder.Entity("ParkFlow.Domain.Entities.Violation", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("ParkingLogId")
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("PenaltyFee")
-                        .HasColumnType("numeric");
-
-                    b.Property<string>("ReferenceNumber")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("SettlementStatus")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("ViolationType")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid?>("VisitSessionId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ParkingLogId");
-
-                    b.HasIndex("VisitSessionId")
-                        .IsUnique();
-
-                    b.ToTable("Violations", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_Violations_Session", "(\"ParkingLogId\" IS NOT NULL) <> (\"VisitSessionId\" IS NOT NULL)");
-                        });
-                });
-
             modelBuilder.Entity("ParkFlow.Domain.Entities.VisitSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -910,13 +880,22 @@ namespace ParkFlow.Persistence.Migrations
                     b.Property<Guid>("VisitorId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("VisitorVehicleId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EntryGuardId");
 
                     b.HasIndex("ExitGuardId");
 
+                    b.HasIndex("VisitorVehicleId")
+                        .IsUnique()
+                        .HasFilter("\"Status\" = 0");
+
                     b.HasIndex("VisitorId", "Status");
+
+                    b.HasIndex("VisitorVehicleId", "VisitorId");
 
                     b.ToTable("VisitSessions");
                 });
@@ -950,6 +929,12 @@ namespace ParkFlow.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<DateTime?>("LicenseVerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("LicenseVerifiedBy")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("PlateNumber")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -972,6 +957,58 @@ namespace ParkFlow.Persistence.Migrations
                     b.HasIndex("PlateNumber");
 
                     b.ToTable("Visitors");
+                });
+
+            modelBuilder.Entity("ParkFlow.Domain.Entities.VisitorVehicle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Brand")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("NormalizedPlateNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("PlateNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VehiclePictureUrl")
+                        .HasColumnType("text");
+
+                    b.Property<int>("VehicleType")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("VisitorId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedPlateNumber")
+                        .IsUnique();
+
+                    b.HasIndex("VisitorId");
+
+                    b.ToTable("VisitorVehicles", t =>
+                        {
+                            t.HasCheckConstraint("CK_VisitorVehicles_NormalizedPlate", "\"NormalizedPlateNumber\" = upper(replace(replace(btrim(\"PlateNumber\"), ' ', ''), '-', '')) AND \"NormalizedPlateNumber\" ~ '^[A-Z0-9]{2,20}$'");
+                        });
                 });
 
             modelBuilder.Entity("Student", b =>
@@ -1317,6 +1354,19 @@ namespace ParkFlow.Persistence.Migrations
                     b.Navigation("UserAccount");
                 });
 
+            modelBuilder.Entity("ParkFlow.Domain.Entities.VehiclePlateOwnership", b =>
+                {
+                    b.HasOne("Vehicle", null)
+                        .WithMany()
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("ParkFlow.Domain.Entities.VisitorVehicle", null)
+                        .WithMany()
+                        .HasForeignKey("VisitorVehicleId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("ParkFlow.Domain.Entities.VerificationRecord", b =>
                 {
                     b.HasOne("UserAccount", null)
@@ -1324,23 +1374,6 @@ namespace ParkFlow.Persistence.Migrations
                         .HasForeignKey("UserAccountId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("ParkFlow.Domain.Entities.Violation", b =>
-                {
-                    b.HasOne("ParkFlow.Domain.Entities.ParkingLog", "ParkingLog")
-                        .WithMany()
-                        .HasForeignKey("ParkingLogId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("ParkFlow.Domain.Entities.VisitSession", "VisitSession")
-                        .WithMany()
-                        .HasForeignKey("VisitSessionId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.Navigation("ParkingLog");
-
-                    b.Navigation("VisitSession");
                 });
 
             modelBuilder.Entity("ParkFlow.Domain.Entities.VisitSession", b =>
@@ -1361,9 +1394,29 @@ namespace ParkFlow.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ParkFlow.Domain.Entities.VisitorVehicle", "VisitorVehicle")
+                        .WithMany("VisitSessions")
+                        .HasForeignKey("VisitorVehicleId", "VisitorId")
+                        .HasPrincipalKey("Id", "VisitorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("EntryGuard");
 
                     b.Navigation("ExitGuard");
+
+                    b.Navigation("Visitor");
+
+                    b.Navigation("VisitorVehicle");
+                });
+
+            modelBuilder.Entity("ParkFlow.Domain.Entities.VisitorVehicle", b =>
+                {
+                    b.HasOne("ParkFlow.Domain.Entities.Visitor", "Visitor")
+                        .WithMany("Vehicles")
+                        .HasForeignKey("VisitorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Visitor");
                 });
@@ -1407,6 +1460,13 @@ namespace ParkFlow.Persistence.Migrations
                 });
 
             modelBuilder.Entity("ParkFlow.Domain.Entities.Visitor", b =>
+                {
+                    b.Navigation("Vehicles");
+
+                    b.Navigation("VisitSessions");
+                });
+
+            modelBuilder.Entity("ParkFlow.Domain.Entities.VisitorVehicle", b =>
                 {
                     b.Navigation("VisitSessions");
                 });

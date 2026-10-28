@@ -12,7 +12,7 @@ using ParkFlow.Application.Interfaces;
 using ParkFlow.Domain.Entities;
 using ParkFlow.Domain.Enums;
 using Test.Features.Auth;
-using Test.Features.Violations;
+using Test.Support;
 
 namespace Test.Features.ParkingLogs;
 
@@ -28,7 +28,6 @@ public class ManualParkingLogTests
     private readonly FakeStudentRepository _studentRepository;
     private readonly FakePersonnelRepository _personnelRepository;
     private readonly FakeAdminRepository _adminRepository;
-    private readonly FakeViolationRepository _violationRepository;
     private readonly IParkingService _parkingService;
     private readonly FakeScheduleService _scheduleService;
     private readonly ParkingLogRoleService _parkingLogRoleService;
@@ -45,24 +44,16 @@ public class ManualParkingLogTests
         _studentRepository = new FakeStudentRepository();
         _personnelRepository = new FakePersonnelRepository();
         _adminRepository = new FakeAdminRepository();
-        _violationRepository = new FakeViolationRepository();
         _parkingService = new FakeParkingServiceWithRealEntry();
         _scheduleService = new FakeScheduleService();
         _parkingLogRoleService = new ParkingLogRoleService();
     }
 
     [Theory]
-    [InlineData(true, false, 0)]
-    [InlineData(true, true, 0)]
-    [InlineData(false, false, 0)]
-    [InlineData(false, true, 0)]
-    [InlineData(true, false, 1)]
-    [InlineData(true, false, 2)]
-    [InlineData(true, false, 3)]
-    [InlineData(false, true, 1)]
-    public async Task Handle_ShouldRequireSettlementBeforeEntry_AndFeeConsentWhenNoSchedule(bool hasSchedule, bool acceptFee, int unpaidCount)
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Handle_UsesScheduleOrManualExceptionWithoutFees(bool hasSchedule)
     {
-        _violationRepository.ActiveViolationCount = unpaidCount;
         // Arrange
         var ownerId = Guid.NewGuid();
         var guardUserId = Guid.NewGuid();
@@ -75,6 +66,7 @@ public class ManualParkingLogTests
 
         var ownerAccount = new UserAccount(string.Empty, "+639999999999");
         var ownerProfile = new UserProfile(ownerId, "John", "Doe", null, null);
+        Test.Support.DriverDocumentFixture.Approve(ownerProfile);
         ownerProfile.UserAccount = ownerAccount;
         _userProfileRepository.Profiles.Add(ownerProfile);
 
@@ -115,43 +107,22 @@ public class ManualParkingLogTests
             _studentRepository,
             _personnelRepository,
             _adminRepository,
-            _violationRepository,
             _parkingService,
             _scheduleService,
             _parkingLogRoleService,
             new FakeSignalRNotificationSender()
         );
 
-        var command = new CreateManualParkingLogCommand("ABC-1234", VehicleType.Car, "+639999999999", "Toyota", guardUserId, acceptFee);
+        var command = new CreateManualParkingLogCommand("ABC-1234", VehicleType.Car, "+639999999999", "Toyota", guardUserId);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assert
-        if (unpaidCount > 0)
-        {
-            Assert.False(result.IsSuccess);
-            Assert.Equal(ParkFlow.Application.Common.ErrorCode.Forbidden, result.ErrorCode);
-            Assert.Contains("settle all unpaid violations", result.Message);
-            Assert.Null(result.Data);
-            Assert.Null(await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id));
-            // After payment removes the unpaid balance, normal entry rules apply again.
-            _violationRepository.ActiveViolationCount = 0;
-            result = await handler.Handle(command, CancellationToken.None);
-        }
-        if (!hasSchedule && !acceptFee)
-        {
-            Assert.False(result.IsSuccess);
-            Assert.True(result.Data!.FeeOptionAvailable);
-            Assert.Equal(20m, result.Data.EntryFee);
-            Assert.Null(await _parkingLogRepository.GetActiveParkingLogByVehicleIdAsync(vehicle.Id));
-            return;
-        }
         Assert.True(result.IsSuccess, result.Message);
         Assert.NotNull(result.Data);
         Assert.Equal("ABC-1234", result.Data.PlateNumber);
         Assert.Equal(hasSchedule ? "ManualScheduled" : "Manual", result.Data.EntryMethod);
-        Assert.Equal(hasSchedule ? 0m : 20m, result.Data.EntryFee);
     }
 
     [Fact]
@@ -164,6 +135,7 @@ public class ManualParkingLogTests
 
         var ownerAccount = new UserAccount(string.Empty, "+639999999999");
         var ownerProfile = new UserProfile(ownerId, "John", "Doe", null, null);
+        Test.Support.DriverDocumentFixture.Approve(ownerProfile);
         ownerProfile.UserAccount = ownerAccount;
         _userProfileRepository.Profiles.Add(ownerProfile);
         
@@ -204,7 +176,6 @@ public class ManualParkingLogTests
             _studentRepository,
             _personnelRepository,
             _adminRepository,
-            _violationRepository,
             _parkingService,
             _scheduleService,
             _parkingLogRoleService,
@@ -248,7 +219,6 @@ public class ManualParkingLogTests
             _studentRepository,
             _personnelRepository,
             _adminRepository,
-            _violationRepository,
             _parkingService,
             _scheduleService,
             _parkingLogRoleService,
@@ -310,7 +280,6 @@ public class FakeParkingServiceWithRealEntry : IParkingService
         return new ParkingLog(vehicleId, guardId, ParkingStatus.Parked, entryMethod);
     }
     public void MarkExit(ParkingLog parkingLog) { }
-    public DateTime CalculateEntryGracePeriod(DateTime entryTime, TimeSpan scheduleStartTime, int? earlyBufferMinutes = null) => default;
     public DateTime CalculateEstimatedExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => default;
     public DateTime CalculateMaximumExitTime(DateTime entryTime, TimeSpan scheduleEndTime, int? graceMinutes = null) => default;
     public double CalculateTotalParkingHours(DateTime entryTime, DateTime exitTime) => 0.0;

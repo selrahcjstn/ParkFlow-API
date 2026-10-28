@@ -52,7 +52,7 @@ public class EmailVerificationReceiptTests
             new RegRolePersonnelRepository(), new RegRoleGuardRepository(), new FakePasswordHasher(), new FakeJwtService(),
             new RegisterManualAccountValidator(), emailVerificationReceipt: receipts);
         var result = await handler.Handle(new RegisterManualAccountCommand("student@example.test", "Password123!",
-            EmailVerificationToken: valid ? receipts.Issue("student@example.test") : receipts.Issue("wrong@example.test")), default);
+            PhoneNumber: "09171234567", EmailVerificationToken: valid ? receipts.Issue("student@example.test") : receipts.Issue("wrong@example.test")), default);
         Assert.Equal(valid, result.IsSuccess);
         if (valid)
         {
