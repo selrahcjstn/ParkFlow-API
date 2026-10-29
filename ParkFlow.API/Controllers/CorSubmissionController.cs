@@ -25,6 +25,19 @@ public class CorSubmissionController : ControllerBase
         _mediator = mediator;
     }
 
+    [HttpPost("employee-schedule"), Authorize(Policy = "PersonnelOnly"), RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<ActionResult<Result<string>>> UploadEmployeeSchedule([FromForm] IFormFile file, CancellationToken ct) =>
+        this.ToActionResult(await _mediator.Send(new ParkFlow.Application.Features.Files.Commands.UploadCorDocument.UploadEmployeeSchedule(file),ct));
+
+    [HttpGet("employee-schedule"), Authorize(Policy = "PersonnelOnly")]
+    public async Task<IActionResult> EmployeeSchedule([FromServices] ICorSubmissionRepository cors, [FromServices] IUserContext user, [FromServices] IVerificationStore store, CancellationToken ct)
+    {
+        var cor = await cors.GetLatestByUserIdAsync(user.GetUserId());
+        var review = (await store.ListAsync(user.GetUserId(),false,ct)).FirstOrDefault(r=>r.SubjectId==cor?.Id && r.Type==ParkFlow.Domain.Entities.VerificationType.Schedule && r.IsCurrent);
+        Response.Headers.CacheControl = "no-store";
+        return Ok(Result<object>.Success(new { documentUrl=cor?.EmployeeScheduleDocumentUrl, status=cor?.EmployeeScheduleDocumentUrl == null ? "NotSubmitted" : review?.Status.ToString() ?? cor.ScheduleVerificationStatus?.ToString() ?? "Pending", reason=review?.Reason }));
+    }
+
     [HttpPost("create")]
     public async Task<ActionResult<Result<Guid>>> Create(CreateCorSubmissionCommand command)
     {

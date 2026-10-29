@@ -14,6 +14,7 @@ public interface ICorSubmissionRepository
     Task<IEnumerable<CorSubmission>> ListCorSubmissionsAsync();
     Task AddCorSubmissionAsync(CorSubmission corSubmission);
     Task UpdateCorSubmissionAsync(CorSubmission corSubmission);
+    Task SaveEmployeeScheduleAsync(CorSubmission submission) => throw new NotSupportedException("Separate employee schedule persistence is required.");
     // Commit the uploaded source and extraction state together so workers respect
     // the explicit Fetch Information action and any reusable extraction.
     Task SaveUploadedAsync(CorSubmission submission, bool create, ParkFlow.Application.Features.Verification.CorFields? fields,

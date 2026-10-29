@@ -142,6 +142,8 @@ namespace ParkFlow.Application.Features.Feedbacks.Commands.ReplyToFeedback
                 AdminNotes = feedback.AdminNotes,
                 AdminReplyMessage = feedback.AdminReplyMessage,
                 AdminRepliedAt = feedback.AdminRepliedAt,
+                InvoiceNumber = feedback.InvoiceNumber, InvoiceAmount = feedback.InvoiceAmount,
+                InvoiceDescription = feedback.InvoiceDescription, InvoiceStatus = feedback.InvoiceStatus,
                 CreatedAt = feedback.CreatedAt
             };
 

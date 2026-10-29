@@ -13,6 +13,17 @@ namespace Test.Features.Visitors;
 
 public partial class VisitorEntryTests
 {
+    [Theory]
+    [InlineData("FullName")]
+    [InlineData("ContactNumber")]
+    [InlineData("PlateNumber")]
+    public void VisitorIdentityFieldsAreMandatory(string field)
+    {
+        var request=Entry();
+        request=field switch { "FullName"=>request with {FullName=""}, "ContactNumber"=>request with {ContactNumber=""}, _=>request with {PlateNumber=""} };
+        var validation=new ParkFlow.Application.Features.Visitors.Commands.CreateVisitorEntry.CreateVisitorEntryValidator().Validate(request);
+        Assert.Contains(validation.Errors,error=>error.PropertyName==field);
+    }
     private static readonly Guid GuardUserId = Guid.Parse("3f7609df-3583-4760-8380-d9e4133b702f");
     [Theory]
     [InlineData(Roles.UniversityStaff, "Faculty")]

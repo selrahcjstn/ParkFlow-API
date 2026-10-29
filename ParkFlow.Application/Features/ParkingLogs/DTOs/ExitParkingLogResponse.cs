@@ -2,6 +2,12 @@ namespace ParkFlow.Application.Features.ParkingLogs.DTOs;
 
 public class ExitParkingLogResponse
 {
+    public decimal PenaltyFee { get; set; }
+    public bool IsViolation { get; set; }
+    public Guid? ViolationId { get; set; }
+    public string? ViolationType { get; set; }
+    public string? SettlementStatus { get; set; }
+    public string? ReferenceNumber { get; set; }
     public string? ProfilePictureUrl { get; set; }
     public string? VehiclePictureUrl { get; set; }
     public string FirstName { get; set; } = null!;

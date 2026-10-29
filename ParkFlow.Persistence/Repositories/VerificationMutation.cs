@@ -42,7 +42,7 @@ internal static class VerificationMutation
             else if (type == VerificationType.Vehicle)
             {
                 await store.RetireVehicleJobsAsync(id, CancellationToken.None);
-                if (ownerId.HasValue && await db.UserProfiles.AnyAsync(p => p.UserAccountId == ownerId.Value && p.Student != null, ct))
+                if (ownerId.HasValue && await db.UserProfiles.AnyAsync(p => p.UserAccountId == ownerId.Value && (p.Student != null || p.Personnel != null), ct))
                     await store.EnqueueAsync(VerificationType.Account, ownerId.Value, ct);
             }
             else

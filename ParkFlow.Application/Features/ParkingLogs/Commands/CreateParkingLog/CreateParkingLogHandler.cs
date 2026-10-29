@@ -28,6 +28,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     private readonly ICacheService? _cacheService;
 
     private readonly TimeProvider _timeProvider;
+    private readonly IViolationRepository? _violationRepository;
 
     public CreateParkingLogHandler(
         IParkingLogRepository parkingLogRepository,
@@ -47,8 +48,10 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         IParkingReservationRepository? reservationRepository = null,
         INotificationService? notificationService = null,
         ICacheService? cacheService = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IViolationRepository? violationRepository = null)
     {
+        _violationRepository = violationRepository;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _parkingLogRepository = parkingLogRepository;
         _vehicleRepository = vehicleRepository;
@@ -194,6 +197,9 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         var student = await _studentRepository.GetByUserProfileIdAsync(ownerProfile.Id);
         var personnel = await _personnelRepository.GetByUserProfileIdAsync(ownerProfile.Id);
         var admin = await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id);
+        if (_violationRepository != null && ParkingCharges.HasConfiguredFees(vehicle.VehicleType) &&
+            await _violationRepository.GetActiveViolationCountAsync(vehicle.Id,vehicle.OwnerId)>0)
+            return Result<CreateParkingLogResponse>.Failure("Please settle outstanding charges before entering campus.",ErrorCode.Forbidden);
 
         var isStudentOrPersonnel = (student != null || personnel != null) && admin == null;
 

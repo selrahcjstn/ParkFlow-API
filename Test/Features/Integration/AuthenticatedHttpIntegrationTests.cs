@@ -38,6 +38,109 @@ namespace Test.Features.Integration;
 public class AuthenticatedHttpIntegrationTests(VisitorPostgresDatabase database) : IClassFixture<VisitorPostgresDatabase>
 {
     [VisitorPostgresFact]
+    public async Task EmployeeScheduleUploadPreservesEmployeeIdAndPrivateOwnership()
+    {
+        await using var host=await Host.Create(database);var employee=new UserAccount("synthetic","09170000008");employee.Verify();
+        var profile=new UserProfile(employee.Id,"Synthetic","Employee",null,"uploads/employee.png");
+        var cor=new CorSubmission(employee.Id,"Employee ID","uploads/employee-id.pdf",verificationStatus:CorVerificationStatus.Verified);
+        await using(var db=database.Context()){db.AddRange(employee,profile,new Personnel(profile.Id,"EMP-HTTP-"+Guid.NewGuid().ToString("N")[..5],"CICT"),cor);await db.SaveChangesAsync();}
+        using var anonymous=host.Client();using var student=host.Client("student");using var personnel=host.Client("personnel",employee.Id);
+        static MultipartFormDataContent Form(string name="schedule.pdf") { var form=new MultipartFormDataContent();form.Add(new ByteArrayContent(Encoding.ASCII.GetBytes("%PDF-1.7 synthetic schedule")),"file",name);return form; }
+        Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.PostAsync("api/cor-submissions/employee-schedule",Form())).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,(await student.PostAsync("api/cor-submissions/employee-schedule",Form())).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,(await personnel.PostAsync("api/cor-submissions/employee-schedule",Form("unsafe.exe"))).StatusCode);
+        var response=await Success(await personnel.PostAsync("api/cor-submissions/employee-schedule",Form()));
+        var document=response.GetString()!;Assert.StartsWith("private-uploads/",document);
+        await using(var db=database.Context())
+        {
+            var saved=await db.CorSubmissions.SingleAsync(c=>c.Id==cor.Id);
+            Assert.Equal("uploads/employee-id.pdf",saved.CorDocumentUrl);Assert.Equal(document,saved.EmployeeScheduleDocumentUrl);
+            Assert.Equal(CorVerificationStatus.Verified,saved.VerificationStatus);
+            Assert.Equal(CorVerificationStatus.NeedsReview,saved.ScheduleVerificationStatus);
+            var review=await db.VerificationRecords.SingleAsync(r=>r.SubjectId==cor.Id && r.Type==VerificationType.Schedule && r.IsCurrent);
+            Assert.Equal(VerificationState.NeedsReview,review.Status);
+        }
+        var url="api/files/document/url?url="+Uri.EscapeDataString(document);
+        Assert.Equal(HttpStatusCode.Unauthorized,(await student.GetAsync(url)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,(await personnel.GetAsync(url)).StatusCode);
+    }
+    [VisitorPostgresFact]
+    public async Task PositiveVisitorPaymentRequiresAuthorizedCollectionAndKeepsTheRecordedAmount()
+    {
+        var before=ParkFlow.Application.Common.SystemSettingsStore.Current;
+        try
+        {
+            var settings=new ParkFlow.Application.Common.SystemSettingsDto();settings.CarParking.VisitorFee=15m;
+            ParkFlow.Application.Common.SystemSettingsStore.Replace(settings);
+            await using var host=await Host.Create(database);using var guard=host.Client("guard");
+            var plate="PAY"+Guid.NewGuid().ToString("N")[..7];await Success(await guard.PostAsync("api/visitors/entry",Entry(plate)));
+            var exit=await Success(await guard.PostAsJsonAsync("api/visitors/exit",new {plateNumber=plate}));
+            Assert.Equal(15m,exit.GetProperty("chargeAmount").GetDecimal());
+            var reference=exit.GetProperty("referenceNumber").GetString();
+            var body=new {referenceNumber=reference};using var anonymous=host.Client();using var student=host.Client("student");
+            Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.PostAsJsonAsync("api/violations/process-payment",body)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden,(await student.PostAsJsonAsync("api/violations/process-payment",body)).StatusCode);
+            var paid=await Success(await guard.PostAsJsonAsync("api/violations/process-payment",body));
+            Assert.Equal(15m,paid.GetProperty("penaltyFee").GetDecimal());Assert.Equal(VisitorVehicle.NormalizePlate(plate),paid.GetProperty("plateNumber").GetString());
+            Assert.Equal("Settled",paid.GetProperty("settlementStatus").GetString());
+            Assert.Equal(HttpStatusCode.BadRequest,(await guard.PostAsJsonAsync("api/violations/process-payment",body)).StatusCode);
+            settings.CarParking.VisitorFee=999m;ParkFlow.Application.Common.SystemSettingsStore.Replace(settings);
+            await using var db=database.Context();var saved=await db.Violations.SingleAsync(v=>v.ReferenceNumber==reference);
+            Assert.Equal(15m,saved.PenaltyFee);Assert.Equal(SettlementStatus.Settled,saved.SettlementStatus);
+        }
+        finally { ParkFlow.Application.Common.SystemSettingsStore.Replace(before); }
+    }
+    [VisitorPostgresFact]
+    public async Task RegisteredManualEntryUsesTheGuardIdentityAndRejectsUnauthorizedRoles()
+    {
+        var before=ParkFlow.Application.Common.SystemSettingsStore.Current;
+        try
+        {
+            ParkFlow.Application.Common.SystemSettingsStore.Replace(new());
+            await using var host=await Host.Create(database);
+            await using(var db=database.Context())
+            {
+                var log=await db.ParkingLogs.SingleAsync(p=>p.VehicleId==host.VehicleId);log.Exit();await db.SaveChangesAsync();
+            }
+            await using var read=database.Context();var plate=(await read.Vehicles.SingleAsync(v=>v.Id==host.VehicleId)).PlateNumber;
+            var body=new { plateNumber=plate,userId=Guid.NewGuid() };
+            using var anonymous=host.Client();using var student=host.Client("student");using var guard=host.Client("guard");
+            Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.PostAsJsonAsync("api/parking-logs/manual-entry",body)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden,(await student.PostAsJsonAsync("api/parking-logs/manual-entry",body)).StatusCode);
+            var result=await Success(await guard.PostAsJsonAsync("api/parking-logs/manual-entry",body));
+            Assert.Equal(plate,result.GetProperty("plateNumber").GetString());
+            var saved=await read.ParkingLogs.AsNoTracking().SingleAsync(p=>p.VehicleId==host.VehicleId && p.ExitTime==null);
+            Assert.Equal(host.GuardProfileId,saved.GuardId);
+        }
+        finally { ParkFlow.Application.Common.SystemSettingsStore.Replace(before); }
+    }
+    [VisitorPostgresFact]
+    public async Task FeeSettingsRequireSuperAdminPersistIndependentRatesAndRejectNegativeValues()
+    {
+        var before = ParkFlow.Application.Common.SystemSettingsStore.Current;
+        try
+        {
+            await using var host = await Host.Create(database);
+            var settings = new ParkFlow.Application.Common.SystemSettingsDto();
+            using var anonymous = host.Client(); using var guard = host.Client("guard"); using var admin = host.Client("admin");
+            using var super = host.Client("superadmin", host.AdminId);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.PutAsJsonAsync("api/system-settings", settings)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await guard.PutAsJsonAsync("api/system-settings", settings)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await admin.PutAsJsonAsync("api/system-settings", settings)).StatusCode);
+            settings.CarParking.EntryFee = 13m; settings.MotorcycleParking.EntryFee = 7m;
+            await Success(await super.PutAsJsonAsync("api/system-settings", settings));
+            await using var db = database.Context();
+            var saved = await db.SystemSettingsDocuments.AsNoTracking().SingleAsync();
+            var persisted = JsonSerializer.Deserialize<ParkFlow.Application.Common.SystemSettingsDto>(saved.Json)!;
+            Assert.Equal(13m,persisted.CarParking.EntryFee); Assert.Equal(7m,persisted.MotorcycleParking.EntryFee);
+            settings.CarParking.EntryFee = -1m;
+            Assert.Equal(HttpStatusCode.BadRequest,(await super.PutAsJsonAsync("api/system-settings",settings)).StatusCode);
+            Assert.Equal(13m,ParkFlow.Application.Common.SystemSettingsStore.Current.CarParking.EntryFee);
+        }
+        finally { ParkFlow.Application.Common.SystemSettingsStore.Replace(before); }
+    }
+
+    [VisitorPostgresFact]
     public async Task VisitorLifecycleRequiresConfirmationAndKeepsIndependentVehicleSessions()
     {
         await using var host = await Host.Create(database);
@@ -207,11 +310,16 @@ public class AuthenticatedHttpIntegrationTests(VisitorPostgresDatabase database)
             builder.Services.AddScoped<ICorSubmissionRepository,CorSubmissionRepository>();builder.Services.AddScoped<IParkingScheduleRepository,ParkingScheduleRepository>();
             builder.Services.AddScoped<IParkingReservationRepository,ParkingReservationRepository>();
             builder.Services.AddScoped<IUserAccountRepository,UserAccountRepository>();builder.Services.AddScoped<IVerificationStore,VerificationStore>();
+            builder.Services.AddScoped<ISystemSettingsRepository,SystemSettingsRepository>();
+            builder.Services.AddScoped<IViolationRepository,ViolationRepository>();
+            builder.Services.AddScoped<IViolationService,ViolationService>();
+            builder.Services.AddScoped<FluentValidation.IValidator<ParkFlow.Application.Features.Violations.Commands.ProcessViolationPayment.ProcessViolationPaymentCommand>,ParkFlow.Application.Features.Violations.Commands.ProcessViolationPayment.ProcessViolationPaymentCommandValidator>();
             builder.Services.AddScoped<IParkingService,ParkingService>();builder.Services.AddScoped<IScheduleService,ScheduleService>();
             builder.Services.AddScoped<IParkingLogRoleService,ParkingLogRoleService>();builder.Services.AddSingleton<ISignalRNotificationSender,NoRealtime>();
             builder.Services.AddScoped<FluentValidation.IValidator<ExitParkingLogCommand>,ExitParkingLogValidator>();
             builder.Services.AddHttpContextAccessor();builder.Services.AddScoped<IUserContext,UserContext>();
             builder.Services.AddSingleton<ICloudinaryService,SyntheticStorage>();
+            builder.Services.AddSingleton<ICorDocumentReader,SyntheticReader>();
             builder.Services.AddSingleton<TimeProvider>(liveParking?TimeProvider.System:new Clock());
             builder.Services.AddMediatR(c=>c.RegisterServicesFromAssemblyContaining<ParkFlow.Application.Features.Visitors.Queries.GetPlateLookup.GetPlateLookupHandler>());
             builder.Services.AddControllers().AddApplicationPart(typeof(VisitorController).Assembly);
@@ -271,5 +379,11 @@ public class AuthenticatedHttpIntegrationTests(VisitorPostgresDatabase database)
         public Task DeleteFileAsync(string publicId,bool isImage=true)=>Task.CompletedTask;
         public string? GetAuthenticatedDownloadUrl(string url,bool attachment=false)=>null;
         public Task<(Stream Stream,string ContentType,string FileName)?> GetDocumentStreamAsync(string url,bool attachment=false)=>Task.FromResult<(Stream,string,string)?>((new MemoryStream([1,2,3]),"image/png","synthetic.png"));
+    }
+    private sealed class SyntheticReader : ICorDocumentReader
+    {
+        public Task ValidateAsync(Stream stream,string name,CancellationToken ct)=>Task.CompletedTask;
+        public Task<DocumentText> ReadAsync(Stream stream,string name,CancellationToken ct)=>throw new NotSupportedException("Extraction is not part of this synthetic upload test.");
+        public bool IsStoredDocument(string url)=>true;
     }
 }

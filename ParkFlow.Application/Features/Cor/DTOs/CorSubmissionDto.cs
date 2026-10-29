@@ -26,5 +26,6 @@ public record CorSubmissionDto(
     string Brand = "—",
     CorVerificationStatus? ScheduleVerificationStatus = null,
     string? RejectionReason = null,
-    bool RequiresAdminReview = true
+    bool RequiresAdminReview = true,
+    string? EmployeeScheduleDocumentUrl = null
 );

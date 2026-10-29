@@ -13,6 +13,16 @@ public class CorSubmissionRepository : ICorSubmissionRepository
     {
         _appDbContext = appDbContext;
     }
+    public Task SaveEmployeeScheduleAsync(CorSubmission submission) => VerificationMutation.RunAsync(
+        _appDbContext,ParkFlow.Domain.Entities.VerificationType.Schedule,submission.Id,async () =>
+        {
+            // Changing a schedule must not replace or re-approve the employee identity document.
+            var entry=_appDbContext.Entry(submission);entry.State=EntityState.Unchanged;
+            entry.Property(c=>c.EmployeeScheduleDocumentUrl).IsModified=true;
+            entry.Property(c=>c.ScheduleVerificationStatus).IsModified=true;
+            entry.Property(c=>c.UpdatedAt).IsModified=true;
+            await _appDbContext.SaveChangesAsync();
+        });
     
     public async Task AddCorSubmissionAsync(CorSubmission corSubmission)
     {

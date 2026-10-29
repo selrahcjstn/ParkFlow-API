@@ -54,12 +54,18 @@ public class SystemSettingsController : ControllerBase
             return BadRequest(Result<SystemSettingsDto>.Failure("Configure car and motorcycle parking settings.", ErrorCode.BadRequest));
         foreach (var (label, parking) in new[] { ("Car", request.CarParking), ("Motorcycle", request.MotorcycleParking) })
         {
+            if (new[] { parking.ViolationRatePerHour, parking.BaseFee, parking.EntryFee, parking.DailyOverstayFee,
+                parking.StudentEntryFee, parking.FacultyEntryFee, parking.PersonnelEntryFee, parking.VisitorFee, parking.VipEntryFee }.Any(rate => rate < 0m))
+                return BadRequest(Result<SystemSettingsDto>.Failure($"{label}: fees cannot be negative.", ErrorCode.BadRequest));
             if (parking.TotalCapacity < 0 || parking.ReservationAllocationSlots < 0 || parking.ReservationAllocationSlots > parking.TotalCapacity)
                 return BadRequest(Result<SystemSettingsDto>.Failure($"{label}: enter non-negative spaces. Reservation spaces cannot exceed this vehicle type's total capacity.", ErrorCode.BadRequest));
         }
         if ((long)request.CarParking.TotalCapacity + request.MotorcycleParking.TotalCapacity is < 1 or > int.MaxValue)
             return BadRequest(Result<SystemSettingsDto>.Failure("The campus must have at least one parking space.", ErrorCode.BadRequest));
         request.TotalCapacity = request.CarParking.TotalCapacity + request.MotorcycleParking.TotalCapacity;
+        if (request.ViolationRatePerHour < 0m || request.BaseFee < 0m ||
+            request.FeeCalculationMode is not ("per_hour" or "per_day" or "one_time" or "one_time_hourly" or "no_fee"))
+            return BadRequest(Result<SystemSettingsDto>.Failure("Enter non-negative fees and a supported calculation mode.", ErrorCode.BadRequest));
         request.ReservationAllocationSlots = request.CarParking.ReservationAllocationSlots + request.MotorcycleParking.ReservationAllocationSlots;
         if (!PersonnelParkingPolicy.TryGetHours(request, out _, out _))
             return BadRequest(Result<SystemSettingsDto>.Failure("Enter valid faculty/staff hours with the start earlier than the end.", ErrorCode.BadRequest));

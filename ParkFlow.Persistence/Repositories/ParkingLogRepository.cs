@@ -171,6 +171,9 @@ public class ParkingLogRepository : IParkingLogRepository
     }
 
     public async Task<bool> CompleteExitAsync(ParkingLog log, IReadOnlyCollection<ParkingReservation> reservations, CancellationToken ct = default)
+        => await CompleteExitWithChargeAsync(log, reservations, null, ct);
+
+    public async Task<bool> CompleteExitWithChargeAsync(ParkingLog log, IReadOnlyCollection<ParkingReservation> reservations, Violation? charge, CancellationToken ct = default)
     {
         return await _context.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
@@ -198,7 +201,8 @@ public class ParkingLogRepository : IParkingLogRepository
                 booking.Property(r => r.Status).IsModified = true;
                 booking.Property(r => r.UpdatedAt).IsModified = true;
             }
-            await _context.SaveChangesAsync(acceptAllChangesOnSuccess: false, cancellationToken: ct);
+              if (charge != null) _context.Violations.Add(charge);
+              await _context.SaveChangesAsync(acceptAllChangesOnSuccess: false, cancellationToken: ct);
             await transaction.CommitAsync(ct);
             _context.ChangeTracker.AcceptAllChanges();
             return true;

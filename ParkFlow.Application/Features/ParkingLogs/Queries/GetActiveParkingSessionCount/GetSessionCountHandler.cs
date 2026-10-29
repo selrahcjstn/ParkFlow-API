@@ -41,7 +41,7 @@ public class GetSessionCountHandler
 
         async Task<SessionCountResponse> LoadAsync()
         {
-            var logs = await _parkingLogRepository.GetActiveParkingLogsAsync(Math.Max(1000, effectiveCapacity));
+            var logs = await _parkingLogRepository.GetActiveParkingLogsAsync(int.MaxValue);
 
             var nowUtc = DateTime.UtcNow;
 
@@ -80,13 +80,15 @@ public class GetSessionCountHandler
                 MaximumCapacity: effectiveCapacity,
                 ManualSessionCount: manualSessionCount,
                 CarCount: occupancy.Cars, MotorcycleCount: occupancy.Motorcycles,
-                CarCapacity: sysSettings.CarParking.TotalCapacity, MotorcycleCapacity: sysSettings.MotorcycleParking.TotalCapacity);
+                CarCapacity: sysSettings.CarParking.TotalCapacity, MotorcycleCapacity: sysSettings.MotorcycleParking.TotalCapacity,
+                RegisteredVehicleCount: logs.Count,
+                VisitorCount: Math.Max(0, occupancy.Cars + occupancy.Motorcycles - logs.Count));
 
             return response;
         }
-        var response = _cacheService != null
-            ? await _cacheService.GetOrCreateAsync(cacheKey, LoadAsync, TimeSpan.FromSeconds(20), cancellationToken)
-            : await LoadAsync();
+        // Counts must reflect committed entries/exits on refresh, including visitor vehicles.
+        // A cached count could outlive a visitor mutation or repopulate after invalidation.
+        var response = await LoadAsync();
 
         return Result<SessionCountResponse>.Success(response, "Session count retrieved.");
     }

@@ -12,6 +12,28 @@ namespace Test.Features.Deployment;
 public class MigrationRehearsalTests(ITestOutputHelper output)
 {
     [VisitorPostgresFact]
+    public async Task FinancialRestoreZerosOnlyActiveRatesAndAuditsTheOriginalSettings()
+    {
+        var target=new NpgsqlConnectionStringBuilder(Environment.GetEnvironmentVariable("PARKFLOW_VISITOR_TEST_CONNECTION"));
+        if(target.Host is not ("localhost" or "127.0.0.1") || target.Database!="parkflow_visitor_test") throw new InvalidOperationException("Disposable local database required.");
+        target.SearchPath="parkflow_fee_rehearsal_"+Guid.NewGuid().ToString("N");
+        await using var db=new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(target.ConnectionString).Options);
+        await db.Database.ExecuteSqlRawAsync("CREATE SCHEMA \""+target.SearchPath+"\"");
+        var migrator=db.GetService<IMigrator>();await migrator.MigrateAsync("20261028140506_EnsureCorDocumentColumns");
+        var settings=new ParkFlow.Application.Common.SystemSettingsDto();settings.CarParking.EntryFee=21m;settings.MotorcycleParking.EntryFee=8m;
+        settings.CarParking.TotalCapacity=14;settings.MotorcycleParking.TotalCapacity=29;settings.CarParking.VisitorFee=11m;
+        var json=System.Text.Json.JsonSerializer.Serialize(settings);
+        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE \"SystemSettingsDocuments\" SET \"Json\"={json},\"UpdatedAt\"={DateTime.UtcNow} WHERE \"Id\"=1");
+        await migrator.MigrateAsync();
+        var saved=System.Text.Json.JsonSerializer.Deserialize<ParkFlow.Application.Common.SystemSettingsDto>((await db.SystemSettingsDocuments.AsNoTracking().SingleAsync()).Json)!;
+        Assert.Equal(0m,saved.CarParking.EntryFee);Assert.Equal(0m,saved.MotorcycleParking.EntryFee);Assert.Equal(0m,saved.CarParking.VisitorFee);
+        Assert.Equal(14,saved.CarParking.TotalCapacity);Assert.Equal(29,saved.MotorcycleParking.TotalCapacity);
+        var audit=await db.VerificationAudits.SingleAsync(a=>a.Action=="FeeRatesInitializedToZero");
+        var original=System.Text.Json.JsonSerializer.Deserialize<ParkFlow.Application.Common.SystemSettingsDto>(audit.Details)!;
+        Assert.Equal(21m,original.CarParking.EntryFee);Assert.Equal(8m,original.MotorcycleParking.EntryFee);
+        Assert.False(db.Database.HasPendingModelChanges());await DatabaseStartupCheck.EnsureReadyAsync(db);
+    }
+    [VisitorPostgresFact]
     public async Task ExistingCompatibleCorColumnsAndDocumentReferencesArePreserved()
     {
         var target = new NpgsqlConnectionStringBuilder(Environment.GetEnvironmentVariable("PARKFLOW_VISITOR_TEST_CONNECTION"));
@@ -23,7 +45,8 @@ public class MigrationRehearsalTests(ITestOutputHelper output)
         await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"CorSubmissions\" ADD COLUMN \"OrcrDocumentUrl\" text NULL, ADD COLUMN \"MotorPictureUrl\" text NULL");
         var owner = new UserAccount("synthetic", "09170000000");
         var cor = new CorSubmission(owner.Id,"2026-2027","synthetic/cor.pdf","synthetic/existing-orcr.pdf","synthetic/existing-photo.png");
-        db.AddRange(owner,cor); await db.SaveChangesAsync(); await db.Entry(cor).ReloadAsync(); var created = cor.CreatedAt;
+        db.Add(owner); await db.SaveChangesAsync(); var created = new DateTime(cor.CreatedAt.Ticks / 10 * 10, DateTimeKind.Utc);
+        await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO \"CorSubmissions\" (\"Id\",\"UserAccountId\",\"AcademicTerm\",\"CorDocumentUrl\",\"OrcrDocumentUrl\",\"MotorPictureUrl\",\"VerificationStatus\",\"CreatedAt\") VALUES ({cor.Id},{owner.Id},{cor.AcademicTerm},{cor.CorDocumentUrl},{cor.OrcrDocumentUrl},{cor.MotorPictureUrl},{(int)cor.VerificationStatus},{created})");
         await migrator.MigrateAsync(); db.ChangeTracker.Clear();
         var saved = await db.CorSubmissions.SingleAsync(c => c.Id == cor.Id);
         Assert.Equal("synthetic/existing-orcr.pdf",saved.OrcrDocumentUrl); Assert.Equal("synthetic/existing-photo.png",saved.MotorPictureUrl);
@@ -84,7 +107,7 @@ public class MigrationRehearsalTests(ITestOutputHelper output)
             foreach (var table in protectedTables)
             {
                 result[table] = await Rows($"SELECT (to_jsonb(t) - 'VisitorVehicleId' - 'LicenseVerifiedAt' - 'LicenseVerifiedBy')::text FROM \"{table}\" t ORDER BY 1");
-                if (table == "CorSubmissions") result[table] = await Rows("SELECT (to_jsonb(t) - 'OrcrDocumentUrl' - 'MotorPictureUrl')::text FROM \"CorSubmissions\" t ORDER BY 1");
+                if (table == "CorSubmissions") result[table] = await Rows("SELECT (to_jsonb(t) - 'OrcrDocumentUrl' - 'MotorPictureUrl' - 'EmployeeScheduleDocumentUrl')::text FROM \"CorSubmissions\" t ORDER BY 1");
             }
             // Session document/guard/timestamp fields must also be protected in full.
             result["SessionSnapshots"] = await Rows("SELECT (to_jsonb(t) - 'VisitorVehicleId')::text FROM \"VisitSessions\" t ORDER BY 1");
@@ -99,6 +122,7 @@ public class MigrationRehearsalTests(ITestOutputHelper output)
         await migrator.MigrateAsync("20261028134540_EnforceVehiclePlateOwnership");
         Assert.Equal(3, await db.Set<ParkFlow.Domain.Entities.VehiclePlateOwnership>().CountAsync());
         await migrator.MigrateAsync("20261028140506_EnsureCorDocumentColumns");
+        await migrator.MigrateAsync();
         var after = await Snapshot();
         foreach (var table in before.Keys)
         {
@@ -116,8 +140,8 @@ public class MigrationRehearsalTests(ITestOutputHelper output)
         Assert.Equal(3, await db.VisitSessions.CountAsync(s => s.VisitorVehicleId == s.VisitorId));
         Assert.Equal(1, await db.VisitSessions.CountAsync(s => s.Status == ParkFlow.Domain.Entities.VisitSessionStatus.Inside));
         var historyAfter = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(historyBefore, historyAfter[..^4]);
-        Assert.Equal(new[] { "20261027202102_RetireFinancialContractsPreserveHistory", "20261028094839_SeparateVisitorVehicles", "20261028134540_EnforceVehiclePlateOwnership", "20261028140506_EnsureCorDocumentColumns" }, historyAfter[^4..]);
+        Assert.Equal(historyBefore, historyAfter[..^6]);
+        Assert.Equal(new[] { "20261027202102_RetireFinancialContractsPreserveHistory", "20261028094839_SeparateVisitorVehicles", "20261028134540_EnforceVehiclePlateOwnership", "20261028140506_EnsureCorDocumentColumns", "20261029055626_RestoreFinancialContractsZeroRates", "20261029061227_AddEmployeeScheduleDocument" }, historyAfter[^6..]);
         async Task Reject(string sql, string state)
         {
             var error = await Assert.ThrowsAsync<PostgresException>(() => Execute(sql)); Assert.Equal(state, error.SqlState);
@@ -127,6 +151,6 @@ public class MigrationRehearsalTests(ITestOutputHelper output)
         await Reject($$"""INSERT INTO "VisitSessions" ("VisitorId","VisitorVehicleId","EntryTime","Status","CreatedAt") VALUES ('{{v1}}','{{v1}}',now(),0,now())""", PostgresErrorCodes.UniqueViolation);
         await DatabaseStartupCheck.EnsureReadyAsync(db);
         Assert.False(db.Database.HasPendingModelChanges());
-        output.WriteLine($"Schema retained for evidence: {target.SearchPath}; migration history +4, visitor vehicles +2, all original columns retained.");
+        output.WriteLine($"Schema retained for evidence: {target.SearchPath}; migration history +6, visitor vehicles +2, all original columns retained.");
     }
 }

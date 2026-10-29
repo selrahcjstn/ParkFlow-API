@@ -24,5 +24,7 @@ public interface IVisitorRepository
     Task AddVisitSessionAsync(VisitSession session);
     Task UpdateVisitSessionAsync(VisitSession session);
     Task<bool> CompleteVisitSessionAsync(VisitSession session);
+    Task<bool> CompleteVisitSessionWithChargeAsync(VisitSession session, Violation? charge)
+        => charge == null ? CompleteVisitSessionAsync(session) : throw new NotSupportedException("Atomic visitor financial checkout is required.");
     Task<int> GetActiveVisitSessionCountAsync();
 }

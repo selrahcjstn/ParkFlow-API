@@ -17,17 +17,7 @@ public class UserNotificationRepository : IUserNotificationRepository
         _context = context;
     }
 
-    // Hide retired financial messages until the separately approved purge is applied.
-    private IQueryable<UserNotification> VisibleNotifications => _context.UserNotifications.Where(n =>
-        n.Type.ToLower() != "violation" && n.Type.ToLower() != "payment" && n.Type.ToLower() != "payment_processed" && n.Type.ToLower() != "settlement" && n.Type.ToLower() != "invoice" &&
-        (n.ActionRoute == null || (!n.ActionRoute.ToLower().Contains("violation") &&
-            !n.ActionRoute.ToLower().Contains("process-payment") && !n.ActionRoute.ToLower().Contains("scan-receipt"))) &&
-        (n.ReferenceCode == null || (!n.ReferenceCode.ToUpper().StartsWith("VIO-") && !n.ReferenceCode.ToUpper().StartsWith("PAY-") && !n.ReferenceCode.ToUpper().StartsWith("INV-"))) &&
-        !n.Title.ToLower().Contains("payment") && !n.Title.ToLower().Contains("paid") &&
-        !n.Title.ToLower().Contains("settled") && !n.Title.ToLower().Contains("violation") && !n.Title.ToLower().Contains("penalty") && !n.Title.ToLower().Contains("invoice") &&
-        !n.Body.ToLower().Contains("payment") && !n.Body.ToLower().Contains("penalty") &&
-        !n.Body.ToLower().Contains("charge") && !n.Body.ToLower().Contains("settlement") &&
-        !n.Body.ToLower().Contains("invoice") && !n.Body.ToLower().Contains(" fee") && !n.Body.Contains("₱"));
+    private IQueryable<UserNotification> VisibleNotifications => _context.UserNotifications;
 
     public async Task AddAsync(UserNotification notification)
     {

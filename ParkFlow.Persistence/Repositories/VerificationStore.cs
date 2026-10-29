@@ -187,7 +187,7 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
             driver.ReviewLicense(status == VerificationState.Approved, actor, reason);
         vehicle.UpdateVerificationStatus(status == VerificationState.Approved ? CorVerificationStatus.Verified : CorVerificationStatus.Rejected, reason);
         await db.SaveChangesAsync(ct);
-        if (await db.UserProfiles.AnyAsync(p => p.UserAccountId == owner.Value && p.Student != null, ct))
+        if (await db.UserProfiles.AnyAsync(p => p.UserAccountId == owner.Value && (p.Student != null || p.Personnel != null), ct))
             await EnqueueAsync(VerificationType.Account, owner.Value, ct);
         return true;
     }, ct);
@@ -304,7 +304,9 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
                 .Select(x => new VerificationSchedule(x.DayOfWeek, x.StartTime, x.EndTime)).ToListAsync(ct) : [];
         var subject = new VerificationSubject(id, ownerId, type, "", user.AuthIdentities.Any(x => x.IsVerified), duplicate,
             identifier, profile?.FirstName ?? "", profile?.LastName ?? "", profile?.Student?.Course, profile?.Personnel != null,
-            ValidDocument(cor?.CorDocumentUrl) ? cor!.CorDocumentUrl : null, cor?.AcademicTerm, vehicle?.PlateNumber,
+            type == VerificationType.Schedule && profile?.Personnel != null
+                ? (ValidDocument(cor?.EmployeeScheduleDocumentUrl) ? cor!.EmployeeScheduleDocumentUrl : null)
+                : ValidDocument(cor?.CorDocumentUrl) ? cor!.CorDocumentUrl : null, cor?.AcademicTerm, vehicle?.PlateNumber,
             vehicle?.Brand, ValidDocument(vehicle?.OrcrDocumentUrl) && ValidDocument(vehicle?.VehiclePictureUrl) && ValidDocument(profile?.DriversLicenseUrl) && ValidDocument(profile?.ProfilePictureUrl),
             type == VerificationType.Schedule && cor?.VerificationStatus == CorVerificationStatus.Verified, schedules)
         { Suspended = user.Status == AccountStatus.Suspended, Email = user.PrimaryEmail,
@@ -327,9 +329,9 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
     {
         await Lock(type, id, ct);
         if (type == VerificationType.Vehicle) { await RetireVehicleJobsAsync(id, ct); return null; }
-        if (type == VerificationType.Schedule) { await RetireScheduleJobsAsync(id, ct); return null; }
         var subject = await GetSubjectAsync(type, id, ct);
         if (subject == null) return null;
+        if (type == VerificationType.Schedule && !subject.IsPersonnel) { await RetireScheduleJobsAsync(id, ct); return null; }
         if (type == VerificationType.Account && !subject.IsPersonnel &&
             !await db.UserProfiles.AnyAsync(p => p.UserAccountId == subject.UserId && (p.Admin != null || p.Guard != null), ct))
         {
@@ -373,6 +375,11 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
             await db.SaveChangesAsync(ct); // Release the partial unique index before inserting the revision.
         }
         var record = new VerificationRecord { SubjectId = id, UserAccountId = subject.UserId, Type = type, Fingerprint = subject.Fingerprint };
+        if (type == VerificationType.Schedule && subject.IsPersonnel)
+        {
+            record.Status = VerificationState.NeedsReview;
+            record.Reason = "Employee schedule requires administrator review of the uploaded document.";
+        }
         if (type == VerificationType.Cor && existing?.OcrOutcome == VerificationRequests.AwaitingInformationFetch)
         {
             record.OcrOutcome = VerificationRequests.AwaitingInformationFetch;
@@ -478,7 +485,8 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
     {
         var initial = await db.Set<VerificationRecord>().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (initial == null) return false;
-        if (initial.Type is VerificationType.Vehicle or VerificationType.Schedule) return false;
+        if (initial.Type == VerificationType.Vehicle) return false;
+        if (initial.Type == VerificationType.Schedule && (await GetSubjectAsync(initial.Type, initial.SubjectId, ct))?.IsPersonnel != true) return false;
         await LockPolicy(ct); await Lock(initial.Type, initial.SubjectId, ct);
         var record = await db.Set<VerificationRecord>().SingleAsync(x => x.Id == id, ct);
         await db.Entry(record).ReloadAsync(ct);
@@ -535,6 +543,21 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
                     user.UpdateStatus(record.Status == VerificationState.Approved ? AccountStatus.Active : AccountStatus.PendingVerification);
             }
         }
+        await RefreshPersonnelStatusAsync(record.UserAccountId, ct);
+    }
+
+    private async Task RefreshPersonnelStatusAsync(Guid userId, CancellationToken ct)
+    {
+        if (!await db.Personnel.AnyAsync(p => p.UserProfile.UserAccountId == userId, ct)) return;
+        await db.SaveChangesAsync(ct);
+        var user = await db.UserAccounts.FindAsync([userId], ct);
+        if (user == null || user.Status == AccountStatus.Suspended) return;
+        var identity = await db.VerificationRecords.AnyAsync(r => r.UserAccountId == userId && r.Type == VerificationType.Account && r.IsCurrent && r.Status == VerificationState.Approved, ct);
+        var schedule = await db.CorSubmissions.AnyAsync(c => c.UserAccountId == userId && c.VerificationStatus == CorVerificationStatus.Verified && c.ScheduleVerificationStatus == CorVerificationStatus.Verified &&
+            db.VerificationRecords.Any(r => r.Type == VerificationType.Schedule && r.SubjectId == c.Id && r.IsCurrent && r.Status == VerificationState.Approved), ct);
+        var vehicle = await db.Vehicles.AnyAsync(v => v.OwnerId == userId && v.VerificationStatus == CorVerificationStatus.Verified && v.OrcrDocumentUrl != null && v.VehiclePictureUrl != null, ct);
+        var driver = await db.UserProfiles.AnyAsync(p => p.UserAccountId == userId && p.LicenseStatus == CorVerificationStatus.Verified && p.DriversLicenseUrl != null && p.ProfilePictureUrl != null, ct);
+        user.UpdateStatus(identity && schedule && vehicle && driver ? AccountStatus.Active : AccountStatus.PendingVerification);
     }
 
     private void Audit(Guid? record, Guid? actor, string action, string details)
@@ -542,13 +565,13 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         if (record.HasValue)
         {
             var source = db.VerificationRecords.Local.FirstOrDefault(r => r.Id == record.Value) ?? db.VerificationRecords.AsNoTracking().FirstOrDefault(r => r.Id == record.Value);
-            if (source != null && (source.Type == VerificationType.Schedule ||
-                source.Type is VerificationType.Cor or VerificationType.Account && !db.UserProfiles.Any(p => p.UserAccountId == source.UserAccountId && p.Personnel != null))) return;
+            if (source != null && source.Type is VerificationType.Schedule or VerificationType.Cor or VerificationType.Account &&
+                !db.UserProfiles.Any(p => p.UserAccountId == source.UserAccountId && p.Personnel != null)) return;
         }
         db.Add(new VerificationAudit { VerificationRecordId = record, ActorId = actor, Action = action, Details = details });
     }
     public Task<List<VerificationRecord>> ListAsync(Guid? userId, bool history, CancellationToken ct) =>
-        db.Set<VerificationRecord>().AsNoTracking().Where(x => x.Type != VerificationType.Vehicle && x.Type != VerificationType.Schedule &&
+        db.Set<VerificationRecord>().AsNoTracking().Where(x => x.Type != VerificationType.Vehicle &&
             db.UserProfiles.Any(p => p.UserAccountId == x.UserAccountId && p.Personnel != null) && (userId == null || x.UserAccountId == userId) && (history || x.IsCurrent))
             .OrderByDescending(x => x.CreatedAt).Take(1000).ToListAsync(ct);
     public Task<VerificationRecord?> FindAsync(Guid id, CancellationToken ct) =>

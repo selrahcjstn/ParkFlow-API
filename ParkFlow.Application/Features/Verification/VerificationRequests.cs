@@ -171,7 +171,7 @@ public class VerificationRequests(IVerificationStore store, VerificationService 
         return await store.UpdatePolicyAsync(p, request.Actor, ct) ? Result<bool>.Success(true) : Result<bool>.Failure("Settings changed. Reload before saving.", ErrorCode.Conflict);
     }
     public async Task<List<VerificationDto>> Handle(ListVerifications request, CancellationToken ct) =>
-        (await store.ListAsync(request.UserId, request.History, ct)).Where(r => r.Type != VerificationType.Schedule).Select(r => new VerificationDto(r.Id, r.UserAccountId, r.SubjectId,
+        (await store.ListAsync(request.UserId, request.History, ct)).Select(r => new VerificationDto(r.Id, r.UserAccountId, r.SubjectId,
             r.Type.ToString(), r.Status.ToString(), r.Method?.ToString(), r.Reason, r.OcrOutcome,
             request.IncludeExtractedFields ? r.ExtractedFieldsJson : null, r.VerifiedAt, r.ReviewerId, r.Attempts, r.Version, r.IsCurrent, r.CreatedAt)).ToList();
     public Task<List<VerificationAudit>> Handle(ListVerificationAudit request, CancellationToken ct) => store.AuditAsync(request.RecordId, ct);

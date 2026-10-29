@@ -203,7 +203,9 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
         var ownerProfile = await _userProfileRepository.GetByUserIdAsync(vehicle.OwnerId);
         if (ownerProfile == null)
             return Result<ExitParkingLogResponse>.Failure("Owner profile not found.", ErrorCode.NotFound);
-        if (!await _parkingLogRepository.CompleteExitAsync(active, completedReservations, cancellationToken))
+        var charge = ParkingCharges.Checkout(active, vehicle, employeePersonnel,
+            await _studentRepository.GetByUserProfileIdAsync(ownerProfile.Id) != null, entryReservation, overstayTime, exitTime);
+        if (!await _parkingLogRepository.CompleteExitWithChargeAsync(active, completedReservations, charge, cancellationToken))
             return Result<ExitParkingLogResponse>.Failure("This session has already exited. Refresh the parking history.", ErrorCode.Conflict);
         if (completedReservations.Count > 0)
         {
@@ -231,6 +233,12 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
 
         var response = new ExitParkingLogResponse
         {
+            PenaltyFee = charge?.PenaltyFee ?? 0m,
+            IsViolation = charge != null,
+            ViolationId = charge?.Id,
+            ViolationType = charge?.ViolationType.ToString(),
+            SettlementStatus = charge?.SettlementStatus.ToString() ?? "Settled",
+            ReferenceNumber = charge?.ReferenceNumber,
             ProfilePictureUrl = ownerProfile.ProfilePictureUrl,
             VehiclePictureUrl = vehicle.VehiclePictureUrl,
             FirstName = ownerProfile.FirstName,

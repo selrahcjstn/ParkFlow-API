@@ -125,10 +125,13 @@ public class VisitorRepository(AppDbContext context) : IVisitorRepository
     public async Task UpdateVisitSessionAsync(VisitSession session) { _context.VisitSessions.Update(session); await _context.SaveChangesAsync(); }
     public Task<int> GetActiveVisitSessionCountAsync() => _context.VisitSessions.CountAsync(s => s.Status == VisitSessionStatus.Inside);
     public async Task<bool> CompleteVisitSessionAsync(VisitSession session)
+        => await CompleteVisitSessionWithChargeAsync(session, null);
+    public async Task<bool> CompleteVisitSessionWithChargeAsync(VisitSession session, Violation? charge)
     {
         _context.Entry(session).Property(s => s.Status).OriginalValue = VisitSessionStatus.Inside;
         _context.Entry(session).State = EntityState.Modified;
+        if (charge != null) _context.Violations.Add(charge);
         try { await _context.SaveChangesAsync(); return true; }
-        catch (DbUpdateConcurrencyException) { _context.Entry(session).State = EntityState.Detached; return false; }
+        catch (DbUpdateConcurrencyException) { _context.Entry(session).State = EntityState.Detached; if (charge != null) _context.Entry(charge).State = EntityState.Detached; return false; }
     }
 }

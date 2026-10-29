@@ -48,6 +48,8 @@ namespace ParkFlow.Application.Features.Feedbacks.Queries.GetMyFeedbacks
                 AdminNotes = f.AdminNotes,
                 AdminReplyMessage = f.AdminReplyMessage,
                 AdminRepliedAt = f.AdminRepliedAt,
+                InvoiceNumber = f.InvoiceNumber, InvoiceAmount = f.InvoiceAmount,
+                InvoiceDescription = f.InvoiceDescription, InvoiceStatus = f.InvoiceStatus,
                 CreatedAt = f.CreatedAt
             }).ToList();
 

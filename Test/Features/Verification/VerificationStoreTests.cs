@@ -42,6 +42,33 @@ public class PostgresVerificationFactAttribute : FactAttribute
 public class VerificationStoreTests
 {
     [PostgresVerificationFact]
+    public async Task EmployeeScheduleHasAnIndependentAuditedApprovalAndVehicleApprovalCannotReplaceIt()
+    {
+        await using var fixture=await DatabaseFixture.Create();var (user,cor)=await fixture.Seed(personnel:true);
+        await using var db=fixture.Context();var store=new VerificationStore(db);var actor=Guid.NewGuid();
+        var profile=await db.UserProfiles.SingleAsync(p=>p.UserAccountId==user.Id);
+        profile.ReviewLicense(true,actor,"Synthetic license checked");
+        var identity=AuthIdentity.CreateManual(user.Id,"staff@example.invalid","synthetic",true);identity.MarkVerified();
+        var vehicle=new Vehicle(user.Id,"STAFF"+Guid.NewGuid().ToString("N")[..6],"Synthetic","hash",VehicleType.Car);
+        vehicle.UpdateDocuments("uploads/orcr.pdf","uploads/vehicle.png");vehicle.UpdateVerificationStatus(CorVerificationStatus.Verified);
+        db.AddRange(identity,vehicle,new ParkingSchedule(cor.Id,DayOfWeek.Monday,TimeSpan.FromHours(8),TimeSpan.FromHours(10)));await db.SaveChangesAsync();
+        var account=(await store.EnqueueAsync(VerificationType.Account,user.Id,default))!;
+        Assert.True(await store.ReviewAsync(account.Id,account.Version,account.Fingerprint,new(VerificationState.Approved,"Identity checked"),actor,default));
+        var document=(await store.EnqueueAsync(VerificationType.Cor,cor.Id,default))!;
+        Assert.True(await store.ReviewAsync(document.Id,document.Version,document.Fingerprint,new(VerificationState.Approved,"Employee document checked"),actor,default));
+        (await db.CorSubmissions.FindAsync(cor.Id))!.SubmitEmployeeSchedule("uploads/employee-schedule.pdf");await db.SaveChangesAsync();
+        var schedule=(await store.EnqueueAsync(VerificationType.Schedule,cor.Id,default))!;
+        Assert.Equal(VerificationState.NeedsReview,schedule.Status);
+        Assert.Equal(AccountStatus.PendingVerification,(await db.UserAccounts.AsNoTracking().SingleAsync(u=>u.Id==user.Id)).Status);
+        Assert.True(await store.ReviewAsync(schedule.Id,schedule.Version,schedule.Fingerprint,new(VerificationState.Approved,"Uploaded employee schedule checked"),actor,default));
+        Assert.Equal(AccountStatus.Active,(await db.UserAccounts.AsNoTracking().SingleAsync(u=>u.Id==user.Id)).Status);
+        Assert.Contains(await store.ListAsync(user.Id,false,default),r=>r.Type==VerificationType.Schedule);
+        Assert.Contains(await store.AuditAsync(schedule.Id,default),audit=>audit.Action=="ManualReview" && audit.ActorId==actor);
+        var current=(await store.FindAsync(schedule.Id,default))!;
+        Assert.True(await store.ReviewAsync(current.Id,current.Version,current.Fingerprint,new(VerificationState.Rejected,"Replacement employee schedule required"),actor,default));
+        Assert.Equal(AccountStatus.PendingVerification,(await db.UserAccounts.AsNoTracking().SingleAsync(u=>u.Id==user.Id)).Status);
+    }
+    [PostgresVerificationFact]
     public async Task StudentRestorationPersistsCurrentDocumentApprovalWithoutBypassingPendingDocuments()
     {
         await using var fixture = await DatabaseFixture.Create();
@@ -585,7 +612,7 @@ public class VerificationStoreTests
         var history = await store.ListAsync(user.Id, true, default);
         Assert.Equal(2, history.Count); Assert.Single(history, x => x.IsCurrent);
         Assert.False(history.Single(x => x.Id == original!.Id).IsCurrent);
-        Assert.Equal(AccountStatus.Active, (await first.UserAccounts.AsNoTracking().SingleAsync()).Status);
+        Assert.Equal(AccountStatus.PendingVerification, (await first.UserAccounts.AsNoTracking().SingleAsync()).Status);
     }
 
     [PostgresVerificationFact]

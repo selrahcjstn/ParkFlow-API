@@ -90,7 +90,9 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
         if (actor == null || (guardProfileId == null && await _adminRepository.GetByUserProfileIdAsync(actor.Id) == null))
             return Result<VisitorExitResponse>.Failure("An authorized guard or admin is required.", ErrorCode.Forbidden);
         activeSession.MarkExit(guardProfileId, exitGate);
-        if (!await _visitorRepository.CompleteVisitSessionAsync(activeSession))
+        var amount = SystemSettingsStore.Current.ForVehicle(vehicle.VehicleType).VisitorFee;
+        var charge = amount > 0m ? Violation.CreateVisitorCharge(activeSession, amount) : null;
+        if (!await _visitorRepository.CompleteVisitSessionWithChargeAsync(activeSession, charge))
         {
             return Result<VisitorExitResponse>.Failure(
                 "This visitor's exit has already been recorded.",
@@ -130,7 +132,10 @@ public class ExitVisitorSessionHandler : IRequestHandler<ExitVisitorSessionComma
             Purpose: activeSession.Purpose,
             Destination: activeSession.Destination,
             Status: activeSession.Status.ToString(),
-            VisitorVehicleId: vehicle.Id
+            VisitorVehicleId: vehicle.Id,
+            ChargeAmount: charge?.PenaltyFee ?? 0m,
+            ReferenceNumber: charge?.ReferenceNumber,
+            SettlementStatus: charge?.SettlementStatus.ToString() ?? "Settled"
         );
 
         return Result<VisitorExitResponse>.Success(response, "Visitor exit recorded.");

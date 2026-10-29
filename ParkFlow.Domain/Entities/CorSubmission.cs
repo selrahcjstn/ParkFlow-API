@@ -10,6 +10,13 @@ public class CorSubmission : BaseEntity
     public string AcademicTerm { get; private set; } = null!;
 
     public string CorDocumentUrl { get; private set; } = null!;
+    public string? EmployeeScheduleDocumentUrl { get; private set; }
+    public void SubmitEmployeeSchedule(string url)
+    {
+        EmployeeScheduleDocumentUrl = url;
+        ScheduleVerificationStatus = CorVerificationStatus.Pending;
+        UpdatedAt = DateTime.UtcNow;
+    }
     public string? OrcrDocumentUrl { get; private set; }
     public string? MotorPictureUrl { get; private set; }
 

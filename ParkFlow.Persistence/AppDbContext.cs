@@ -25,6 +25,7 @@ namespace ParkFlow.Persistence
         public DbSet<Student> Students { get; set; }
         public DbSet<Personnel> Personnel { get; set; }
         public DbSet<ParkingLog> ParkingLogs { get; set; }
+        public DbSet<Violation> Violations { get; set; }
         public DbSet<EmailOtp> EmailOtps { get; set; }
         public DbSet<PasswordHistory> PasswordHistories { get; set; }
         public DbSet<ParkingReservation> ParkingReservations { get; set; }

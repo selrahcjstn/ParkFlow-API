@@ -4,6 +4,12 @@ namespace ParkFlow.Application.Features.History.DTOs;
 
 public class ParkingHistoryResponse
 {
+    public bool HasViolation { get; set; }
+    public decimal ViolationFee { get; set; }
+    public decimal? PenaltyFee { get; set; }
+    public decimal? Amount { get; set; }
+    public bool IsPaid { get; set; } = true;
+    public string? ReferenceNumber { get; set; }
     // Session Information
     public Guid SessionId { get; set; }
     public Guid Id => SessionId;

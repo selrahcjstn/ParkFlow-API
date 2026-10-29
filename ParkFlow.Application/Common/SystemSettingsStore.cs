@@ -7,11 +7,23 @@ namespace ParkFlow.Application.Common
     {
         public int TotalCapacity { get; set; } = 250;
         public int ReservationAllocationSlots { get; set; } = 75;
+        public decimal ViolationRatePerHour { get; set; }
+        public decimal BaseFee { get; set; }
+        public decimal EntryFee { get; set; }
+        public decimal DailyOverstayFee { get; set; }
+        public decimal StudentEntryFee { get; set; }
+        public decimal FacultyEntryFee { get; set; }
+        public decimal PersonnelEntryFee { get; set; }
+        public decimal VisitorFee { get; set; }
+        public decimal VipEntryFee { get; set; }
         public VehicleParkingSettingsDto Copy() => (VehicleParkingSettingsDto)MemberwiseClone();
     }
 
     public class SystemSettingsDto
     {
+        public decimal ViolationRatePerHour { get; set; }
+        public decimal BaseFee { get; set; }
+        public string FeeCalculationMode { get; set; } = "per_hour";
         public string PersonnelFreeParkingStart { get; set; } = "05:00";
         public string PersonnelFreeParkingEnd { get; set; } = "21:00";
 
@@ -50,6 +62,9 @@ namespace ParkFlow.Application.Common
                 {
                     return new SystemSettingsDto
                     {
+                        ViolationRatePerHour = _settings.ViolationRatePerHour,
+                        BaseFee = _settings.BaseFee,
+                        FeeCalculationMode = _settings.FeeCalculationMode,
                         PersonnelFreeParkingStart = _settings.PersonnelFreeParkingStart,
                         PersonnelFreeParkingEnd = _settings.PersonnelFreeParkingEnd,
                         IsGracePeriodEnabled = _settings.IsGracePeriodEnabled,

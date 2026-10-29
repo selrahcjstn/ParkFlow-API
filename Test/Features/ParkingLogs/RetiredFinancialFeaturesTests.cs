@@ -23,7 +23,7 @@ public class RetiredFinancialFeaturesTests
         using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql("Host=localhost;Database=unused;Username=unused").Options);
         var tables = db.Model.GetEntityTypes().Select(t => t.GetTableName()).ToHashSet();
-        Assert.DoesNotContain("Violations", tables);
+        Assert.Contains("Violations", tables);
         foreach (var table in new[] { "ParkingLogs", "VisitSessions", "Visitors", "Vehicles", "UserAccounts", "ParkingReservations" })
             Assert.Contains(table, tables);
         Assert.True(db.Model.FindEntityType(typeof(VisitSession))!.FindProperty(nameof(VisitSession.Status))!.IsConcurrencyToken);
@@ -45,19 +45,13 @@ public class RetiredFinancialFeaturesTests
     }
 
     [Fact]
-    public void ApiContractsAndEndpointsDoNotExposeFinancialFeatures()
+    public void ApiContractsExposeRestoredFeesWithoutRequiringPaymentAtZero()
     {
-        foreach (var type in new[] { typeof(ExitParkingLogResponse), typeof(CreateParkingLogResponse),
-                     typeof(GetActiveParkingSessionResponse), typeof(VisitorExitResponse), typeof(SystemSettingsDto),
-                     typeof(ParkFlow.Application.Features.History.DTOs.ParkingHistoryResponse) })
-        {
-            Assert.DoesNotContain(type.GetProperties(), p =>
-                new[] { "PenaltyFee", "EntryFee", "Amount", "AccruedCharge", "ChargeAmount", "SettlementStatus", "HasViolation", "IsPaid", "FeeCalculationMode" }.Contains(p.Name));
-        }
-        Assert.DoesNotContain(typeof(ParkFlow.API.Controllers.ParkingLogController).Assembly.GetTypes(),
-            t => t.Name == "ViolationController");
-        Assert.DoesNotContain(typeof(GetParkingHistoryHandler).Assembly.GetTypes(),
-            t => t.Namespace?.Contains("Features.Violations") == true);
+        Assert.Equal(0m, new ExitParkingLogResponse().PenaltyFee);
+        Assert.Equal(0m, new SystemSettingsDto().CarParking.EntryFee);
+        Assert.Equal(0m, new SystemSettingsDto().MotorcycleParking.VisitorFee);
+        Assert.NotNull(typeof(ParkFlow.API.Controllers.ViolationController));
+        Assert.NotNull(typeof(ExitParkingLogResponse).GetProperty("SettlementStatus"));
     }
 
     [Fact]
@@ -68,8 +62,8 @@ public class RetiredFinancialFeaturesTests
         Assert.Equal("Answer from administrator", feedback.AdminReplyMessage);
         Assert.NotNull(feedback.AdminRepliedAt);
         Assert.Equal(FeedbackStatus.Resolved, feedback.Status);
-        Assert.DoesNotContain(typeof(Feedback).GetProperties(), property => property.Name.StartsWith("Invoice"));
-        Assert.DoesNotContain(typeof(ParkFlow.Application.Features.Feedbacks.DTOs.FeedbackDto).GetProperties(), property => property.Name.StartsWith("Invoice"));
+        Assert.Contains(typeof(Feedback).GetProperties(), property => property.Name == "InvoiceAmount");
+        Assert.Contains(typeof(ParkFlow.Application.Features.Feedbacks.DTOs.FeedbackDto).GetProperties(), property => property.Name == "InvoiceAmount");
     }
 
     [Theory]
@@ -110,8 +104,8 @@ public class RetiredFinancialFeaturesTests
         var grace = SystemSettingsStore.Current.IsGracePeriodEnabled ? SystemSettingsStore.Current.GracePeriodMinutes : 0;
         Assert.Equal(reserved && !special ? Math.Round(Math.Max(0, 1 - grace / 60d), 2) : 0, item.OverstayHours);
         var json = JsonSerializer.Serialize(item);
-        Assert.DoesNotContain("Fee", json);
-        Assert.DoesNotContain("Violation", json);
+        Assert.Equal(0m, item.Amount);
+        Assert.True(item.IsPaid);
     }
 
     private sealed class HistoryLogs(ParkingLog log) : Test.Support.FakeParkingLogRepository, IParkingLogRepository

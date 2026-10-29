@@ -12,6 +12,7 @@ public class CreateVisitorEntryValidator : AbstractValidator<CreateVisitorEntryC
 {
     public CreateVisitorEntryValidator()
     {
+        RuleFor(x => x.FullName).NotEmpty().MaximumLength(200).WithMessage("Visitor name is required (up to 200 characters).");
         RuleFor(x => x.ContactNumber).NotEmpty().Matches(@"^09\d{9}$")
             .WithMessage("Enter an 11-digit phone number starting with 09.");
         RuleFor(x => x.LicenseVerified).Equal(true).WithMessage("Verify the driver's valid license at the gate before entry.");

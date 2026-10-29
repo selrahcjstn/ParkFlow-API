@@ -104,7 +104,10 @@ public record VisitorExitResponse(
     string? Purpose,
     string? Destination,
     string Status,
-    Guid? VisitorVehicleId = null
+    Guid? VisitorVehicleId = null,
+    decimal ChargeAmount = 0m,
+    string? ReferenceNumber = null,
+    string SettlementStatus = "Settled"
 );
 
 public record UnifiedPlateLookupDto(

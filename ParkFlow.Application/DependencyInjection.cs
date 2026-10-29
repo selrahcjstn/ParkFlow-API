@@ -20,6 +20,7 @@ namespace ParkFlow.Application
             services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
             services.AddScoped<IParkingService, ParkingService>();
+            services.AddScoped<IViolationService, ViolationService>();
             services.AddScoped<ParkFlow.Application.Features.Verification.VerificationService>();
             services.AddScoped<IScheduleService, ScheduleService>();
             services.AddScoped<IParkingLogRoleService, ParkingLogRoleService>();

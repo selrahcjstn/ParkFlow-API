@@ -55,17 +55,17 @@ public class DashboardMetricsTests
     }
 
     [Fact]
-    public async Task NotificationUnreadCountExcludesRetiredFinancialMessagesInTheDatabaseQuery()
+    public async Task NotificationUnreadCountIncludesFinancialMessagesAndRemainsScopedToItsOwner()
     {
         var capture = new QueryCapture(0);
         await using var db = Context(capture);
         Assert.Equal(0, await new UserNotificationRepository(db).GetUnreadCountAsync(Guid.NewGuid()));
         var query = Assert.Single(capture.Commands).Sql;
-        foreach (var field in new[] { "Type", "ActionRoute", "ReferenceCode", "Title", "Body", "IsRead", "UserAccountId" })
+        foreach (var field in new[] { "IsRead", "UserAccountId" })
             Assert.Contains($"\"{field}\"", query);
-        Assert.Contains("process-payment", query);
-        Assert.Contains("VIO-%", query);
-        Assert.Contains("penalty", query);
+        Assert.DoesNotContain("process-payment", query);
+        Assert.DoesNotContain("VIO-%", query);
+        Assert.DoesNotContain("penalty", query);
         Assert.DoesNotContain("\"Violations\"", query);
     }
 

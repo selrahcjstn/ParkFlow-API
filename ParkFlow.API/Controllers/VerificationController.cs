@@ -11,6 +11,17 @@ namespace ParkFlow.API.Controllers;
 [ApiController, Route("api/verification"), Authorize]
 public class VerificationController(IMediator mediator, IUserContext user) : ControllerBase
 {
+    [HttpPost("employee-schedules/{id:guid}/queue"), Authorize(Policy = "AdminOrSuperAdmin")]
+    public async Task<IActionResult> QueueEmployeeSchedule(Guid id, [FromServices] IVerificationStore store,
+        [FromServices] ParkFlow.Application.Features.Verification.VerificationService service, CancellationToken ct)
+    {
+        var subject = await store.GetSubjectAsync(VerificationType.Schedule, id, ct);
+        if (subject?.IsPersonnel != true || string.IsNullOrWhiteSpace(subject.DocumentUrl))
+            return BadRequest("An uploaded employee schedule is required.");
+        await service.EnqueueAsync(VerificationType.Schedule, id, ct);
+        var record = (await store.ListAsync(subject.UserId, false, ct)).FirstOrDefault(r => r.SubjectId == id && r.Type == VerificationType.Schedule);
+        return Ok(new { record?.Id, record?.Version });
+    }
     [HttpGet("policies"), Authorize(Policy = "AdminOrSuperAdmin")]
     public async Task<IActionResult> Policies(CancellationToken ct) => Ok(await mediator.Send(new GetVerificationPolicy(), ct));
 

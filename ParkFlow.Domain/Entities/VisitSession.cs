@@ -11,6 +11,8 @@ public enum VisitSessionStatus
 
 public class VisitSession : BaseEntity
 {
+    // Legacy API default remains zero; configured visitor rates are resolved at checkout.
+    public const decimal ParkingFee = 0m;
 
     public Guid VisitorVehicleId { get; set; }
     public VisitorVehicle VisitorVehicle { get; set; } = null!;

@@ -20,6 +20,10 @@ namespace ParkFlow.Application.Features.Feedbacks.DTOs
         // Admin Reply Fields
         public string? AdminReplyMessage { get; set; }
         public DateTime? AdminRepliedAt { get; set; }
+        public string? InvoiceNumber { get; set; }
+        public decimal? InvoiceAmount { get; set; }
+        public string? InvoiceDescription { get; set; }
+        public string? InvoiceStatus { get; set; }
 
         public DateTime CreatedAt { get; set; }
         public double HoursSinceSubmitted => Math.Round((DateTime.UtcNow - CreatedAt).TotalHours, 1);

@@ -20,6 +20,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
     private readonly ICorSubmissionRepository _corSubmissionRepository;
     private readonly IParkingScheduleRepository _parkingScheduleRepository;
     private readonly IParkingReservationRepository? _reservationRepository;
+    private readonly IViolationRepository? _violationRepository;
 
     public GetParkingHistoryHandler(
         IParkingLogRepository parkingLogRepository,
@@ -31,7 +32,8 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
         IParkingLogRoleService parkingLogRoleService,
         ICorSubmissionRepository corSubmissionRepository,
         IParkingScheduleRepository parkingScheduleRepository,
-        IParkingReservationRepository? reservationRepository = null)
+        IParkingReservationRepository? reservationRepository = null,
+        IViolationRepository? violationRepository = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _userProfileRepository = userProfileRepository;
@@ -43,6 +45,7 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
         _corSubmissionRepository = corSubmissionRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
         _reservationRepository = reservationRepository;
+        _violationRepository = violationRepository;
     }
 
     public async Task<Result<PagedParkingHistoryResponse>> Handle(GetParkingHistoryQuery request, CancellationToken cancellationToken)
@@ -85,6 +88,8 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
         var dtoList = new List<ParkingHistoryResponse>();
         foreach (var log in logs)
         {
+            // Completed amounts always come from persisted records, never today's rates.
+            var charge = _violationRepository == null ? null : await _violationRepository.GetByLogIdAsync(log.Id);
             var vehicle = log.Vehicle;
             var ownerProfile = vehicle?.Owner?.UserProfile;
             var student = ownerProfile?.Student;
@@ -122,6 +127,12 @@ public class GetParkingHistoryHandler : IRequestHandler<GetParkingHistoryQuery, 
 
             dtoList.Add(new ParkingHistoryResponse
             {
+                Amount = charge?.PenaltyFee ?? 0m,
+                PenaltyFee = charge?.PenaltyFee ?? 0m,
+                ViolationFee = charge?.PenaltyFee ?? 0m,
+                HasViolation = charge?.ViolationType is ViolationType.Overstay or ViolationType.UnauthorizedParking or ViolationType.ParkingInRestrictedArea,
+                IsPaid = charge == null || charge.SettlementStatus == SettlementStatus.Settled,
+                ReferenceNumber = charge?.ReferenceNumber,
                 SessionId = log.Id,
                 EntryMethod = log.EntryMethod.ToString(),
                 FirstName = firstName,

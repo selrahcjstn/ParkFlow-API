@@ -5,4 +5,5 @@ public record SessionCountResponse(
     int OverstayCount,
     int MaximumCapacity,
     int ManualSessionCount,
-    int CarCount = 0, int MotorcycleCount = 0, int CarCapacity = 0, int MotorcycleCapacity = 0);
+    int CarCount = 0, int MotorcycleCount = 0, int CarCapacity = 0, int MotorcycleCapacity = 0,
+    int RegisteredVehicleCount = 0, int VisitorCount = 0);

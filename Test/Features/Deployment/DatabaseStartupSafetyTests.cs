@@ -113,6 +113,14 @@ public class DatabaseStartupSafetyTests
                         Assert.Equal(ParkFlow.Persistence.Migrations.EnsureCorDocumentColumns.CompatibilitySql, sql.Sql);
                         Assert.DoesNotMatch(@"(?i)\b(DELETE|DROP|TRUNCATE|UPDATE|INSERT)\b", sql.Sql);
                     }
+                    else if (migration is ParkFlow.Persistence.Migrations.RestoreFinancialContractsZeroRates)
+                    {
+                        Assert.DoesNotMatch(@"(?i)\b(DELETE|DROP|TRUNCATE)\b", sql.Sql);
+                        Assert.Matches(@"UPDATE\s+""SystemSettingsDocuments""", sql.Sql);
+                        Assert.Matches(@"INSERT\s+INTO\s+""VerificationAudits""", sql.Sql);
+                        Assert.DoesNotMatch(@"(?i)UPDATE\s+""(?!SystemSettingsDocuments"")[^""]+""", sql.Sql);
+                        Assert.DoesNotMatch(@"(?i)INSERT\s+INTO\s+""(?!VerificationAudits"")[^""]+""", sql.Sql);
+                    }
                     else Assert.DoesNotMatch(@"(?i)\b(DELETE|DROP|TRUNCATE|UPDATE|INSERT)\b", sql.Sql);
                 }
             });

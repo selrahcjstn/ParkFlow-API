@@ -46,7 +46,8 @@ public class VerificationService(IVerificationStore store, ICorDocumentReader re
         }
         if (subject.Type == VerificationType.Schedule)
         {
-            issues.AddRange(CorTextVerification.CheckSchedules(subject.Schedules));
+            if (!subject.IsPersonnel) issues.AddRange(CorTextVerification.CheckSchedules(subject.Schedules));
+            else if (string.IsNullOrWhiteSpace(subject.DocumentUrl)) issues.Add("Upload the employee schedule before review.");
             if (!subject.CorApproved) issues.Add("COR approval is required before approving schedules.");
         }
         return issues;
@@ -185,12 +186,12 @@ public class VerificationService(IVerificationStore store, ICorDocumentReader re
             throw new DocumentValidationException("Choose approve or reject and provide a review reason (up to 1000 characters).");
         var record = await store.FindAsync(id, ct);
         if (record == null) return false;
-        if (record.Type == VerificationType.Schedule)
-            throw new DocumentValidationException("Schedules no longer require admin approval.");
         if (record.Type == VerificationType.Vehicle)
             throw new DocumentValidationException("Vehicle documents use manual review from Vehicle Approvals.");
         var subject = await store.GetSubjectAsync(record.Type, record.SubjectId, ct);
         if (subject == null) return false;
+        if (record.Type == VerificationType.Schedule && !subject.IsPersonnel)
+            throw new DocumentValidationException("Student schedules do not require admin approval.");
         if (!subject.IsPersonnel && record.Type is VerificationType.Account or VerificationType.Cor)
             throw new DocumentValidationException("Student registration and COR schedules do not require admin approval. Review the vehicle documents instead.");
         if (status == VerificationState.Approved)
@@ -201,7 +202,7 @@ public class VerificationService(IVerificationStore store, ICorDocumentReader re
         if (!await store.ReviewAsync(id, version, subject.Fingerprint, new(status, reason.Trim()), actor, ct)) return false;
         record.Status = status; record.Reason = reason;
         await NotifyAsync(record, ct, true);
-        if (record.Type == VerificationType.Cor && status == VerificationState.Approved && !subject.IsPersonnel)
+        if (record.Type == VerificationType.Cor && status == VerificationState.Approved)
             await EnqueueAsync(VerificationType.Schedule, record.SubjectId, ct);
         return true;
     }
@@ -249,7 +250,8 @@ public class VerificationService(IVerificationStore store, ICorDocumentReader re
 
     private async Task NotifyAsync(VerificationRecord record, CancellationToken ct, bool persist)
     {
-        if (record.Type == VerificationType.Schedule) return;
+        if (record.Type == VerificationType.Schedule &&
+            (await store.GetSubjectAsync(record.Type, record.SubjectId, ct))?.IsPersonnel != true) return;
         if (record.Type is VerificationType.Account or VerificationType.Cor &&
             (await store.GetSubjectAsync(record.Type, record.SubjectId, ct))?.IsPersonnel != true) return;
         await cache.RemoveByPrefixAsync(ParkFlow.Application.Common.CacheKeys.UserPrefix, ct);

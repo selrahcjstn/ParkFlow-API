@@ -93,7 +93,9 @@ public class FilesController : ControllerBase
         if ((await authorization.AuthorizeAsync(User, null, "GuardOrAdmin")).Succeeded) return true;
         var owner = HttpContext.RequestServices.GetRequiredService<IUserContext>().GetUserId();
         var profile = await HttpContext.RequestServices.GetRequiredService<IUserProfileRepository>().GetByUserIdAsync(owner);
-        return profile?.DriversLicenseUrl == url;
+        if (profile?.DriversLicenseUrl == url) return true;
+        var submission = await HttpContext.RequestServices.GetRequiredService<ICorSubmissionRepository>().GetLatestByUserIdAsync(owner);
+        return submission?.EmployeeScheduleDocumentUrl == url;
     }
 
     [HttpPost("upload/profile-picture")]
