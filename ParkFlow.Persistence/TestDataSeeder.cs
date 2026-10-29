@@ -41,9 +41,10 @@ public static class TestDataSeeder
         var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
         var phToday = philippinesNow.Date;
         var resDateUtc = DateTime.SpecifyKind(phToday, DateTimeKind.Utc);
+        var scanStartTime = new TimeSpan(6, 0, 0);
 
-        var todaySeeded = await dbContext.ParkingReservations.AnyAsync(r => r.ReferenceNumber.StartsWith($"RES-{phToday:yyyyMMdd}"));
-        if (todaySeeded)
+        var weekSeeded = await dbContext.ParkingReservations.AnyAsync(r => r.ReferenceNumber == $"RES-{phToday:yyyyMMdd}-0001" && r.StartTime == scanStartTime);
+        if (weekSeeded)
         {
             return;
         }
@@ -195,33 +196,21 @@ public static class TestDataSeeder
                 await dbContext.SaveChangesAsync();
             }
 
-            if (indexNumber <= 20)
+            if (!item.IsPersonnel)
             {
-                // Seed all 7 days active schedule from 7:00 AM to 11:59 PM (covers right now until 11:59 PM)
-                var schedules = new List<ParkingSchedule>
+                var hasSchedules = await dbContext.ParkingSchedules.AnyAsync(s => s.SubmissionId == cor.Id);
+                if (!hasSchedules)
                 {
-                    new ParkingSchedule(cor.Id, DayOfWeek.Sunday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
-                    new ParkingSchedule(cor.Id, DayOfWeek.Monday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
-                    new ParkingSchedule(cor.Id, DayOfWeek.Tuesday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
-                    new ParkingSchedule(cor.Id, DayOfWeek.Wednesday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
-                    new ParkingSchedule(cor.Id, DayOfWeek.Thursday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
-                    new ParkingSchedule(cor.Id, DayOfWeek.Friday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
-                    new ParkingSchedule(cor.Id, DayOfWeek.Saturday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0))
-                };
-                await parkingScheduleRepository.ReplaceSchedulesAsync(cor.Id, schedules);
-            }
-            else if (!item.IsPersonnel)
-            {
-                var existingSchedules = await dbContext.ParkingSchedules.Where(s => s.SubmissionId == cor.Id).ToListAsync();
-                if (!existingSchedules.Any())
-                {
+                    // Seed all 7 days active schedule from 7:00 AM to 11:59 PM
                     var schedules = new List<ParkingSchedule>
                     {
-                        new ParkingSchedule(cor.Id, DayOfWeek.Monday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
-                        new ParkingSchedule(cor.Id, DayOfWeek.Tuesday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
-                        new ParkingSchedule(cor.Id, DayOfWeek.Wednesday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
-                        new ParkingSchedule(cor.Id, DayOfWeek.Thursday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0)),
-                        new ParkingSchedule(cor.Id, DayOfWeek.Friday, new TimeSpan(7, 0, 0), new TimeSpan(21, 0, 0))
+                        new ParkingSchedule(cor.Id, DayOfWeek.Sunday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
+                        new ParkingSchedule(cor.Id, DayOfWeek.Monday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
+                        new ParkingSchedule(cor.Id, DayOfWeek.Tuesday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
+                        new ParkingSchedule(cor.Id, DayOfWeek.Wednesday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
+                        new ParkingSchedule(cor.Id, DayOfWeek.Thursday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
+                        new ParkingSchedule(cor.Id, DayOfWeek.Friday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0)),
+                        new ParkingSchedule(cor.Id, DayOfWeek.Saturday, new TimeSpan(7, 0, 0), new TimeSpan(23, 59, 0))
                     };
                     await parkingScheduleRepository.ReplaceSchedulesAsync(cor.Id, schedules);
                 }
@@ -248,42 +237,52 @@ public static class TestDataSeeder
                 await dbContext.SaveChangesAsync();
             }
 
-            // 4. Approved Active Reservation for Today
-            var refNumber = $"RES-{phToday:yyyyMMdd}-{indexNumber:D4}";
-            var existingRes = await dbContext.ParkingReservations.FirstOrDefaultAsync(r => r.ReferenceNumber == refNumber);
-            if (existingRes == null)
-            {
-                var reservation = new ParkingReservation(
-                    user.Id,
-                    refNumber,
-                    resDateUtc,
-                    item.StartTime,
-                    item.EndTime,
-                    item.Reason,
-                    item.ResType,
-                    vehicle.Id);
+            // 4. Approved Active Reservations for 7 Days (Today + next 6 days)
+            var scanEndTime = new TimeSpan(23, 59, 0);
+            var existingUserReservations = await dbContext.ParkingReservations
+                .Where(r => r.UserId == user.Id)
+                .ToDictionaryAsync(r => r.ReferenceNumber);
 
-                reservation.Approve(adminId, "Pre-approved test reservation for testing");
-                await dbContext.ParkingReservations.AddAsync(reservation);
-                await dbContext.SaveChangesAsync();
-            }
-            else
+            for (int dayOffset = 0; dayOffset < 7; dayOffset++)
             {
-                // Update existing reservation StartTime, EndTime, Date, and ensure Approved status
-                var startProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.StartTime));
-                var endProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.EndTime));
-                var dateProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.ReservationDate));
-                startProp?.SetValue(existingRes, item.StartTime);
-                endProp?.SetValue(existingRes, item.EndTime);
-                dateProp?.SetValue(existingRes, resDateUtc);
-                var statusProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.Status));
-                statusProp?.SetValue(existingRes, ReservationStatus.Approved);
-                var adminProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.ApprovedByAdminId));
-                adminProp?.SetValue(existingRes, adminId);
-                var approvedAtProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.ApprovedAt));
-                approvedAtProp?.SetValue(existingRes, DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc));
-                await dbContext.SaveChangesAsync();
+                var targetDate = phToday.AddDays(dayOffset);
+                var targetDateUtc = DateTime.SpecifyKind(targetDate, DateTimeKind.Utc);
+                var refNumber = $"RES-{targetDate:yyyyMMdd}-{indexNumber:D4}";
+
+                if (!existingUserReservations.TryGetValue(refNumber, out var existingRes))
+                {
+                    var reservation = new ParkingReservation(
+                        user.Id,
+                        refNumber,
+                        targetDateUtc,
+                        scanStartTime,
+                        scanEndTime,
+                        item.Reason,
+                        item.ResType,
+                        vehicle.Id,
+                        item.VType);
+
+                    reservation.Approve(adminId, "Pre-approved test reservation for testing");
+                    await dbContext.ParkingReservations.AddAsync(reservation);
+                }
+                else
+                {
+                    // Update existing reservation StartTime, EndTime, Date, and ensure Approved status
+                    var startProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.StartTime));
+                    var endProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.EndTime));
+                    var dateProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.ReservationDate));
+                    startProp?.SetValue(existingRes, scanStartTime);
+                    endProp?.SetValue(existingRes, scanEndTime);
+                    dateProp?.SetValue(existingRes, targetDateUtc);
+                    var statusProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.Status));
+                    statusProp?.SetValue(existingRes, ReservationStatus.Approved);
+                    var adminProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.ApprovedByAdminId));
+                    adminProp?.SetValue(existingRes, adminId);
+                    var approvedAtProp = typeof(ParkingReservation).GetProperty(nameof(ParkingReservation.ApprovedAt));
+                    approvedAtProp?.SetValue(existingRes, DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc));
+                }
             }
+            await dbContext.SaveChangesAsync();
 
             // 5. Active Live Session
             // For accounts 1-20: if there was an active log, mark it exited so they are ready to enter

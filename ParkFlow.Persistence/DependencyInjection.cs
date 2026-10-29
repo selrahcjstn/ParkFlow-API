@@ -20,7 +20,7 @@ namespace ParkFlow.Persistence
                             maxRetryCount: 3,
                             maxRetryDelay: System.TimeSpan.FromSeconds(5),
                             errorCodesToAdd: null);
-                        npgsqlOptions.CommandTimeout(30);
+                        npgsqlOptions.CommandTimeout(90);
                         npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
                     });
             });

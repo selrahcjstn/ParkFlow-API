@@ -26,7 +26,7 @@ public class CorSubmissionController : ControllerBase
     }
 
     [HttpPost("employee-schedule"), Authorize(Policy = "PersonnelOnly"), RequestSizeLimit(6 * 1024 * 1024)]
-    public async Task<ActionResult<Result<string>>> UploadEmployeeSchedule([FromForm] IFormFile file, CancellationToken ct) =>
+    public async Task<ActionResult<Result<string>>> UploadEmployeeSchedule(IFormFile file, CancellationToken ct) =>
         this.ToActionResult(await _mediator.Send(new ParkFlow.Application.Features.Files.Commands.UploadCorDocument.UploadEmployeeSchedule(file),ct));
 
     [HttpGet("employee-schedule"), Authorize(Policy = "PersonnelOnly")]
