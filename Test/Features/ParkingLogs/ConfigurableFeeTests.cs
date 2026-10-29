@@ -10,8 +10,7 @@ using Xunit;
 
 namespace Test.Features.ParkingLogs;
 
-[Collection("Parking deadline settings")]
-public class ConfigurableFeeTests(VisitorPostgresDatabase database) : IClassFixture<VisitorPostgresDatabase>
+public class ConfigurableFeeDefaultsTests
 {
     [Theory]
     [InlineData(VehicleType.Car)]
@@ -25,7 +24,11 @@ public class ConfigurableFeeTests(VisitorPostgresDatabase database) : IClassFixt
         settings.CarParking.EntryFee = 23m; settings.MotorcycleParking.EntryFee = 9m;
         Assert.Equal(type == VehicleType.Car ? 23m : 9m, settings.ForVehicle(type).EntryFee);
     }
+}
 
+[Collection("Parking deadline settings")]
+public class ConfigurableFeeTests(VisitorPostgresDatabase database) : IClassFixture<VisitorPostgresDatabase>
+{
     [VisitorPostgresFact]
     public async Task PositiveCheckoutPersistsOneImmutableChargeAndSettlementIsConcurrentSafe()
     {
