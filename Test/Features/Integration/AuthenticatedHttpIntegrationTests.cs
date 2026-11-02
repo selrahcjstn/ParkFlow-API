@@ -210,7 +210,7 @@ public class AuthenticatedHttpIntegrationTests(VisitorPostgresDatabase database)
     {
         await using var host = await Host.Create(database);
         using var cleartext = host.Client(secureProxy:false);
-        Assert.Equal(HttpStatusCode.BadRequest,(await cleartext.GetAsync("api/visitors/lookup/HTTP123")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized,(await cleartext.GetAsync("api/visitors/lookup/HTTP123")).StatusCode);
         using var anonymous = host.Client(); using var owner = host.Client("student"); using var other = host.Client("student",Guid.NewGuid());
         var path = "private-uploads/parkflow/licenses/"+host.OwnerId.ToString("N")+".png";
         var endpoint = "api/files/document/url?url="+Uri.EscapeDataString(path);
