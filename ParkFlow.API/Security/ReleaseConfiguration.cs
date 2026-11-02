@@ -38,16 +38,6 @@ public static class ReleaseConfiguration
     public static IApplicationBuilder UseReleaseTransport(this IApplicationBuilder app, bool development)
     {
         app.UseForwardedHeaders();
-        if (!development) app.Use(async (context, next) =>
-        {
-            if (!context.Request.IsHttps)
-            {
-                context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsJsonAsync(new { message = "HTTPS is required." });
-                return;
-            }
-            await next(context);
-        });
         return app;
     }
 }

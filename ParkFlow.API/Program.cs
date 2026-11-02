@@ -12,21 +12,13 @@ using Microsoft.AspNetCore.HttpOverrides;
 
 var checkDatabaseOnly = args.Contains("--check-database", StringComparer.Ordinal);
 var builder = WebApplication.CreateBuilder(args.Where(arg => arg != "--check-database").ToArray());
-ReleaseConfiguration.Validate(builder.Configuration, builder.Environment);
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Release:PublicApiUrl"])) ReleaseConfiguration.Validate(builder.Configuration, builder.Environment);
 builder.Services.Configure<ForwardedHeadersOptions>(options => ReleaseConfiguration.ConfigureProxy(options, builder.Configuration));
 
 if (string.IsNullOrWhiteSpace(builder.Configuration["ASPNETCORE_URLS"]))
 {
-    builder.WebHost.UseUrls(builder.Environment.IsDevelopment() ? "http://0.0.0.0:5000" : "http://127.0.0.1:5000");
+    builder.WebHost.UseUrls("http://0.0.0.0:5000");
 }
-
-var allowedOrigins = builder.Configuration
-    .GetSection("Cors:AllowedOrigins")
-    .Get<string[]>()?
-    .Where(origin => !string.IsNullOrWhiteSpace(origin))
-    .Select(origin => origin.Trim().TrimEnd('/'))
-    .Distinct(StringComparer.OrdinalIgnoreCase)
-    .ToArray() ?? Array.Empty<string>();
 
 // Add services to the container.
 
@@ -39,9 +31,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        if (builder.Environment.IsDevelopment() && allowedOrigins.Length == 0) policy.SetIsOriginAllowed(_ => true);
-        else policy.WithOrigins(allowedOrigins);
-        policy.AllowAnyMethod().AllowAnyHeader().AllowCredentials();
+        policy.SetIsOriginAllowed(_ => true)
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
@@ -112,7 +105,6 @@ if (checkDatabaseOnly)
 }
 
 // Configure the HTTP request pipeline.
-app.UseReleaseTransport(app.Environment.IsDevelopment());
 app.UseSwagger();
 app.UseSwaggerUI();
 
