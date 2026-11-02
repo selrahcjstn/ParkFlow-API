@@ -45,6 +45,12 @@ public class GetUserProfileByUserIdHandler : IRequestHandler<GetUserProfileByUse
             corStatus = CorVerificationStatus.Rejected;
         }
 
+        var role = profile.Student != null ? "Student"
+            : profile.Personnel != null ? (profile.Personnel.Role == Roles.NonAcademicPersonnel ? "Staff" : "Faculty")
+            : profile.Guard != null ? "Guard"
+            : profile.Admin != null ? "Admin"
+            : null;
+
         var dto = new UserProfileDto(
             profile.Id,
             profile.UserAccountId,
@@ -63,8 +69,13 @@ public class GetUserProfileByUserIdHandler : IRequestHandler<GetUserProfileByUse
             CorVerificationStatus: corStatus,
             RejectionReason: rejectionReason,
             RejectedTarget: rejectedTarget,
+            Status: profile.UserAccount.Status.ToString(),
+            Role: role,
             Email: profile.UserAccount.PrimaryEmail,
-            ScheduleVerificationStatus: latestCor?.ScheduleVerificationStatus
+            ScheduleVerificationStatus: latestCor?.ScheduleVerificationStatus,
+            DriversLicenseUrl: profile.DriversLicenseUrl,
+            LicenseStatus: profile.LicenseStatus,
+            LicenseRejectionReason: profile.LicenseRejectionReason
             );
 
         return Result<UserProfileDto>.Success(dto, "User profile retrieved.");
