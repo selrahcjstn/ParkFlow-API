@@ -63,5 +63,8 @@ jobs:
         script: |
           chmod +x /home/ubuntu/app/publish/ParkFlow.API
           sudo systemctl daemon-reload
-          sudo systemctl start parkflow
+          sudo systemctl restart parkflow
+          sleep 3
+          sudo systemctl is-active --quiet parkflow || (echo "Service failed to start! Recent logs:" && sudo journalctl -u parkflow -n 50 --no-pager && exit 1)
           sudo systemctl status parkflow --no-pager -l
+          curl --fail --retry 10 --retry-connrefused --retry-delay 2 http://127.0.0.1:5000/swagger/index.html || (echo "Failed to query Swagger on port 5000! Recent logs:" && sudo journalctl -u parkflow -n 50 --no-pager && exit 1)

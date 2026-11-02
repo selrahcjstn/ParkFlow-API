@@ -15,10 +15,7 @@ var builder = WebApplication.CreateBuilder(args.Where(arg => arg != "--check-dat
 if (!string.IsNullOrWhiteSpace(builder.Configuration["Release:PublicApiUrl"])) ReleaseConfiguration.Validate(builder.Configuration, builder.Environment);
 builder.Services.Configure<ForwardedHeadersOptions>(options => ReleaseConfiguration.ConfigureProxy(options, builder.Configuration));
 
-if (string.IsNullOrWhiteSpace(builder.Configuration["ASPNETCORE_URLS"]))
-{
-    builder.WebHost.UseUrls("http://0.0.0.0:5000");
-}
+builder.WebHost.UseUrls("http://0.0.0.0:5000");
 
 // Add services to the container.
 
@@ -145,9 +142,24 @@ app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
 
 // Seed default SuperAdmin account
-await ParkFlow.Persistence.SuperAdminSeeder.SeedSuperAdminAsync(app.Services);
-await using (var scope = app.Services.CreateAsyncScope())
-    await scope.ServiceProvider.GetRequiredService<ParkFlow.Application.Interfaces.ISystemSettingsRepository>().LoadAsync();
+try
+{
+    await ParkFlow.Persistence.SuperAdminSeeder.SeedSuperAdminAsync(app.Services);
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning(ex, "SuperAdminSeeder encountered an issue during startup: {Message}. The API will continue serving requests.", ex.Message);
+}
+
+try
+{
+    await using (var scope = app.Services.CreateAsyncScope())
+        await scope.ServiceProvider.GetRequiredService<ParkFlow.Application.Interfaces.ISystemSettingsRepository>().LoadAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning(ex, "SystemSettings loading encountered an issue: {Message}. The API will continue serving requests.", ex.Message);
+}
 
 app.Logger.LogInformation("==================================================");
 app.Logger.LogInformation("🚀 ParkFlow API server started and listening!");
