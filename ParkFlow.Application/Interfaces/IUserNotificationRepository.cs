@@ -14,4 +14,5 @@ public interface IUserNotificationRepository
     Task UpdateAsync(UserNotification notification);
     Task MarkAllAsReadForUserAsync(Guid userId);
     Task DeleteAsync(UserNotification notification);
+    Task<bool> ExistsByReferenceCodeAsync(Guid userId, string referenceCode);
 }

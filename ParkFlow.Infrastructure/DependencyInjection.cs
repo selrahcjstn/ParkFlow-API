@@ -46,6 +46,10 @@ public static class DependencyInjection
         services.AddScoped<INotificationService, ParkFlow.Infrastructure.Services.NotificationService>();
         services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, CustomUserIdProvider>();
 
+        // Overstay Monitoring & Alerts
+        services.AddScoped<IOverstayNotificationService, ParkFlow.Infrastructure.Services.OverstayNotificationService>();
+        services.AddHostedService<ParkFlow.Infrastructure.BackgroundServices.OverstayMonitoringWorker>();
+
         // Cloudinary
         services.Configure<CloudinarySettings>(
             configuration.GetSection("CloudinarySettings"));

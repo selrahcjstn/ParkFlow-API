@@ -76,4 +76,12 @@ public class UserNotificationRepository : IUserNotificationRepository
         _context.UserNotifications.Remove(notification);
         await _context.SaveChangesAsync();
     }
+
+    public async Task<bool> ExistsByReferenceCodeAsync(Guid userId, string referenceCode)
+    {
+        if (string.IsNullOrWhiteSpace(referenceCode)) return false;
+        return await VisibleNotifications
+            .AsNoTracking()
+            .AnyAsync(n => n.UserAccountId == userId && n.ReferenceCode == referenceCode);
+    }
 }
