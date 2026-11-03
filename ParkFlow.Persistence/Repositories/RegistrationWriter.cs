@@ -27,7 +27,9 @@ public class RegistrationWriter(AppDbContext db) : IRegistrationWriter
                     if (termErrors.Count > 0) return Result<UserAccount>.Failure(string.Join(" ", termErrors), ErrorCode.BadRequest);
                 }
                 var identifier = d.Role == Roles.Student ? d.StudentNumber : Personnel.NormalizeId(d.IdCardNumber);
-                foreach (var key in new[] { "registration:" + r.RegistrationId, "email:" + d.Email, "id:" + identifier, "plate:" + d.PlateNumber }.Order())
+                var lockKeys = new List<string> { "registration:" + r.RegistrationId, "email:" + d.Email, "id:" + identifier };
+                if (!string.IsNullOrWhiteSpace(d.PlateNumber)) lockKeys.Add("plate:" + d.PlateNumber);
+                foreach (var key in lockKeys.Order())
                     await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", ct);
                 var saved = await db.UserAccounts.Include(u => u.AuthIdentities).Include(u => u.UserProfile!).ThenInclude(p => p.Student)
                     .FirstOrDefaultAsync(u => u.Id == r.RegistrationId, ct);
@@ -39,7 +41,7 @@ public class RegistrationWriter(AppDbContext db) : IRegistrationWriter
                 }
                 if (await db.AuthIdentities.AnyAsync(i => i.Email != null && i.Email.ToLower() == d.Email, ct))
                     return Result<UserAccount>.Failure("This email is already registered.", ErrorCode.Conflict);
-                if (await db.Vehicles.AnyAsync(v => v.PlateNumber.ToUpper() == d.PlateNumber, ct))
+                if (!string.IsNullOrWhiteSpace(d.PlateNumber) && await db.Vehicles.AnyAsync(v => v.PlateNumber != null && v.PlateNumber.ToUpper() == d.PlateNumber.ToUpper(), ct))
                     return Result<UserAccount>.Failure("This plate number is already registered.", ErrorCode.Conflict);
                 if (d.Role == Roles.Student ? await db.Students.AnyAsync(s => s.StudentNumber == identifier, ct) :
                     await db.Personnel.AnyAsync(p => p.IdCardNumber == identifier, ct))
@@ -54,7 +56,8 @@ public class RegistrationWriter(AppDbContext db) : IRegistrationWriter
                 account.UserProfile = profile;
                 if (d.Role == Roles.Student) profile.Student = new Student(profile.Id, identifier, d.Course?.Trim(), d.Section, d.YearLevel);
                 else profile.Personnel = new Personnel(profile.Id, identifier, d.Department.Trim(), d.Role);
-                var vehicle = new Vehicle(account.Id, d.PlateNumber, d.Brand, qrHash, d.VehicleType, r.OrcrUrl, r.MotorUrl);
+                var plateNumber = string.IsNullOrWhiteSpace(d.PlateNumber) ? null : d.PlateNumber;
+                var vehicle = new Vehicle(account.Id, plateNumber, d.Brand, qrHash, d.VehicleType, r.OrcrUrl, r.MotorUrl);
                 vehicle.SetPrimary(true);
                 await VehiclePlateGuard.EnsureRegisteredVehicleAsync(db, vehicle);
                 var cor = new CorSubmission(account.Id, d.Role == Roles.Student ? d.AcademicYear : "Employee ID", r.CorUrl, r.OrcrUrl, r.MotorUrl,

@@ -16,8 +16,12 @@ public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
 		entity.Property(e => e.CreatedAt)
 			.HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+		entity.ToTable(t => t.HasCheckConstraint(
+			"CK_Vehicles_PlateNumber_Or_ElectricBike",
+			"\"VehicleType\" = 1 OR (\"PlateNumber\" IS NOT NULL AND length(btrim(\"PlateNumber\")) > 0)"));
+
 		entity.Property(e => e.PlateNumber)
-			.IsRequired()
+			.IsRequired(false)
 			.HasMaxLength(20);
 
 		entity.Property(e => e.Brand)

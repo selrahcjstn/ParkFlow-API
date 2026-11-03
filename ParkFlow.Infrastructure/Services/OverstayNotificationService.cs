@@ -141,7 +141,7 @@ public class OverstayNotificationService : IOverstayNotificationService
                 ? $"{ownerProfile.FirstName} {ownerProfile.LastName}".Trim()
                 : "Driver";
 
-            var plateNumber = vehicle.PlateNumber;
+            var plateNumber = !string.IsNullOrWhiteSpace(vehicle.PlateNumber) ? vehicle.PlateNumber : vehicle.Brand;
             var vehicleBrand = vehicle.Brand;
             var vehicleType = vehicle.VehicleType.ToString();
 
@@ -388,9 +388,9 @@ public class OverstayNotificationService : IOverstayNotificationService
               </tr>
             </table>
 
-            <div style='background-color:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 18px;margin-bottom:24px;'>
-              <p style='font-size:13px;line-height:1.5;color:#991b1b;margin:0;'>
-                <strong>Important:</strong> Ongoing overstaying may lead to parking penalty fees or suspension of parking privileges. You will receive periodic in-app reminders while the vehicle remains parked.
+            <div style='background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;margin-bottom:24px;'>
+              <p style='font-size:13px;line-height:1.5;color:#475569;margin:0;'>
+                You will receive periodic in-app reminders while the vehicle remains parked.
               </p>
             </div>
 

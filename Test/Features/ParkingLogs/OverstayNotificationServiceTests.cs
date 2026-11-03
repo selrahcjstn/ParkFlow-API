@@ -218,6 +218,9 @@ public class OverstayNotificationServiceTests
         Assert.Contains("Overstay", email.Subject);
         Assert.Contains("ABC1234", email.HtmlBody);
         Assert.Contains("Parking Overstay Notice", email.HtmlBody);
+        Assert.Contains("You will receive periodic in-app reminders while the vehicle remains parked.", email.HtmlBody);
+        Assert.DoesNotContain("penalty fees", email.HtmlBody);
+        Assert.DoesNotContain("suspension of parking privileges", email.HtmlBody);
     }
 
     [Fact]

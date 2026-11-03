@@ -6,7 +6,7 @@ namespace ParkFlow.Application.Features.Vehicles.Command;
 
 public record CreateVehicleCommand(
     Guid OwnerId,
-    string PlateNumber,
+    string? PlateNumber,
     string Brand,
     VehicleType VehicleType,
     string? OrcrDocumentUrl = null,

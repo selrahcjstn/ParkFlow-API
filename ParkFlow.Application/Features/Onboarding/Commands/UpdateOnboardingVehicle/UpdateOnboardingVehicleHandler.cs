@@ -38,29 +38,37 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
             return Result<Guid>.Failure(errors, ErrorCode.BadRequest);
         }
 
-        var registeredPlate = await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber);
-        if (registeredPlate != null && registeredPlate.OwnerId != request.UserId)
-            return Result<Guid>.Failure("This plate number is already registered.", ErrorCode.Conflict);
+        if (!string.IsNullOrWhiteSpace(request.PlateNumber))
+        {
+            var registeredPlate = await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber);
+            if (registeredPlate != null && registeredPlate.OwnerId != request.UserId)
+                return Result<Guid>.Failure("This plate number is already registered.", ErrorCode.Conflict);
+        }
         var existingVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.UserId);
         
         Vehicle existingVehicle;
 
         if (existingVehicles.Any())
         {
-            var vehicleToUpdate = existingVehicles.FirstOrDefault(v => v.PlateNumber.Equals(request.PlateNumber, StringComparison.OrdinalIgnoreCase));
+            var vehicleToUpdate = !string.IsNullOrWhiteSpace(request.PlateNumber)
+                ? existingVehicles.FirstOrDefault(v => v.PlateNumber != null && v.PlateNumber.Equals(request.PlateNumber, StringComparison.OrdinalIgnoreCase))
+                : existingVehicles.FirstOrDefault(v => v.VehicleType == VehicleType.ElectricBike);
             
             if (vehicleToUpdate == null)
             {
                 vehicleToUpdate = existingVehicles.FirstOrDefault(v => v.IsPrimary) ?? existingVehicles.FirstOrDefault()!;
                 
-                var plateExists = existingVehicles.Any(v => v.Id != vehicleToUpdate.Id && v.PlateNumber.Equals(request.PlateNumber, StringComparison.OrdinalIgnoreCase));
+                var plateExists = !string.IsNullOrWhiteSpace(request.PlateNumber) &&
+                    existingVehicles.Any(v => v.Id != vehicleToUpdate.Id && v.PlateNumber != null && v.PlateNumber.Equals(request.PlateNumber, StringComparison.OrdinalIgnoreCase));
                 if (plateExists)
                 {
                     return Result<Guid>.Failure("A vehicle with this plate number already exists.", ErrorCode.Conflict);
                 }
             }
             
-            var qrPayload = $"{request.UserId}:{request.PlateNumber}:{request.Brand}";
+            var qrPayload = request.VehicleType == VehicleType.ElectricBike
+                ? $"EBIKE:{vehicleToUpdate.Id}:{request.UserId}:{request.Brand}"
+                : $"{request.UserId}:{request.PlateNumber}:{request.Brand}";
             var qrBytes = _qrCodeService.GenerateQrCode(qrPayload);
             var qrCodeHash = HashQrBytes(qrBytes);
             
@@ -82,11 +90,17 @@ public class UpdateOnboardingVehicleHandler : IRequestHandler<UpdateOnboardingVe
                 return Result<Guid>.Failure($"Onboarding failed. A maximum of {maxAllowed} vehicles are allowed per account.", ErrorCode.Conflict);
             }
 
-            var qrPayload = $"{request.UserId}:{request.PlateNumber}:{request.Brand}";
+            var vehicleId = Guid.NewGuid();
+            var qrPayload = request.VehicleType == VehicleType.ElectricBike
+                ? $"EBIKE:{vehicleId}:{request.UserId}:{request.Brand}"
+                : $"{request.UserId}:{request.PlateNumber}:{request.Brand}";
             var qrBytes = _qrCodeService.GenerateQrCode(qrPayload);
             var qrCodeHash = HashQrBytes(qrBytes);
 
-            var vehicle = new Vehicle(request.UserId, request.PlateNumber, request.Brand, qrCodeHash, request.VehicleType);
+            var vehicle = new Vehicle(request.UserId, request.PlateNumber, request.Brand, qrCodeHash, request.VehicleType)
+            {
+                Id = vehicleId
+            };
             vehicle.SetPrimary(true);
 
             try { await _vehicleRepository.AddAsync(vehicle); }

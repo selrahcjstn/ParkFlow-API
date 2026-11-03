@@ -75,6 +75,10 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
     {
         var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
         var vehicle = await _vehicleRepository.GetByQrCodeHashAsync(request.QrCodeHash);
+        if (vehicle == null && Guid.TryParse(request.QrCodeHash.Trim(), out var parsedVehicleId))
+        {
+            vehicle = await _vehicleRepository.GetByIdAsync(parsedVehicleId);
+        }
 
         if (vehicle == null && _reservationRepository != null)
         {
@@ -385,15 +389,17 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
             IssuedBy = guardName
         };
 
+        var vehicleDisplay = !string.IsNullOrWhiteSpace(vehicle.PlateNumber) ? vehicle.PlateNumber : vehicle.Brand;
+
         if (_notificationService != null && vehicle.OwnerId != Guid.Empty)
         {
             await _notificationService.CreateAndSendNotificationAsync(
                 vehicle.OwnerId,
                 "Parking Entry Recorded",
-                $"Vehicle [{vehicle.PlateNumber}] entry pass validated by {guardName}.",
+                $"Vehicle [{vehicleDisplay}] entry pass validated by {guardName}.",
                 type: "reminder",
                 subtitle: $"Issued by: {guardName}",
-                vehiclePlate: vehicle.PlateNumber,
+                vehiclePlate: vehicle.PlateNumber ?? vehicle.Brand,
                 vehicleBrand: vehicle.Brand,
                 actionRoute: "/(users)/(tabs)/home",
                 actionText: "View Session Status",
@@ -421,7 +427,7 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
 
         try
         {
-            await _signalRNotificationSender.SendToAllAsync("ParkingOccupancyUpdated", new { plateNumber = vehicle.PlateNumber, action = "CheckIn" });
+            await _signalRNotificationSender.SendToAllAsync("ParkingOccupancyUpdated", new { plateNumber = vehicle.PlateNumber ?? vehicle.Brand, action = "CheckIn" });
             await _signalRNotificationSender.SendToAllAsync("ParkingSessionUpdated", response);
         }
         catch

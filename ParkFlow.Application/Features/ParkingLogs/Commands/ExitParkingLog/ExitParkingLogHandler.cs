@@ -83,6 +83,10 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
         }
 
         var vehicle = await _vehicleRepository.GetByQrCodeHashAsync(request.QrCodeHash);
+        if (vehicle == null && Guid.TryParse(request.QrCodeHash.Trim(), out var parsedVehicleId))
+        {
+            vehicle = await _vehicleRepository.GetByIdAsync(parsedVehicleId);
+        }
 
         if (vehicle == null && _reservationRepository != null)
         {
@@ -290,12 +294,14 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
             IssuedBy = guardName
         };
 
+        var vehicleDisplay = !string.IsNullOrWhiteSpace(vehicle.PlateNumber) ? vehicle.PlateNumber : vehicle.Brand;
+
         if (vehicle.OwnerId != Guid.Empty)
         {
             if (_notificationService != null)
                 await _notificationService.CreateAndSendNotificationAsync(vehicle.OwnerId, "Vehicle Exit Recorded",
-                    $"Vehicle [{vehicle.PlateNumber}] exit confirmed at campus gate. Issued by {guardName}.",
-                    type: "approved", subtitle: $"Issued by: {guardName}", vehiclePlate: vehicle.PlateNumber,
+                    $"Vehicle [{vehicleDisplay}] exit confirmed at campus gate. Issued by {guardName}.",
+                    type: "approved", subtitle: $"Issued by: {guardName}", vehiclePlate: vehicle.PlateNumber ?? vehicle.Brand,
                     actionRoute: "/(users)/(tabs)/history", actionText: "View Log History", issuer: guardName,
                     driverName: $"{ownerProfile.FirstName} {ownerProfile.LastName}".Trim(), driverRole: roleDetails.Role,
                     vehicleBrand: vehicle.Brand, signalRData: response);
@@ -304,7 +310,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                 await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ParkingSessionUpdated", response);
                 await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ExitResponse", response);
                 await _notificationSender.SendToUserAsync(vehicle.OwnerId.ToString(), "ReceiveParkingReceipt", response);
-                await _notificationSender.SendToAllAsync("ParkingOccupancyUpdated", new { plateNumber = vehicle.PlateNumber, action = "CheckOut" });
+                await _notificationSender.SendToAllAsync("ParkingOccupancyUpdated", new { plateNumber = vehicle.PlateNumber ?? vehicle.Brand, action = "CheckOut" });
                 await _notificationSender.SendToAllAsync("ParkingSessionUpdated", response);
             }
             catch { /* Realtime delivery must not undo a persisted checkout. */ }
@@ -315,7 +321,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
                     var account = await _userAccountRepository.GetByIdAsync(vehicle.OwnerId);
                     if (!string.IsNullOrWhiteSpace(account?.PrimaryEmail))
                         await _emailService.SendEmailAsync(account.PrimaryEmail, "ParkFlow - Vehicle Exit Recorded",
-                            $"Vehicle [{vehicle.PlateNumber}] exited at {ParkingTimeHelper.ConvertUtcToPhilippinesTime(actualExitTime):MMMM dd, yyyy hh:mm tt}. Your parking session has ended.");
+                            $"Vehicle [{vehicleDisplay}] exited at {ParkingTimeHelper.ConvertUtcToPhilippinesTime(actualExitTime):MMMM dd, yyyy hh:mm tt}. Your parking session has ended.");
                 }
                 catch { /* Email delivery must not undo a persisted checkout. */ }
             }

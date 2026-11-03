@@ -11,7 +11,7 @@ using ParkFlow.Domain.Enums;
 namespace ParkFlow.API.Controllers;
 
 public record UpdateVehicleRequest(
-    string PlateNumber,
+    string? PlateNumber,
     string Brand,
     VehicleType VehicleType,
     string? OrcrDocumentUrl = null,

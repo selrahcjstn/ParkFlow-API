@@ -93,16 +93,20 @@ public class RegistrationValidationTests
     [Theory]
     [InlineData(VehicleType.Motorcycle, true)]
     [InlineData(VehicleType.Car, true)]
-    [InlineData(VehicleType.ElectricBike, false)]
+    [InlineData(VehicleType.ElectricBike, true)]
     [InlineData((VehicleType)99, false)]
-    public void NewVehicleValidatorsOnlyAllowMotorcycleAndCar(VehicleType type, bool valid)
+    public void NewVehicleValidatorsAllowMotorcycleCarAndElectricBike(VehicleType type, bool valid)
     {
         var userId = Guid.NewGuid();
+        var photoUrl = type == VehicleType.ElectricBike ? "https://example.com/ebike.jpg" : null;
+        var plate = type == VehicleType.ElectricBike ? null : "ABC1234";
         Assert.Equal(valid, new CreateVehicleValidator().Validate(
-            new CreateVehicleCommand(userId, "ABC1234", "Honda", type)).IsValid);
+            new CreateVehicleCommand(userId, plate, "Honda", type, VehiclePictureUrl: photoUrl)).IsValid);
         Assert.Equal(valid, new UpdateOnboardingVehicleValidator().Validate(
-            new UpdateOnboardingVehicleCommand(userId, "ABC1234", "Honda", type)).IsValid);
+            new UpdateOnboardingVehicleCommand(userId, plate, "Honda", type)).IsValid);
         Assert.Equal(2, (int)VehicleType.Car);
+        Assert.Equal(1, (int)VehicleType.ElectricBike);
+        Assert.Equal(0, (int)VehicleType.Motorcycle);
     }
 
     [Theory]

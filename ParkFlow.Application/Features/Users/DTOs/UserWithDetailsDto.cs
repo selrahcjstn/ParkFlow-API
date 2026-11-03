@@ -5,7 +5,7 @@ namespace ParkFlow.Application.Features.Users.DTOs;
 
 public record UserVehicleDto(
     Guid Id,
-    string PlateNumber,
+    string? PlateNumber,
     string Brand,
     string VehicleType,
     bool IsPrimary,

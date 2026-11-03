@@ -5,7 +5,7 @@ using ParkFlow.Application.Features.ParkingLogs.Services;
 namespace ParkFlow.Application.Features.ParkingLogs.Queries;
 
 public record VehicleScanPreview(string FullName, string Role, string? PhoneNumber, string? ProfilePictureUrl,
-    string? VehiclePictureUrl, string PlateNumber, string Brand, string VehicleType, string QrCodeHash,
+    string? VehiclePictureUrl, string? PlateNumber, string Brand, string VehicleType, string QrCodeHash,
     bool IsCurrentlyParked, bool CanEnter, string? EntryRestriction);
 public record PreviewVehicleScan(string QrCode) : IRequest<Result<VehicleScanPreview>>;
 public class PreviewVehicleScanHandler(IVehicleRepository vehicles, IUserProfileRepository profiles,
@@ -15,6 +15,10 @@ public class PreviewVehicleScanHandler(IVehicleRepository vehicles, IUserProfile
     {
         if (string.IsNullOrWhiteSpace(r.QrCode)) return Result<VehicleScanPreview>.Failure("Scan a parking pass.", ErrorCode.BadRequest);
         var vehicle = await vehicles.GetByQrCodeHashAsync(r.QrCode.Trim());
+        if (vehicle == null && Guid.TryParse(r.QrCode.Trim(), out var parsedVehicleId))
+        {
+            vehicle = await vehicles.GetByIdAsync(parsedVehicleId);
+        }
         if (vehicle == null)
         {
             var reservation = await reservations.GetByReferenceNumberAsync(r.QrCode.Trim());

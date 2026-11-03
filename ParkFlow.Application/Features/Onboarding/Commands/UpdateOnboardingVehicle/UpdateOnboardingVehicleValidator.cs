@@ -8,10 +8,10 @@ public class UpdateOnboardingVehicleValidator : AbstractValidator<UpdateOnboardi
     public UpdateOnboardingVehicleValidator()
     {
         RuleFor(x => x.UserId).NotEmpty();
-        RuleFor(x => x.PlateNumber).NotEmpty();
+        RuleFor(x => x.PlateNumber)
+            .NotEmpty()
+            .When(x => x.VehicleType is VehicleType.Motorcycle or VehicleType.Car);
         RuleFor(x => x.Brand).NotEmpty();
-        RuleFor(x => x.VehicleType)
-            .Must(type => type is VehicleType.Motorcycle or VehicleType.Car)
-            .WithMessage("Please select Motorcycle or Car.");
+        RuleFor(x => x.VehicleType).IsInEnum();
     }
 }

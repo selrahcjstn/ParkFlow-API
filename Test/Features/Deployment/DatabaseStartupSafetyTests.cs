@@ -121,6 +121,12 @@ public class DatabaseStartupSafetyTests
                         Assert.DoesNotMatch(@"(?i)UPDATE\s+""(?!SystemSettingsDocuments"")[^""]+""", sql.Sql);
                         Assert.DoesNotMatch(@"(?i)INSERT\s+INTO\s+""(?!VerificationAudits"")[^""]+""", sql.Sql);
                     }
+                    else if (migration is ParkFlow.Persistence.Migrations.AllowElectricBikeNullPlateAndUpdateTrigger)
+                    {
+                        Assert.Equal(ParkFlow.Persistence.Migrations.AllowElectricBikeNullPlateAndUpdateTrigger.UpdatePlateOwnershipTriggersSql, sql.Sql);
+                        Assert.DoesNotMatch(@"(?i)\b(DELETE\s+FROM\s+""(Vehicles|VisitorVehicles)""|TRUNCATE\s+TABLE|DROP\s+(TABLE|COLUMN))\b", sql.Sql);
+                        Assert.DoesNotMatch(@"(?i)UPDATE\s+""(Vehicles|VisitorVehicles|Visitors|VisitSessions|Violations|Feedbacks)""", sql.Sql);
+                    }
                     else Assert.DoesNotMatch(@"(?i)\b(DELETE|DROP|TRUNCATE|UPDATE|INSERT)\b", sql.Sql);
                 }
             });

@@ -11,7 +11,7 @@ namespace ParkFlow.Application.Features.ParkingLogs.DTOs
 
     // Vehicle Info
     string Status,
-    string PlateNumber,
+    string? PlateNumber,
     string Brand,
     string VehicleType,
 

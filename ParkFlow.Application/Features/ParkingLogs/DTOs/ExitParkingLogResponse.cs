@@ -15,7 +15,7 @@ public class ExitParkingLogResponse
     public string? MiddleName { get; set; }
     public string Role { get; set; } = null!;
     public string Status { get; set; } = null!;
-    public string PlateNumber { get; set; } = null!;
+    public string? PlateNumber { get; set; }
     public string Brand { get; set; } = null!;
     public string VehicleType { get; set; } = null!;
     public DateTime EntryTime { get; set; }

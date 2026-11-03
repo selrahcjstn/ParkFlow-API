@@ -44,9 +44,14 @@ public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result
             return Result<Guid>.Failure("Cannot register or add a vehicle while you have an ongoing parking session.", ErrorCode.BadRequest);
         }
 
-        if (await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber) != null)
+        if (!string.IsNullOrWhiteSpace(request.PlateNumber) && await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber) != null)
             return Result<Guid>.Failure("This plate number is already registered.", ErrorCode.Conflict);
         var existingVehicles = await _vehicleRepository.GetByOwnerIdAsync(request.OwnerId);
+        if (request.VehicleType == VehicleType.ElectricBike &&
+            existingVehicles.Any(v => v.VehicleType == VehicleType.ElectricBike && string.Equals(v.Brand.Trim(), request.Brand.Trim(), StringComparison.OrdinalIgnoreCase)))
+        {
+            return Result<Guid>.Failure("An E-bike with this brand is already registered under your account.", ErrorCode.Conflict);
+        }
         var maxAllowed = SystemSettingsStore.Current.MaxVehiclesPerUser > 0 
             ? SystemSettingsStore.Current.MaxVehiclesPerUser 
             : 5;
@@ -56,7 +61,10 @@ public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result
             return Result<Guid>.Failure($"Adding vehicle failed. A maximum of {maxAllowed} vehicles are allowed per account.", ErrorCode.Conflict);
         }
 
-        var qrPayload = $"{request.OwnerId}:{request.PlateNumber}:{request.Brand}";
+        var vehicleId = Guid.NewGuid();
+        var qrPayload = request.VehicleType == VehicleType.ElectricBike
+            ? $"EBIKE:{vehicleId}:{request.OwnerId}:{request.Brand}"
+            : $"{request.OwnerId}:{request.PlateNumber}:{request.Brand}";
         var qrBytes = _qrCodeService.GenerateQrCode(qrPayload);
         var qrCodeHash = HashQrBytes(qrBytes);
 
@@ -69,7 +77,10 @@ public class CreateVehicleHandler : IRequestHandler<CreateVehicleCommand, Result
             request.VehicleType,
             request.OrcrDocumentUrl,
             request.VehiclePictureUrl,
-            CorVerificationStatus.Pending);
+            CorVerificationStatus.Pending)
+        {
+            Id = vehicleId
+        };
         if (isPrimary)
         {
             vehicle.SetPrimary(true);

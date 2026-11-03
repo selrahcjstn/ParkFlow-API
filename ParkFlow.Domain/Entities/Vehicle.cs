@@ -6,7 +6,7 @@ public class Vehicle : BaseEntity
     public Guid OwnerId { get; private set; }
     public UserAccount Owner { get; private set; } = null!;
 
-    public string PlateNumber { get; private set; } = null!;
+    public string? PlateNumber { get; private set; }
     public string Brand { get; private set; } = null!;
     public string QrCodeHash { get; private set; } = null!;
     public VehicleType VehicleType { get; private set; }
@@ -23,7 +23,7 @@ public class Vehicle : BaseEntity
 
     public Vehicle(
         Guid ownerId,
-        string plateNumber,
+        string? plateNumber,
         string brand,
         string qrCodeHash,
         VehicleType vehicleType,
@@ -79,7 +79,7 @@ public class Vehicle : BaseEntity
         }
     }
 
-    public void Update(string plateNumber, string brand, VehicleType vehicleType, string? orcrDocumentUrl = null, string? vehiclePictureUrl = null)
+    public void Update(string? plateNumber, string brand, VehicleType vehicleType, string? orcrDocumentUrl = null, string? vehiclePictureUrl = null)
     {
         PlateNumber = plateNumber;
         Brand = brand;
@@ -90,7 +90,7 @@ public class Vehicle : BaseEntity
             VehiclePictureUrl = vehiclePictureUrl;
     }
 
-    public void Update(string plateNumber, string brand, VehicleType vehicleType, string qrCodeHash)
+    public void Update(string? plateNumber, string brand, VehicleType vehicleType, string qrCodeHash)
     {
         PlateNumber = plateNumber;
         Brand = brand;

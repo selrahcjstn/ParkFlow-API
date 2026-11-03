@@ -51,12 +51,17 @@ public class CompleteRegistrationHandler(IRegistrationWriter writer, IPasswordHa
         d.Email = d.Email.Trim().ToLowerInvariant();
         d.FirstName = d.FirstName.Trim(); d.LastName = d.LastName.Trim();
         d.MiddleName = string.IsNullOrWhiteSpace(d.MiddleName) ? null : d.MiddleName.Trim();
-        d.PhoneNumber = d.PhoneNumber.Trim(); d.PlateNumber = d.PlateNumber.Trim().ToUpperInvariant(); d.Brand = d.Brand.Trim();
+        d.PhoneNumber = d.PhoneNumber.Trim();
+        d.PlateNumber = string.IsNullOrWhiteSpace(d.PlateNumber) ? "" : d.PlateNumber.Trim().ToUpperInvariant();
+        d.Brand = d.Brand.Trim();
         if (d.Role == Roles.Student) { d.StudentNumber = Student.NormalizeNumber(d.StudentNumber); d.Section = CorStudentMapping.Section(d.Section)!; }
         var hash = passwords.HashPassword(d.Password);
         // Do not retain the raw password in the command after hashing it.
         d.Password = "";
-        var qrHash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(qr.GenerateQrCode($"{request.RegistrationId}:{d.PlateNumber}:{d.Brand}")));
+        var qrPayload = d.VehicleType == VehicleType.ElectricBike
+            ? $"EBIKE:{request.RegistrationId}:{d.Brand}"
+            : $"{request.RegistrationId}:{d.PlateNumber}:{d.Brand}";
+        var qrHash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(qr.GenerateQrCode(qrPayload)));
         var result = await writer.SaveAsync(request, hash, qrHash, ct);
         if (!result.IsSuccess || result.Data == null) return Result<string>.Failure(result.Message, result.ErrorCode);
         var token = jwt.GenerateToken(result.Data, result.Data.UserProfile?.Student != null ? "student" : "personnel", "pwd");
@@ -77,7 +82,7 @@ public class CompleteRegistrationHandler(IRegistrationWriter writer, IPasswordHa
         // JSON clients can send null despite the non-null form defaults.
         if (d.Email == null || d.Password == null || d.FirstName == null || d.LastName == null || d.PhoneNumber == null ||
             d.StudentNumber == null || d.Section == null || d.AcademicYear == null || d.Semester == null ||
-            d.IdCardNumber == null || d.Department == null || d.PlateNumber == null || d.Brand == null)
+            d.IdCardNumber == null || d.Department == null || (d.VehicleType != VehicleType.ElectricBike && d.PlateNumber == null) || d.Brand == null)
             return ["Complete all required registration fields."];
         async Task Check<T>(IValidator<T> validator, T value) => errors.AddRange((await validator.ValidateAsync(value, ct)).Errors.Select(e => e.ErrorMessage));
         await Check(new RegisterManualAccountValidator(), new RegisterManualAccountCommand(d.Email, d.Password, d.FirstName, d.LastName, d.MiddleName, d.PhoneNumber));
@@ -86,10 +91,14 @@ public class CompleteRegistrationHandler(IRegistrationWriter writer, IPasswordHa
         if (!d.Email.Trim().Equals(request.VerifiedEmail, StringComparison.OrdinalIgnoreCase)) errors.Add("Verify the registration email before submitting.");
         if (d.Role is not (Roles.Student or Roles.UniversityStaff or Roles.NonAcademicPersonnel)) errors.Add("Select a valid registration role.");
         if (!Regex.IsMatch(d.PhoneNumber, @"^09\d{9}$")) errors.Add("Enter an 11-digit phone number starting with 09.");
-        if (!Regex.IsMatch(d.PlateNumber.Trim(), @"^[A-Za-z0-9-]{4,12}$") || d.Brand.Trim().Length is < 2 or > 30) errors.Add("Check your vehicle plate number and brand.");
+        if (d.VehicleType is VehicleType.Motorcycle or VehicleType.Car)
+        {
+            if (string.IsNullOrWhiteSpace(d.PlateNumber) || !Regex.IsMatch(d.PlateNumber.Trim(), @"^[A-Za-z0-9-]{4,12}$"))
+                errors.Add("Check your vehicle plate number and brand.");
+        }
+        if (d.Brand.Trim().Length is < 2 or > 30) errors.Add("Check your vehicle plate number and brand.");
         if (d.FirstName.Length > 100 || d.LastName.Length > 100 || d.MiddleName?.Length > 100 ||
-            !Regex.IsMatch(d.FirstName, @"^[\p{L} .'-]+$") || !Regex.IsMatch(d.LastName, @"^[\p{L} .'-]+$") ||
-            !string.IsNullOrEmpty(d.MiddleName) && !Regex.IsMatch(d.MiddleName, @"^[\p{L} .'-]+$")) errors.Add("Check your name format and length.");
+            !Regex.IsMatch(d.FirstName, @"^[\p{L} .'-]+$") || !Regex.IsMatch(d.LastName, @"^[\p{L} .'-]+$")) errors.Add("Check your name format and length.");
         if (d.Role == Roles.Student)
         {
             await Check(new UpdateOnboardingStudentValidator(), new UpdateOnboardingStudentCommand(request.RegistrationId, d.StudentNumber, d.Course, d.Section, d.YearLevel));
@@ -111,7 +120,9 @@ public class CompleteRegistrationHandler(IRegistrationWriter writer, IPasswordHa
             await Check(new UpdateOnboardingPersonnelValidator(), new UpdateOnboardingPersonnelCommand(request.RegistrationId, d.IdCardNumber, d.Department, d.Role.ToString()));
             if (d.Department.Length > 100) errors.Add("Department must not exceed 100 characters.");
         }
-        if (string.IsNullOrWhiteSpace(request.CorUrl) || string.IsNullOrWhiteSpace(request.OrcrUrl) || string.IsNullOrWhiteSpace(request.MotorUrl)) errors.Add("All registration documents are required.");
+        var missingDocs = string.IsNullOrWhiteSpace(request.CorUrl) || string.IsNullOrWhiteSpace(request.MotorUrl) ||
+            (d.VehicleType != VehicleType.ElectricBike && string.IsNullOrWhiteSpace(request.OrcrUrl));
+        if (missingDocs) errors.Add("All registration documents are required.");
         if (string.IsNullOrWhiteSpace(request.LicenseUrl) || string.IsNullOrWhiteSpace(request.ProfilePhotoUrl)) errors.Add("Your driver’s license and profile photo are required.");
         return errors;
     }

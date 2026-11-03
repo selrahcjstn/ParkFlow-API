@@ -54,7 +54,7 @@ public class InMemoryVehicleRepository : IVehicleRepository
 
     public Task<Vehicle?> GetByPlateNumberAsync(string plateNumber)
     {
-        return Task.FromResult(Vehicles.FirstOrDefault(v => v.PlateNumber.Equals(plateNumber, StringComparison.OrdinalIgnoreCase)));
+        return Task.FromResult(Vehicles.FirstOrDefault(v => v.PlateNumber != null && v.PlateNumber.Equals(plateNumber, StringComparison.OrdinalIgnoreCase)));
     }
 
     public Task<IEnumerable<Vehicle>> GetByOwnerIdAsync(Guid ownerId)

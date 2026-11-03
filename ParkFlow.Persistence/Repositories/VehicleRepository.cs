@@ -58,14 +58,14 @@ public class VehicleRepository : IVehicleRepository
         // First try direct match
         var vehicle = await _appDbContext.Set<Vehicle>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(v => v.PlateNumber.ToLower() == normalized);
+            .FirstOrDefaultAsync(v => v.PlateNumber != null && v.PlateNumber.ToLower() == normalized);
 
         if (vehicle != null) return vehicle;
 
         // Fallback to match ignoring spaces and hyphens
         return await _appDbContext.Set<Vehicle>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(v => v.PlateNumber.Replace(" ", "").Replace("-", "").ToLower() == clean);
+            .FirstOrDefaultAsync(v => v.PlateNumber != null && v.PlateNumber.Replace(" ", "").Replace("-", "").ToLower() == clean);
     }
 
     public async Task<IEnumerable<Vehicle>> GetByOwnerIdAsync(Guid ownerId)

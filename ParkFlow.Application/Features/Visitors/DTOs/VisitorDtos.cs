@@ -115,7 +115,7 @@ public record UnifiedPlateLookupDto(
     bool IsRegistered,
     bool IsVisitor,
     bool IsInside,
-    string PlateNumber,
+    string? PlateNumber,
     // Registered vehicle info
     Guid? VehicleId = null,
     Guid? OwnerId = null,

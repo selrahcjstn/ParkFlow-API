@@ -31,7 +31,7 @@ public class UpdateVehicleHandler : IRequestHandler<UpdateVehicleCommand, Result
 
     public async Task<Result<Guid>> Handle(UpdateVehicleCommand request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.PlateNumber))
+        if (request.VehicleType is VehicleType.Motorcycle or VehicleType.Car && string.IsNullOrWhiteSpace(request.PlateNumber))
             return Result<Guid>.Failure("Plate number is required.", ErrorCode.BadRequest);
 
         if (string.IsNullOrWhiteSpace(request.Brand))
@@ -53,23 +53,26 @@ public class UpdateVehicleHandler : IRequestHandler<UpdateVehicleCommand, Result
             return Result<Guid>.Failure("Access Denied: You do not own this vehicle.", ErrorCode.Forbidden);
         }
 
-        // Existing legacy records may be retained, but new E-Bike selections are not allowed.
-        if (request.VehicleType is not (VehicleType.Motorcycle or VehicleType.Car) &&
-            !(request.VehicleType == VehicleType.ElectricBike && vehicle.VehicleType == VehicleType.ElectricBike))
-            return Result<Guid>.Failure("Please select Motorcycle or Car.", ErrorCode.BadRequest);
+        if (request.VehicleType is not (VehicleType.Motorcycle or VehicleType.Car or VehicleType.ElectricBike))
+            return Result<Guid>.Failure("Invalid vehicle type.", ErrorCode.BadRequest);
 
-        var registeredVehicle = await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber);
-        var plateExists = registeredVehicle != null && registeredVehicle.Id != request.VehicleId;
-        if (plateExists)
+        if (!string.IsNullOrWhiteSpace(request.PlateNumber))
         {
-            return Result<Guid>.Failure("A vehicle with this plate number already exists.", ErrorCode.Conflict);
+            var registeredVehicle = await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber);
+            var plateExists = registeredVehicle != null && registeredVehicle.Id != request.VehicleId;
+            if (plateExists)
+            {
+                return Result<Guid>.Failure("A vehicle with this plate number already exists.", ErrorCode.Conflict);
+            }
         }
 
         vehicle.Update(request.PlateNumber, request.Brand, request.VehicleType, request.OrcrDocumentUrl, request.VehiclePictureUrl);
 
         if (_qrCodeService != null)
         {
-            var qrPayload = $"{request.OwnerId}:{request.PlateNumber}:{request.Brand}";
+            var qrPayload = request.VehicleType == VehicleType.ElectricBike
+                ? $"EBIKE:{vehicle.Id}:{request.OwnerId}:{request.Brand}"
+                : $"{request.OwnerId}:{request.PlateNumber}:{request.Brand}";
             var qrBytes = _qrCodeService.GenerateQrCode(qrPayload);
             var qrCodeHash = Convert.ToBase64String(SHA256.HashData(qrBytes));
             vehicle.Update(request.PlateNumber, request.Brand, request.VehicleType, qrCodeHash);

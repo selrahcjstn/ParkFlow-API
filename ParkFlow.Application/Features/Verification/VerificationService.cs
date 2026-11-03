@@ -39,10 +39,18 @@ public class VerificationService(IVerificationStore store, ICorDocumentReader re
             issues.Add("Upload a COR or employee identity document.");
         if (subject.Type == VerificationType.Vehicle)
         {
-            if (!Regex.IsMatch(CorTextVerification.Compact(subject.PlateNumber), @"^[A-Z0-9]{4,10}$")) issues.Add("Enter a valid plate number.");
-            if (string.IsNullOrWhiteSpace(subject.Brand)) issues.Add("Vehicle brand is required.");
-            if (subject.DuplicateIdentifier) issues.Add("The plate number is already registered.");
-            if (!subject.OwnershipDocumentsPresent) issues.Add("Upload OR/CR, vehicle photo, driver’s license and profile photo for review.");
+            if (subject.VehicleType == ParkFlow.Domain.Enums.VehicleType.ElectricBike)
+            {
+                if (string.IsNullOrWhiteSpace(subject.Brand)) issues.Add("Vehicle brand is required.");
+                if (!subject.OwnershipDocumentsPresent) issues.Add("Upload vehicle photo, driver’s license and profile photo for review.");
+            }
+            else
+            {
+                if (!Regex.IsMatch(CorTextVerification.Compact(subject.PlateNumber), @"^[A-Z0-9]{4,10}$")) issues.Add("Enter a valid plate number.");
+                if (string.IsNullOrWhiteSpace(subject.Brand)) issues.Add("Vehicle brand is required.");
+                if (subject.DuplicateIdentifier) issues.Add("The plate number is already registered.");
+                if (!subject.OwnershipDocumentsPresent) issues.Add("Upload OR/CR, vehicle photo, driver’s license and profile photo for review.");
+            }
         }
         if (subject.Type == VerificationType.Schedule)
         {

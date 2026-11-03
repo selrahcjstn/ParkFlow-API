@@ -294,25 +294,29 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
                 ? await db.Students.AnyAsync(x => x.UserProfileId != profile.Id && x.StudentNumber.Trim().Replace("-", "").Replace(" ", "").ToUpper() == normalizedIdentifier, ct)
                 : await db.Personnel.AnyAsync(x => x.UserProfileId != profile!.Id && x.IdCardNumber.Trim().ToUpper() == normalizedIdentifier, ct);
         }
-        if (vehicle != null)
+        if (vehicle != null && !string.IsNullOrWhiteSpace(vehicle.PlateNumber))
         {
             var plate = NormalizePlate(vehicle.PlateNumber);
-            duplicate = await db.Vehicles.AnyAsync(x => x.Id != id && x.PlateNumber.Replace("-", "").Replace(" ", "").ToUpper() == plate, ct);
+            duplicate = await db.Vehicles.AnyAsync(x => x.Id != id && x.PlateNumber != null && x.PlateNumber.Replace("-", "").Replace(" ", "").ToUpper() == plate, ct);
         }
         var schedules = type == VerificationType.Schedule
             ? await db.ParkingSchedules.AsNoTracking().Where(x => x.SubmissionId == id).OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartTime)
                 .Select(x => new VerificationSchedule(x.DayOfWeek, x.StartTime, x.EndTime)).ToListAsync(ct) : [];
+        var ownershipDocsPresent = vehicle?.VehicleType == VehicleType.ElectricBike
+            ? ValidDocument(vehicle?.VehiclePictureUrl) && ValidDocument(profile?.DriversLicenseUrl) && ValidDocument(profile?.ProfilePictureUrl)
+            : ValidDocument(vehicle?.OrcrDocumentUrl) && ValidDocument(vehicle?.VehiclePictureUrl) && ValidDocument(profile?.DriversLicenseUrl) && ValidDocument(profile?.ProfilePictureUrl);
         var subject = new VerificationSubject(id, ownerId, type, "", user.AuthIdentities.Any(x => x.IsVerified), duplicate,
             identifier, profile?.FirstName ?? "", profile?.LastName ?? "", profile?.Student?.Course, profile?.Personnel != null,
             type == VerificationType.Schedule && profile?.Personnel != null
                 ? (ValidDocument(cor?.EmployeeScheduleDocumentUrl) ? cor!.EmployeeScheduleDocumentUrl : null)
                 : ValidDocument(cor?.CorDocumentUrl) ? cor!.CorDocumentUrl : null, cor?.AcademicTerm, vehicle?.PlateNumber,
-            vehicle?.Brand, ValidDocument(vehicle?.OrcrDocumentUrl) && ValidDocument(vehicle?.VehiclePictureUrl) && ValidDocument(profile?.DriversLicenseUrl) && ValidDocument(profile?.ProfilePictureUrl),
+            vehicle?.Brand, ownershipDocsPresent,
             type == VerificationType.Schedule && cor?.VerificationStatus == CorVerificationStatus.Verified, schedules)
         { Suspended = user.Status == AccountStatus.Suspended, Email = user.PrimaryEmail,
             DriversLicenseUrl = profile?.DriversLicenseUrl, ProfilePictureUrl = profile?.ProfilePictureUrl,
             OrcrUrl = vehicle?.OrcrDocumentUrl, VehiclePictureUrl = vehicle?.VehiclePictureUrl,
-            Section = profile?.Student?.Section, YearLevel = profile?.Student?.YearLevel };
+            Section = profile?.Student?.Section, YearLevel = profile?.Student?.YearLevel,
+            VehicleType = vehicle?.VehicleType };
         // Approval statuses do not change the fingerprint of an account/COR/vehicle source.
         // Driver document changes invalidate vehicle review, without invalidating an already confirmed COR/schedule.
         var source = JsonSerializer.Serialize(subject);

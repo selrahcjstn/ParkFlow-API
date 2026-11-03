@@ -6,6 +6,6 @@ namespace ParkFlow.Application.Features.Onboarding.Commands.UpdateOnboardingVehi
 
 public record UpdateOnboardingVehicleCommand(
     Guid UserId,
-    string PlateNumber,
+    string? PlateNumber,
     string Brand,
     VehicleType VehicleType) : IRequest<Result<Guid>>;

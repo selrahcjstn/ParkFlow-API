@@ -10,7 +10,7 @@ public record AdminVehicleDto(
     string OwnerName,
     string OwnerEmail,
     string OwnerRole,
-    string PlateNumber,
+    string? PlateNumber,
     string Brand,
     string QrCodeHash,
     VehicleType VehicleType,

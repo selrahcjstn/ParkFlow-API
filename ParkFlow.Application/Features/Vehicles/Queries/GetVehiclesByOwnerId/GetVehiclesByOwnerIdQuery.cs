@@ -8,7 +8,7 @@ public record GetVehiclesByOwnerIdQuery(Guid OwnerId) : IRequest<Result<IEnumera
 
 public record VehicleDto(
     Guid Id,
-    string PlateNumber,
+    string? PlateNumber,
     string Brand,
     string QrCodeHash,
     VehicleType VehicleType,

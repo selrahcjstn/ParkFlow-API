@@ -1,4 +1,5 @@
 using ParkFlow.Domain.Entities;
+using ParkFlow.Domain.Enums;
 using ParkFlow.Application.Features.Verification;
 
 namespace ParkFlow.Application.Interfaces;
@@ -19,6 +20,7 @@ public record VerificationSubject(Guid Id, Guid UserId, VerificationType Type, s
     public string? VehiclePictureUrl { get; init; }
     public string? Section { get; init; }
     public int? YearLevel { get; init; }
+    public VehicleType? VehicleType { get; init; }
 }
 public record VerificationSchedule(DayOfWeek Day, TimeSpan Start, TimeSpan End);
 public record VerificationDecision(VerificationState Status, string Reason, string? OcrOutcome = null,
