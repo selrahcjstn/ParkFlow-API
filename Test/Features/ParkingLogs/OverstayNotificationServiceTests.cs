@@ -423,4 +423,225 @@ public class OverstayNotificationServiceTests
         Assert.Empty(notificationService.Sent);
         Assert.Empty(emailService.Sent);
     }
+
+    [Fact]
+    public async Task WhenInGracePeriodWindow_SendsGracePeriodInAppAlertAndSingleEmail()
+    {
+        OverstayNotificationService.ClearInMemoryCacheForTesting();
+
+        // Entry at 8:00 AM, Deadline at 10:00 AM
+        var entry = Utc(8);
+        var (log, owner, _) = CreateParkedSession(entry, "ABC1234", "user@bulsu.edu.ph");
+
+        var parkingLogRepo = new FakeParkingLogRepo();
+        parkingLogRepo.ActiveLogs.Add(log);
+
+        var submissionId = Guid.NewGuid();
+        var cor = new CorSubmission(owner.Id, "url", "hash", "1st Sem", "2026-2027", CorVerificationStatus.Verified);
+        typeof(CorSubmission).GetProperty("Id")!.SetValue(cor, submissionId);
+        var corRepo = new FakeCorRepo();
+        corRepo.Submissions.Add(cor);
+
+        var schedule = new ParkingSchedule(submissionId, DayOfWeek.Tuesday, new TimeSpan(8, 0, 0), new TimeSpan(10, 0, 0));
+        var scheduleRepo = new FakeScheduleRepo();
+        scheduleRepo.Schedules.Add(schedule);
+
+        var notificationService = new FakeNotificationService();
+        var userNotifRepo = new FakeUserNotifRepo();
+        var emailService = new FakeEmailService();
+
+        var service = new OverstayNotificationService(
+            parkingLogRepo,
+            corRepo,
+            scheduleRepo,
+            notificationService,
+            userNotifRepo,
+            NullLogger<OverstayNotificationService>.Instance,
+            emailService: emailService
+        );
+
+        // Check at 9:50 AM (25 minutes before 10:15 AM deadline -> Within 30-min grace period window!)
+        var checkTime = Utc(9, 50);
+        var count = await service.CheckAndSendOverstayNotificationsAsync(checkTime, CancellationToken.None);
+
+        Assert.Equal(1, count);
+
+        // Verify In-App Grace Period Alert
+        Assert.Single(notificationService.Sent);
+        var notif = notificationService.Sent[0];
+        Assert.Equal(owner.Id, notif.UserAccountId);
+        Assert.Equal("Parking Grace Period Alert", notif.Title);
+        Assert.Contains("ABC1234", notif.Body);
+        Assert.Contains("30-minute grace period", notif.Body);
+        Assert.Equal("reminder", notif.Type);
+        Assert.Equal($"GRACE-PERIOD-{log.Id}", notif.ReferenceCode);
+        Assert.Equal("ABC1234", notif.VehiclePlate);
+        Assert.Equal("(tabs)/home", notif.ActionRoute);
+        Assert.Equal("high", notif.Priority);
+
+        // Verify Grace Period Email
+        Assert.Single(emailService.Sent);
+        var email = emailService.Sent[0];
+        Assert.Equal("user@bulsu.edu.ph", email.To);
+        Assert.Contains("ABC1234", email.Subject);
+        Assert.Contains("Grace Period", email.Subject);
+        Assert.Contains("ABC1234", email.HtmlBody);
+        Assert.Contains("Parking Grace Period Notice", email.HtmlBody);
+    }
+
+    [Fact]
+    public async Task WhenInGracePeriodWindow_AlreadyNotified_DoesNotDuplicateGracePeriodAlertOrEmail()
+    {
+        OverstayNotificationService.ClearInMemoryCacheForTesting();
+
+        var entry = Utc(8);
+        var (log, owner, _) = CreateParkedSession(entry, "ABC1234", "user@bulsu.edu.ph");
+
+        var parkingLogRepo = new FakeParkingLogRepo();
+        parkingLogRepo.ActiveLogs.Add(log);
+
+        var submissionId = Guid.NewGuid();
+        var cor = new CorSubmission(owner.Id, "url", "hash", "1st Sem", "2026-2027", CorVerificationStatus.Verified);
+        typeof(CorSubmission).GetProperty("Id")!.SetValue(cor, submissionId);
+        var corRepo = new FakeCorRepo();
+        corRepo.Submissions.Add(cor);
+
+        var schedule = new ParkingSchedule(submissionId, DayOfWeek.Tuesday, new TimeSpan(8, 0, 0), new TimeSpan(10, 0, 0));
+        var scheduleRepo = new FakeScheduleRepo();
+        scheduleRepo.Schedules.Add(schedule);
+
+        var notificationService = new FakeNotificationService();
+        var userNotifRepo = new FakeUserNotifRepo();
+        userNotifRepo.ExistingReferenceCodes.Add((owner.Id, $"GRACE-PERIOD-{log.Id}"));
+
+        var emailService = new FakeEmailService();
+
+        var service = new OverstayNotificationService(
+            parkingLogRepo,
+            corRepo,
+            scheduleRepo,
+            notificationService,
+            userNotifRepo,
+            NullLogger<OverstayNotificationService>.Instance,
+            emailService: emailService
+        );
+
+        // Check at 9:45 AM (still in grace period window)
+        var checkTime = Utc(9, 45);
+        var count = await service.CheckAndSendOverstayNotificationsAsync(checkTime, CancellationToken.None);
+
+        Assert.Equal(0, count);
+        Assert.Empty(notificationService.Sent);
+        Assert.Empty(emailService.Sent);
+    }
+
+    [Fact]
+    public async Task WhenMoreThan30MinutesBeforeDeadline_DoesNotTriggerGracePeriodAlert()
+    {
+        OverstayNotificationService.ClearInMemoryCacheForTesting();
+
+        var entry = Utc(8);
+        var (log, owner, _) = CreateParkedSession(entry, "ABC1234", "user@bulsu.edu.ph");
+
+        var parkingLogRepo = new FakeParkingLogRepo();
+        parkingLogRepo.ActiveLogs.Add(log);
+
+        var submissionId = Guid.NewGuid();
+        var cor = new CorSubmission(owner.Id, "url", "hash", "1st Sem", "2026-2027", CorVerificationStatus.Verified);
+        typeof(CorSubmission).GetProperty("Id")!.SetValue(cor, submissionId);
+        var corRepo = new FakeCorRepo();
+        corRepo.Submissions.Add(cor);
+
+        var schedule = new ParkingSchedule(submissionId, DayOfWeek.Tuesday, new TimeSpan(8, 0, 0), new TimeSpan(10, 0, 0));
+        var scheduleRepo = new FakeScheduleRepo();
+        scheduleRepo.Schedules.Add(schedule);
+
+        var notificationService = new FakeNotificationService();
+        var userNotifRepo = new FakeUserNotifRepo();
+        var emailService = new FakeEmailService();
+
+        var service = new OverstayNotificationService(
+            parkingLogRepo,
+            corRepo,
+            scheduleRepo,
+            notificationService,
+            userNotifRepo,
+            NullLogger<OverstayNotificationService>.Instance,
+            emailService: emailService
+        );
+
+        // Check at 9:15 AM (45 minutes before 10:00 AM deadline -> NOT yet in 30-min window)
+        var checkTime = Utc(9, 15);
+        var count = await service.CheckAndSendOverstayNotificationsAsync(checkTime, CancellationToken.None);
+
+        Assert.Equal(0, count);
+        Assert.Empty(notificationService.Sent);
+        Assert.Empty(emailService.Sent);
+    }
+
+    [Fact]
+    public async Task WhenSessionTransitionsFromGracePeriodToOverstay_SendsBothSequentiallyAtTheirRespectiveTimes()
+    {
+        OverstayNotificationService.ClearInMemoryCacheForTesting();
+
+        var entry = Utc(8);
+        var (log, owner, _) = CreateParkedSession(entry, "XYZ7777", "driver@bulsu.edu.ph");
+
+        var parkingLogRepo = new FakeParkingLogRepo();
+        parkingLogRepo.ActiveLogs.Add(log);
+
+        var submissionId = Guid.NewGuid();
+        var cor = new CorSubmission(owner.Id, "url", "hash", "1st Sem", "2026-2027", CorVerificationStatus.Verified);
+        typeof(CorSubmission).GetProperty("Id")!.SetValue(cor, submissionId);
+        var corRepo = new FakeCorRepo();
+        corRepo.Submissions.Add(cor);
+
+        var schedule = new ParkingSchedule(submissionId, DayOfWeek.Tuesday, new TimeSpan(8, 0, 0), new TimeSpan(10, 0, 0));
+        var scheduleRepo = new FakeScheduleRepo();
+        scheduleRepo.Schedules.Add(schedule);
+
+        var notificationService = new FakeNotificationService();
+        var userNotifRepo = new FakeUserNotifRepo();
+        var emailService = new FakeEmailService();
+
+        var service = new OverstayNotificationService(
+            parkingLogRepo,
+            corRepo,
+            scheduleRepo,
+            notificationService,
+            userNotifRepo,
+            NullLogger<OverstayNotificationService>.Instance,
+            emailService: emailService
+        );
+
+        // Stage 1: Check at 9:45 AM (Grace period trigger)
+        var count1 = await service.CheckAndSendOverstayNotificationsAsync(Utc(9, 45), CancellationToken.None);
+        Assert.Equal(1, count1);
+        Assert.Single(notificationService.Sent);
+        Assert.Equal($"GRACE-PERIOD-{log.Id}", notificationService.Sent[0].ReferenceCode);
+        Assert.Single(emailService.Sent);
+        Assert.Contains("Grace Period", emailService.Sent[0].Subject);
+
+        // Record in DB repo so DB persistence is simulated
+        userNotifRepo.ExistingReferenceCodes.Add((owner.Id, $"GRACE-PERIOD-{log.Id}"));
+
+        // Stage 2: Check at 10:15 AM (Overstay trigger)
+        var count2 = await service.CheckAndSendOverstayNotificationsAsync(Utc(10, 15), CancellationToken.None);
+        Assert.Equal(1, count2);
+        Assert.Equal(2, notificationService.Sent.Count);
+        Assert.Equal($"OVERSTAY-INITIAL-{log.Id}", notificationService.Sent[1].ReferenceCode);
+        Assert.Equal(2, emailService.Sent.Count);
+        Assert.Contains("Overstay", emailService.Sent[1].Subject);
+
+        // Record in DB repo
+        userNotifRepo.ExistingReferenceCodes.Add((owner.Id, $"OVERSTAY-INITIAL-{log.Id}"));
+
+        // Stage 3: Check at 11:15 AM (1 Hour Overstay Reminder)
+        var count3 = await service.CheckAndSendOverstayNotificationsAsync(Utc(11, 15), CancellationToken.None);
+        Assert.Equal(1, count3);
+        Assert.Equal(3, notificationService.Sent.Count);
+        Assert.Equal($"OVERSTAY-REMINDER-{log.Id}-H1", notificationService.Sent[2].ReferenceCode);
+        // CRITICAL: Hourly reminder must NOT send any email! Still only 2 emails total!
+        Assert.Equal(2, emailService.Sent.Count);
+    }
 }

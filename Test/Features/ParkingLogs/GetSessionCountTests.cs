@@ -143,9 +143,11 @@ public class GetSessionCountTests
         var vehicleProperty = typeof(ParkingLog).GetProperty("Vehicle");
         vehicleProperty?.SetValue(log, vehicle);
 
-        // Entry time is 5 hours ago
+        var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
+
+        // Entry time is earlier today on the same day
         var entryTimeProperty = typeof(ParkingLog).GetProperty("EntryTime");
-        entryTimeProperty?.SetValue(log, DateTime.UtcNow.AddHours(-5));
+        entryTimeProperty?.SetValue(log, ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow.Date, TimeSpan.Zero));
 
         var activeLogs = new List<ParkingLog> { log };
 
@@ -155,7 +157,6 @@ public class GetSessionCountTests
         corIdProperty?.SetValue(cor, submissionId);
         cor.UpdateSubmission(null, null, CorVerificationStatus.Verified);
 
-        var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
         var scheduleEndTime = philippinesNow.TimeOfDay.Subtract(TimeSpan.FromHours(2));
         if (scheduleEndTime < TimeSpan.Zero) scheduleEndTime = TimeSpan.FromHours(1);
 
@@ -211,9 +212,11 @@ public class GetSessionCountTests
         var vehicleProperty = typeof(ParkingLog).GetProperty("Vehicle");
         vehicleProperty?.SetValue(log, vehicle);
 
-        // Entry time is 5 hours ago
+        var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
+
+        // Entry time is earlier today on the same day
         var entryTimeProperty = typeof(ParkingLog).GetProperty("EntryTime");
-        entryTimeProperty?.SetValue(log, DateTime.UtcNow.AddHours(-5));
+        entryTimeProperty?.SetValue(log, ParkingTimeHelper.BuildPhilippinesScheduleUtcDateTime(philippinesNow.Date, TimeSpan.Zero));
 
         var activeLogs = new List<ParkingLog> { log };
 
@@ -223,7 +226,6 @@ public class GetSessionCountTests
         corIdProperty?.SetValue(cor, submissionId);
         cor.UpdateSubmission(null, null, CorVerificationStatus.Verified);
 
-        var philippinesNow = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
         var scheduleEndTime = philippinesNow.TimeOfDay.Subtract(TimeSpan.FromHours(2));
         if (scheduleEndTime < TimeSpan.Zero) scheduleEndTime = TimeSpan.FromHours(1);
 
