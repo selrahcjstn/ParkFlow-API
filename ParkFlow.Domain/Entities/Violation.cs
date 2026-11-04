@@ -52,6 +52,12 @@ public class Violation : BaseEntity
         UpdatedAt = DateTime.UtcNow;
     }
 
+    public void UpdatePenaltyFee(decimal fee)
+    {
+        PenaltyFee = fee >= 0m ? fee : throw new ArgumentOutOfRangeException(nameof(fee));
+        UpdatedAt = DateTime.UtcNow;
+    }
+
     public static Violation CreateVisitorCharge(VisitSession session, decimal parkingFee = VisitSession.ParkingFee)
     {
         return new Violation(session.Id, parkingFee, ViolationType.ManualParkingCharge)

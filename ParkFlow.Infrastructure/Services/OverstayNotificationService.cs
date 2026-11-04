@@ -22,6 +22,7 @@ public class OverstayNotificationService : IOverstayNotificationService
     private readonly INotificationService _notificationService;
     private readonly IUserNotificationRepository _userNotificationRepository;
     private readonly IEmailService? _emailService;
+    private readonly IViolationRepository? _violationRepository;
     private readonly ILogger<OverstayNotificationService> _logger;
 
     // In-memory deduplication cache: ReferenceCode -> 1
@@ -35,7 +36,8 @@ public class OverstayNotificationService : IOverstayNotificationService
         IUserNotificationRepository userNotificationRepository,
         ILogger<OverstayNotificationService> logger,
         IParkingReservationRepository? reservationRepository = null,
-        IEmailService? emailService = null)
+        IEmailService? emailService = null,
+        IViolationRepository? violationRepository = null)
     {
         _parkingLogRepository = parkingLogRepository;
         _corSubmissionRepository = corSubmissionRepository;
@@ -45,6 +47,7 @@ public class OverstayNotificationService : IOverstayNotificationService
         _logger = logger;
         _reservationRepository = reservationRepository;
         _emailService = emailService;
+        _violationRepository = violationRepository;
     }
 
     public async Task<int> CheckAndSendOverstayNotificationsAsync(DateTime? checkTimeUtc = null, CancellationToken ct = default)
@@ -205,6 +208,55 @@ public class OverstayNotificationService : IOverstayNotificationService
             // ── 1. Initial Overstay Alert (In-App + 1 Email) ──
             if (isOverstaying)
             {
+                if (_violationRepository != null)
+                {
+                    try
+                    {
+                        var rate = sysSettings.ForVehicle(vehicle.VehicleType);
+                        var days = Math.Max(0, (ParkingTimeHelper.ConvertUtcToPhilippinesTime(nowUtc).Date -
+                            ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime).Date).Days);
+                        var userReservation = reservationsByOwner[owner.Id].FirstOrDefault(r => r.VehicleId == vehicle.Id && r.Status == ReservationStatus.Approved);
+                        var isPersonnel = ownerProfile?.Personnel != null;
+                        var isFaculty = PersonnelParkingPolicy.IsFaculty(ownerProfile?.Personnel);
+
+                        decimal fee;
+                        if (userReservation?.Type == ReservationType.Special) fee = rate.VipEntryFee;
+                        else if (isFaculty)
+                            fee = rate.FacultyEntryFee + (decimal)Math.Ceiling(Math.Max(0, timing.OverstayHours)) * rate.ViolationRatePerHour;
+                        else if (isPersonnel)
+                            fee = rate.PersonnelEntryFee + (decimal)Math.Ceiling(Math.Max(0, timing.OverstayHours)) * rate.ViolationRatePerHour;
+                        else if (log.EntryMethod == EntryMethod.Manual) fee = rate.EntryFee + days * rate.DailyOverstayFee;
+                        else if (userReservation != null) fee = rate.EntryFee + (timing.OverstayHours > 0 ? (days + 1) * rate.DailyOverstayFee : 0);
+                        else fee = (ownerProfile?.Student != null ? rate.StudentEntryFee : rate.EntryFee) +
+                            new ViolationService().CalculatePenaltyForVehicle(TimeSpan.FromHours(Math.Max(0, timing.OverstayHours)), vehicle.VehicleType);
+
+                        if (fee <= 0 && rate.ViolationRatePerHour > 0)
+                        {
+                            fee = rate.ViolationRatePerHour;
+                        }
+
+                        if (fee > 0)
+                        {
+                            var existing = await _violationRepository.GetByLogIdAsync(log.Id);
+                            if (existing == null)
+                            {
+                                var newViolation = new Violation(log.Id, fee, ViolationType.Overstay);
+                                await _violationRepository.AddAsync(newViolation);
+                                _logger.LogInformation("Recorded overstay violation {Ref} for log {LogId} (Amount: {Fee})", newViolation.ReferenceNumber, log.Id, fee);
+                            }
+                            else if (existing.SettlementStatus != SettlementStatus.Settled && existing.PenaltyFee != fee)
+                            {
+                                existing.UpdatePenaltyFee(fee);
+                                await _violationRepository.UpdateAsync(existing);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to record or update overstay violation for log {LogId}", log.Id);
+                    }
+                }
+
                 var initialRefCode = $"OVERSTAY-INITIAL-{log.Id}";
             if (!await IsReferenceCodeProcessedAsync(ownerId, initialRefCode))
             {

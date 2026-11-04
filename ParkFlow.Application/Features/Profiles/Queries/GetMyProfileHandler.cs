@@ -65,7 +65,7 @@ public class GetMyProfileHandler
         }
 
         var latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(profile.UserAccountId);
-        var corStatus = latestCor?.VerificationStatus ?? (profile.Admin != null || profile.Guard != null
+        var corStatus = latestCor?.VerificationStatus ?? (profile.Admin != null || profile.Guard != null || profile.Personnel != null
             ? CorVerificationStatus.Verified
             : CorVerificationStatus.NotSubmitted);
 
@@ -139,7 +139,7 @@ public class GetMyProfileHandler
             return dto with { Status = AccountStatus.PendingVerification.ToString() };
         if (dto.Role == "Student" && dto.Status == "Active" && _vehicleRepository != null &&
             !(await _vehicleRepository.GetByOwnerIdAsync(dto.UserAccountId)).Any(v => v.VerificationStatus == CorVerificationStatus.Verified &&
-                !string.IsNullOrWhiteSpace(v.OrcrDocumentUrl) && !string.IsNullOrWhiteSpace(v.VehiclePictureUrl)))
+                (v.VehicleType == VehicleType.ElectricBike || !string.IsNullOrWhiteSpace(v.OrcrDocumentUrl)) && !string.IsNullOrWhiteSpace(v.VehiclePictureUrl)))
             return dto with { Status = AccountStatus.PendingVerification.ToString() };
         return dto;
     }

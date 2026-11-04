@@ -186,6 +186,14 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         if (status == VerificationState.Approved || driver.LicenseStatus != CorVerificationStatus.Verified)
             driver.ReviewLicense(status == VerificationState.Approved, actor, reason);
         vehicle.UpdateVerificationStatus(status == VerificationState.Approved ? CorVerificationStatus.Verified : CorVerificationStatus.Rejected, reason);
+        if (status == VerificationState.Approved && driver.Personnel != null)
+        {
+            var account = await db.UserAccounts.FindAsync([owner.Value], ct);
+            if (account != null && account.Status != AccountStatus.Suspended)
+            {
+                account.UpdateStatus(AccountStatus.Active);
+            }
+        }
         await db.SaveChangesAsync(ct);
         if (await db.UserProfiles.AnyAsync(p => p.UserAccountId == owner.Value && (p.Student != null || p.Personnel != null), ct))
             await EnqueueAsync(VerificationType.Account, owner.Value, ct);
@@ -336,20 +344,28 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         var subject = await GetSubjectAsync(type, id, ct);
         if (subject == null) return null;
         if (type == VerificationType.Schedule && !subject.IsPersonnel) { await RetireScheduleJobsAsync(id, ct); return null; }
-        if (type == VerificationType.Account && !subject.IsPersonnel &&
+        if (type == VerificationType.Account &&
             !await db.UserProfiles.AnyAsync(p => p.UserAccountId == subject.UserId && (p.Admin != null || p.Guard != null), ct))
         {
             await db.VerificationRecords.Where(r => r.Type == VerificationType.Account && r.SubjectId == id && r.IsCurrent)
                 .ExecuteUpdateAsync(update => update.SetProperty(r => r.IsCurrent, false).SetProperty(r => r.LeaseId, (Guid?)null)
                     .SetProperty(r => r.LeaseExpiresAt, (DateTime?)null).SetProperty(r => r.Version, r => r.Version + 1), ct);
-            if (await db.UserProfiles.AnyAsync(p => p.UserAccountId == subject.UserId && p.Student != null, ct))
+            var account = await db.UserAccounts.FindAsync([id], ct);
+            if (account != null && account.Status != AccountStatus.Suspended)
             {
-                var account = await db.UserAccounts.FindAsync([id], ct);
-                if (account != null && account.Status != AccountStatus.Suspended)
+                var approvedVehicle = await db.Vehicles.AnyAsync(v => v.OwnerId == id && v.VerificationStatus == CorVerificationStatus.Verified &&
+                    (v.VehicleType == VehicleType.ElectricBike || !string.IsNullOrWhiteSpace(v.OrcrDocumentUrl)) && !string.IsNullOrWhiteSpace(v.VehiclePictureUrl), ct);
+                var driverReady = await db.UserProfiles.AnyAsync(p => p.UserAccountId == id && p.LicenseStatus == CorVerificationStatus.Verified && p.DriversLicenseUrl != null && p.ProfilePictureUrl != null, ct);
+                if (subject.IsPersonnel)
                 {
-                    var approvedVehicle = await db.Vehicles.AnyAsync(v => v.OwnerId == id && v.VerificationStatus == CorVerificationStatus.Verified &&
-                        v.OrcrDocumentUrl != null && v.OrcrDocumentUrl != "" && v.VehiclePictureUrl != null && v.VehiclePictureUrl != "", ct);
-                    var driverReady = await db.UserProfiles.AnyAsync(p => p.UserAccountId == id && p.LicenseStatus == CorVerificationStatus.Verified && p.DriversLicenseUrl != null && p.ProfilePictureUrl != null, ct);
+                    if (approvedVehicle && driverReady)
+                    {
+                        account.UpdateStatus(AccountStatus.Active);
+                        await db.SaveChangesAsync(ct);
+                    }
+                }
+                else if (await db.UserProfiles.AnyAsync(p => p.UserAccountId == subject.UserId && p.Student != null, ct))
+                {
                     account.UpdateStatus(VerificationService.StudentAccountStatus(subject, await GetPolicyAsync(ct), approvedVehicle, driverReady));
                     await db.SaveChangesAsync(ct);
                 }

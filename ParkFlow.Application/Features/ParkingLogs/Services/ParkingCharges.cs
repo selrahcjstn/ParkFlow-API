@@ -21,7 +21,8 @@ public static class ParkingCharges
             ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime).Date).Days);
         decimal amount;
         if (reservation?.Type == ReservationType.Special) amount = rate.VipEntryFee;
-        else if (PersonnelParkingPolicy.IsFaculty(personnel)) amount = rate.FacultyEntryFee;
+        else if (PersonnelParkingPolicy.IsFaculty(personnel))
+            amount = rate.FacultyEntryFee + (decimal)Math.Ceiling(Math.Max(0, overstayHours)) * rate.ViolationRatePerHour;
         else if (PersonnelParkingPolicy.AppliesTo(personnel))
             amount = rate.PersonnelEntryFee + (decimal)Math.Ceiling(Math.Max(0, overstayHours)) * rate.ViolationRatePerHour;
         else if (log.EntryMethod == EntryMethod.Manual) amount = rate.EntryFee + days * rate.DailyOverstayFee;

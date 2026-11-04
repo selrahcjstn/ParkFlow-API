@@ -201,7 +201,18 @@ public class ParkingLogRepository : IParkingLogRepository
                 booking.Property(r => r.Status).IsModified = true;
                 booking.Property(r => r.UpdatedAt).IsModified = true;
             }
-              if (charge != null) _context.Violations.Add(charge);
+              if (charge != null)
+              {
+                  var existingCharge = await _context.Violations.FirstOrDefaultAsync(v => v.ParkingLogId == log.Id, ct);
+                  if (existingCharge == null)
+                  {
+                      _context.Violations.Add(charge);
+                  }
+                  else if (existingCharge.SettlementStatus != SettlementStatus.Settled)
+                  {
+                      existingCharge.UpdatePenaltyFee(charge.PenaltyFee);
+                  }
+              }
               await _context.SaveChangesAsync(acceptAllChangesOnSuccess: false, cancellationToken: ct);
             await transaction.CommitAsync(ct);
             _context.ChangeTracker.AcceptAllChanges();
