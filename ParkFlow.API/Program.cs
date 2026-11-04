@@ -16,7 +16,16 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration["Release:PublicApiUrl"])) R
 builder.Services.Configure<ForwardedHeadersOptions>(options => ReleaseConfiguration.ConfigureProxy(options, builder.Configuration));
 
 var configuredUrls = builder.Configuration["ASPNETCORE_URLS"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
-builder.WebHost.UseUrls(string.IsNullOrWhiteSpace(configuredUrls) ? "http://0.0.0.0:5000;http://0.0.0.0:5044" : configuredUrls);
+if (string.IsNullOrWhiteSpace(configuredUrls))
+{
+    configuredUrls = "http://0.0.0.0:5000;http://0.0.0.0:5044";
+}
+else
+{
+    if (!configuredUrls.Contains(":5000")) configuredUrls += ";http://0.0.0.0:5000";
+    if (!configuredUrls.Contains(":5044")) configuredUrls += ";http://0.0.0.0:5044";
+}
+builder.WebHost.UseUrls(configuredUrls);
 
 // Add services to the container.
 
