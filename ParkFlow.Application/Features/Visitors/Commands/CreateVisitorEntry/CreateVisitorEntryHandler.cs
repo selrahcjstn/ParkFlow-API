@@ -15,11 +15,16 @@ public class CreateVisitorEntryValidator : AbstractValidator<CreateVisitorEntryC
         RuleFor(x => x.FullName).NotEmpty().MaximumLength(200).WithMessage("Visitor name is required (up to 200 characters).");
         RuleFor(x => x.ContactNumber).NotEmpty().Matches(@"^09\d{9}$")
             .WithMessage("Enter an 11-digit phone number starting with 09.");
-        RuleFor(x => x.LicenseVerified).Equal(true).WithMessage("Verify the driver's valid license at the gate before entry.");
+        RuleFor(x => x.LicenseVerified)
+            .Equal(true)
+            .When(x => x.VehicleType != VehicleType.ElectricBike)
+            .WithMessage("Verify the driver's valid license at the gate before entry.");
         RuleFor(x => x.PlateNumber)
-            .NotEmpty().WithMessage("Plate number is required.")
+            .NotEmpty()
+            .When(x => x.VehicleType != VehicleType.ElectricBike)
+            .WithMessage("Plate number is required.")
             .MaximumLength(20).WithMessage("Plate number must not exceed 20 characters.")
-            .Must(p => System.Text.RegularExpressions.Regex.IsMatch(VisitorVehicle.NormalizePlate(p), "^[A-Z0-9]{2,20}$"))
+            .Must(p => string.IsNullOrWhiteSpace(p) || System.Text.RegularExpressions.Regex.IsMatch(VisitorVehicle.NormalizePlate(p), "^[A-Z0-9]{2,20}$"))
             .WithMessage("Enter a valid plate number using letters, numbers, spaces or hyphens.");
 
         RuleFor(x => x.Brand)
@@ -61,7 +66,21 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
 
     public async Task<Result<VisitorEntryResponse>> Handle(CreateVisitorEntryCommand request, CancellationToken cancellationToken)
     {
-        var normalizedPlate = VisitorVehicle.NormalizePlate(request.PlateNumber);
+        var isEBike = request.VehicleType == VehicleType.ElectricBike;
+        var plate = request.PlateNumber?.Trim();
+        if (isEBike && (string.IsNullOrWhiteSpace(plate) || plate.Equals("NO PLATE", StringComparison.OrdinalIgnoreCase) || plate.Equals("EBIKE", StringComparison.OrdinalIgnoreCase)))
+        {
+            do
+            {
+                plate = $"EB-{Random.Shared.Next(100000, 999999)}";
+            } while (await _visitorRepository.GetVehicleByPlateNumberAsync(VisitorVehicle.NormalizePlate(plate)) != null);
+        }
+        else if (string.IsNullOrWhiteSpace(plate))
+        {
+            return Result<VisitorEntryResponse>.Failure("Plate number is required.", ErrorCode.BadRequest);
+        }
+
+        var normalizedPlate = VisitorVehicle.NormalizePlate(plate);
 
         // 1. Registered ParkFlow vehicles should use standard parking entry
         var registeredVehicle = await _vehicleRepository.GetByPlateNumberAsync(normalizedPlate);
@@ -72,10 +91,10 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
                 ErrorCode.Conflict);
         }
 
-        var validation = await new CreateVisitorEntryValidator().ValidateAsync(request, cancellationToken);
+        var validation = await new CreateVisitorEntryValidator().ValidateAsync(request with { PlateNumber = plate }, cancellationToken);
         if (!validation.IsValid) return Result<VisitorEntryResponse>.Failure(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)), ErrorCode.BadRequest);
-        if (request.VehicleType is not (VehicleType.Motorcycle or VehicleType.Car))
-            return Result<VisitorEntryResponse>.Failure("Please select Motorcycle or Car.", ErrorCode.BadRequest);
+        if (request.VehicleType is not (VehicleType.Motorcycle or VehicleType.ElectricBike or VehicleType.Car))
+            return Result<VisitorEntryResponse>.Failure("Please select Motorcycle, E-Bike, or Car.", ErrorCode.BadRequest);
         var vehicle = await _visitorRepository.GetVehicleByPlateNumberAsync(normalizedPlate);
         var newVehicle = vehicle == null;
         if (request.ExistingVisitorId.HasValue && !request.IdentityConfirmed)
@@ -86,8 +105,8 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
         if (request.ExistingVisitorId.HasValue && visitor == null)
             return Result<VisitorEntryResponse>.Failure("The selected visitor no longer exists. Search again.", ErrorCode.NotFound);
         var isReturning = visitor != null;
-        visitor ??= new Visitor(request.FullName, request.ContactNumber, request.PlateNumber, request.VehicleType, request.Brand);
-        vehicle ??= new VisitorVehicle(visitor.Id, request.PlateNumber, request.VehicleType, request.Brand) { Visitor = visitor };
+        visitor ??= new Visitor(request.FullName, request.ContactNumber, plate, request.VehicleType, request.Brand);
+        vehicle ??= new VisitorVehicle(visitor.Id, plate, request.VehicleType, request.Brand) { Visitor = visitor };
         var activeSession = await _visitorRepository.GetActiveVisitSessionByVehicleIdAsync(vehicle.Id);
         if (activeSession != null)
             return Result<VisitorEntryResponse>.Failure("This vehicle is already inside campus. Process its exit before entering again.", ErrorCode.Conflict);
@@ -123,7 +142,7 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
         }
 
         if (!request.GuardUserId.HasValue || guardProfileId == null)
-            return Result<VisitorEntryResponse>.Failure("Only an authorized guard can verify visitor licenses at entry.", ErrorCode.Forbidden);
+            return Result<VisitorEntryResponse>.Failure("Only an authorized guard can record visitor entry.", ErrorCode.Forbidden);
         try
         {
             if (request.License != null) visitor.DriversLicenseUrl = await ParkFlow.Application.Features.Profiles.DriverDocumentUpload.UploadAsync(request.License, true, _cloud, cancellationToken);
@@ -131,11 +150,16 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
             if (request.VehiclePhoto != null) vehicle.VehiclePictureUrl = await ParkFlow.Application.Features.Profiles.DriverDocumentUpload.UploadAsync(request.VehiclePhoto, false, _cloud, cancellationToken);
         }
         catch (DocumentValidationException e) { return Result<VisitorEntryResponse>.Failure(e.Message, ErrorCode.BadRequest); }
-        if (string.IsNullOrWhiteSpace(visitor.DriversLicenseUrl) || string.IsNullOrWhiteSpace(visitor.ProfilePictureUrl) || string.IsNullOrWhiteSpace(vehicle.VehiclePictureUrl))
-            return Result<VisitorEntryResponse>.Failure("Capture the driver's license, driver photo and vehicle photo before entry.", ErrorCode.BadRequest);
+        if ((!isEBike && string.IsNullOrWhiteSpace(visitor.DriversLicenseUrl)) || string.IsNullOrWhiteSpace(visitor.ProfilePictureUrl) || string.IsNullOrWhiteSpace(vehicle.VehiclePictureUrl))
+            return Result<VisitorEntryResponse>.Failure(isEBike
+                ? "Capture the visitor face photo and e-bike photo before entry."
+                : "Capture the driver's license, driver photo and vehicle photo before entry.", ErrorCode.BadRequest);
         visitor.UpdateProfile(isReturning ? null : request.FullName, request.ContactNumber, visitor.VehicleType, null);
-        visitor.LicenseVerifiedBy = request.GuardUserId;
-        visitor.LicenseVerifiedAt = DateTime.UtcNow;
+        if (!isEBike)
+        {
+            visitor.LicenseVerifiedBy = request.GuardUserId;
+            visitor.LicenseVerifiedAt = DateTime.UtcNow;
+        }
         if (!isReturning) visitor.VehiclePictureUrl = vehicle.VehiclePictureUrl;
 
         // 5. Create new Visit Session
@@ -146,14 +170,14 @@ public class CreateVisitorEntryHandler : IRequestHandler<CreateVisitorEntryComma
             guardProfileId,
             entryGate);
 
-        newSession.DriversLicenseUrl = visitor.DriversLicenseUrl;
+        newSession.DriversLicenseUrl = isEBike ? null : visitor.DriversLicenseUrl;
         newSession.ProfilePictureUrl = visitor.ProfilePictureUrl;
         newSession.VehiclePictureUrl = vehicle.VehiclePictureUrl;
         newSession.VisitorVehicleId = vehicle.Id;
         newSession.Visitor = visitor;
         newSession.VisitorVehicle = vehicle;
-        newSession.LicenseVerifiedBy = request.GuardUserId;
-        newSession.LicenseVerifiedAt = DateTime.UtcNow;
+        newSession.LicenseVerifiedBy = isEBike ? null : request.GuardUserId;
+        newSession.LicenseVerifiedAt = isEBike ? null : DateTime.UtcNow;
         try { await _visitorRepository.SaveEntryAsync(visitor, vehicle, newSession, !isReturning, newVehicle, cancellationToken); }
         catch (ParkingCapacityException e) { return Result<VisitorEntryResponse>.Failure(e.Message, ErrorCode.Conflict); }
 

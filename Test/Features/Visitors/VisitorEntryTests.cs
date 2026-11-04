@@ -180,6 +180,32 @@ public partial class VisitorEntryTests
         Assert.False((await handler.Handle(new("ABC123", GuardUserId), default)).IsSuccess);
     }
 
+    [Fact]
+    public async Task EBikeVisitorEntry_DoesNotRequireLicenseOrPlate()
+    {
+        var visitors = new VisitorRepositoryFake();
+        var vehicles = new FakeVehicleRepository();
+        var handler = CreateHandler(visitors, vehicles);
+        var request = new CreateVisitorEntryCommand(
+            PlateNumber: "",
+            FullName: "EBike Visitor",
+            ContactNumber: "09171234567",
+            VehicleType: VehicleType.ElectricBike,
+            Brand: "Fiido",
+            GuardUserId: GuardUserId,
+            License: null,
+            ProfilePhoto: Image(),
+            VehiclePhoto: Image(),
+            LicenseVerified: false
+        );
+        var result = await handler.Handle(request, CancellationToken.None);
+        Assert.True(result.IsSuccess);
+        Assert.StartsWith("EB-", result.Data!.PlateNumber);
+        Assert.Equal("Fiido", result.Data.Brand);
+        Assert.Null(visitors.Sessions.Single().DriversLicenseUrl);
+        Assert.NotNull(visitors.Sessions.Single().VehiclePictureUrl);
+    }
+
 
 
     [Fact]
