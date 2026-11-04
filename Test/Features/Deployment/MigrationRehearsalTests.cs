@@ -140,8 +140,8 @@ public class MigrationRehearsalTests(ITestOutputHelper output)
         Assert.Equal(3, await db.VisitSessions.CountAsync(s => s.VisitorVehicleId == s.VisitorId));
         Assert.Equal(1, await db.VisitSessions.CountAsync(s => s.Status == ParkFlow.Domain.Entities.VisitSessionStatus.Inside));
         var historyAfter = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(historyBefore, historyAfter[..^6]);
-        Assert.Equal(new[] { "20261027202102_RetireFinancialContractsPreserveHistory", "20261028094839_SeparateVisitorVehicles", "20261028134540_EnforceVehiclePlateOwnership", "20261028140506_EnsureCorDocumentColumns", "20261029055626_RestoreFinancialContractsZeroRates", "20261029061227_AddEmployeeScheduleDocument" }, historyAfter[^6..]);
+        Assert.Equal(historyBefore, historyAfter[..^7]);
+        Assert.Equal(new[] { "20261027202102_RetireFinancialContractsPreserveHistory", "20261028094839_SeparateVisitorVehicles", "20261028134540_EnforceVehiclePlateOwnership", "20261028140506_EnsureCorDocumentColumns", "20261029055626_RestoreFinancialContractsZeroRates", "20261029061227_AddEmployeeScheduleDocument", "20261103164935_AllowElectricBikeNullPlateAndUpdateTrigger" }, historyAfter[^7..]);
         async Task Reject(string sql, string state)
         {
             var error = await Assert.ThrowsAsync<PostgresException>(() => Execute(sql)); Assert.Equal(state, error.SqlState);
@@ -151,6 +151,6 @@ public class MigrationRehearsalTests(ITestOutputHelper output)
         await Reject($$"""INSERT INTO "VisitSessions" ("VisitorId","VisitorVehicleId","EntryTime","Status","CreatedAt") VALUES ('{{v1}}','{{v1}}',now(),0,now())""", PostgresErrorCodes.UniqueViolation);
         await DatabaseStartupCheck.EnsureReadyAsync(db);
         Assert.False(db.Database.HasPendingModelChanges());
-        output.WriteLine($"Schema retained for evidence: {target.SearchPath}; migration history +6, visitor vehicles +2, all original columns retained.");
+        output.WriteLine($"Schema retained for evidence: {target.SearchPath}; migration history +7, visitor vehicles +2, all original columns retained.");
     }
 }

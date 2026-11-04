@@ -15,7 +15,8 @@ var builder = WebApplication.CreateBuilder(args.Where(arg => arg != "--check-dat
 if (!string.IsNullOrWhiteSpace(builder.Configuration["Release:PublicApiUrl"])) ReleaseConfiguration.Validate(builder.Configuration, builder.Environment);
 builder.Services.Configure<ForwardedHeadersOptions>(options => ReleaseConfiguration.ConfigureProxy(options, builder.Configuration));
 
-builder.WebHost.UseUrls("http://0.0.0.0:5000");
+var configuredUrls = builder.Configuration["ASPNETCORE_URLS"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+builder.WebHost.UseUrls(string.IsNullOrWhiteSpace(configuredUrls) ? "http://0.0.0.0:5000;http://0.0.0.0:5044" : configuredUrls);
 
 // Add services to the container.
 
