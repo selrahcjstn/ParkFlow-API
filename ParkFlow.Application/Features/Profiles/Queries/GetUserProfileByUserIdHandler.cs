@@ -33,9 +33,11 @@ public class GetUserProfileByUserIdHandler : IRequestHandler<GetUserProfileByUse
             return Result<UserProfileDto>.Failure("User profile not found.", ErrorCode.NotFound);
 
         var latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(profile.UserAccountId);
-        var corStatus = latestCor?.VerificationStatus ?? (profile.Admin != null || profile.Guard != null || profile.Personnel != null
+        var corStatus = (profile.Personnel != null && profile.UserAccount?.Status == AccountStatus.Active)
             ? CorVerificationStatus.Verified
-            : CorVerificationStatus.NotSubmitted);
+            : (latestCor?.VerificationStatus ?? (profile.Admin != null || profile.Guard != null || profile.Personnel != null
+                ? CorVerificationStatus.Verified
+                : CorVerificationStatus.NotSubmitted));
 
         string? rejectionReason = null;
         string? rejectedTarget = null;

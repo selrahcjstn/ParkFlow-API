@@ -189,6 +189,21 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         await db.SaveChangesAsync(ct);
         if (await db.UserProfiles.AnyAsync(p => p.UserAccountId == owner.Value && p.Student != null, ct))
             await EnqueueAsync(VerificationType.Account, owner.Value, ct);
+        if (status == VerificationState.Approved && await db.Personnel.AnyAsync(p => p.UserProfile.UserAccountId == owner.Value, ct))
+        {
+            var accountRecord = await db.VerificationRecords.FirstOrDefaultAsync(r => r.UserAccountId == owner.Value && r.Type == VerificationType.Account && r.IsCurrent, ct);
+            if (accountRecord != null && accountRecord.Status != VerificationState.Approved)
+            {
+                SetDecision(accountRecord, new(VerificationState.Approved, "Personnel identity approved by vehicle review."), VerificationMethod.Manual, actor);
+                await Apply(accountRecord, ct);
+            }
+            var corRecord = await db.VerificationRecords.FirstOrDefaultAsync(r => r.UserAccountId == owner.Value && r.Type == VerificationType.Cor && r.IsCurrent, ct);
+            if (corRecord != null && corRecord.Status != VerificationState.Approved)
+            {
+                SetDecision(corRecord, new(VerificationState.Approved, "Personnel employee ID approved by vehicle review."), VerificationMethod.Manual, actor);
+                await Apply(corRecord, ct);
+            }
+        }
         await RefreshPersonnelStatusAsync(owner.Value, ct);
         return true;
     }, ct);
@@ -557,8 +572,14 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         await db.SaveChangesAsync(ct);
         var user = await db.UserAccounts.FindAsync([userId], ct);
         if (user == null || user.Status == AccountStatus.Suspended) return;
-        var identity = await db.VerificationRecords.AnyAsync(r => r.UserAccountId == userId && r.Type == VerificationType.Account && r.IsCurrent && r.Status == VerificationState.Approved, ct);
-        var schedule = await db.CorSubmissions.AnyAsync(c => c.UserAccountId == userId && c.VerificationStatus == CorVerificationStatus.Verified && c.ScheduleVerificationStatus == CorVerificationStatus.Verified &&
+        var identity = await db.VerificationRecords.AnyAsync(r => r.UserAccountId == userId && r.Type == VerificationType.Account && r.IsCurrent && r.Status == VerificationState.Approved, ct)
+            || (await db.UserAccounts.Include(u => u.AuthIdentities).Include(u => u.UserProfile).ThenInclude(p => p!.Personnel).FirstOrDefaultAsync(u => u.Id == userId, ct) is { } u
+                && u.AuthIdentities.Any(i => i.IsVerified) && !string.IsNullOrWhiteSpace(u.UserProfile?.Personnel?.IdCardNumber)
+                && !await db.VerificationRecords.AnyAsync(r => r.UserAccountId == userId && r.Type == VerificationType.Account && r.IsCurrent && r.Status == VerificationState.Rejected, ct));
+        var requiresSchedule = await db.CorSubmissions.AnyAsync(c => c.UserAccountId == userId &&
+            (!string.IsNullOrWhiteSpace(c.EmployeeScheduleDocumentUrl) ||
+             db.VerificationRecords.Any(r => r.Type == VerificationType.Schedule && r.SubjectId == c.Id && r.IsCurrent)), ct);
+        var schedule = !requiresSchedule || await db.CorSubmissions.AnyAsync(c => c.UserAccountId == userId && c.VerificationStatus == CorVerificationStatus.Verified && c.ScheduleVerificationStatus == CorVerificationStatus.Verified &&
             db.VerificationRecords.Any(r => r.Type == VerificationType.Schedule && r.SubjectId == c.Id && r.IsCurrent && r.Status == VerificationState.Approved), ct);
         var vehicle = await db.Vehicles.AnyAsync(v => v.OwnerId == userId && v.VerificationStatus == CorVerificationStatus.Verified &&
             (v.VehicleType == VehicleType.ElectricBike || !string.IsNullOrWhiteSpace(v.OrcrDocumentUrl)) && !string.IsNullOrWhiteSpace(v.VehiclePictureUrl), ct);
