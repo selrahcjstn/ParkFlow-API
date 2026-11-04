@@ -39,6 +39,16 @@ public class FakeUserProfileRepository : IUserProfileRepository
         }
         return Task.CompletedTask;
     }
+
+    public Task<List<UserProfile>> SearchByNameOrPhoneAsync(string query, int limit = 5)
+    {
+        var term = query.Trim().ToLower();
+        return Task.FromResult(Profiles.Where(p =>
+            $"{p.FirstName} {p.LastName}".ToLower().Contains(term) ||
+            p.FirstName.ToLower().Contains(term) ||
+            p.LastName.ToLower().Contains(term)
+        ).Take(limit).ToList());
+    }
 }
 
 public class FakeStudentRepository : IStudentRepository

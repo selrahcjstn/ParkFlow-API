@@ -274,8 +274,17 @@ public partial class VisitorEntryTests
         public Task<Visitor?> GetWithSessionsByPlateNumberAsync(string plate) => throw new NotImplementedException();
         public Task<VisitSession?> GetActiveVisitSessionByPlateNumberAsync(string plate) => throw new NotImplementedException();
         public Task<VisitSession?> GetVisitSessionByIdAsync(Guid id) => throw new NotImplementedException();
-        public Task<int> GetActiveVisitSessionCountAsync() => throw new NotImplementedException();
-        public Task<(IEnumerable<VisitorDto> Items, int TotalCount)> GetPagedVisitorsAsync(int page, int size, string? search, bool? onlyInside = null) =>
-            throw new NotImplementedException();
+        public Task<int> GetActiveVisitSessionCountAsync() => Task.FromResult(Sessions.Count(s => s.Status == VisitSessionStatus.Inside));
+        public Task<(IEnumerable<VisitorDto> Items, int TotalCount)> GetPagedVisitorsAsync(int page, int size, string? search, bool? onlyInside = null)
+        {
+            var list = Visitors.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                list = list.Where(v => v.FullName.ToLower().Contains(term) || (v.ContactNumber != null && v.ContactNumber.Contains(term)));
+            }
+            var items = list.Select(v => new VisitorDto(v.Id, v.FullName, v.PlateNumber, v.Brand, (int)v.VehicleType, v.ContactNumber, null, 0, false, [])).ToList();
+            return Task.FromResult(((IEnumerable<VisitorDto>)items, items.Count));
+        }
     }
 }

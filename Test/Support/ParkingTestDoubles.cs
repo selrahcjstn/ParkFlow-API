@@ -48,6 +48,15 @@ public class FakeUserProfileRepository : IUserProfileRepository
     public Task<UserProfile?> GetByIdAsync(Guid id) => Task.FromResult(Profiles.FirstOrDefault(p => p.Id == id));
     public Task<UserProfile?> GetByUserIdAsync(Guid userId) => Task.FromResult(Profiles.FirstOrDefault(p => p.UserAccountId == userId));
     public Task UpdateAsync(UserProfile userProfile) => Task.CompletedTask;
+    public Task<List<UserProfile>> SearchByNameOrPhoneAsync(string query, int limit = 5)
+    {
+        var term = query.Trim().ToLower();
+        return Task.FromResult(Profiles.Where(p =>
+            $"{p.FirstName} {p.LastName}".ToLower().Contains(term) ||
+            p.FirstName.ToLower().Contains(term) ||
+            p.LastName.ToLower().Contains(term)
+        ).Take(limit).ToList());
+    }
 }
 
 public class FakeGuardRepository : IGuardRepository
@@ -130,22 +139,28 @@ public class FakeParkingScheduleRepository : IParkingScheduleRepository
 
 public class FakeStudentRepository : IStudentRepository
 {
-    public Task<Student?> GetByUserProfileIdAsync(Guid userProfileId) => Task.FromResult<Student?>(null);
-    public Task AddAsync(Student student) => Task.CompletedTask;
+    public List<Student> Students { get; } = new();
+    public Task<Student?> GetByUserProfileIdAsync(Guid userProfileId) => Task.FromResult(Students.FirstOrDefault(s => s.UserProfileId == userProfileId));
+    public Task AddAsync(Student student) { Students.Add(student); return Task.CompletedTask; }
     public Task UpdateAsync(Student student) => Task.CompletedTask;
-    public Task DeleteAsync(Student student) => Task.CompletedTask;
-    public Task<Student?> GetByStudentNumberAsync(string studentNumber, Guid? excludeProfileId = null) => Task.FromResult<Student?>(null);
-    public Task<bool> StudentNumberExistsAsync(string studentNumber, Guid? excludeProfileId = null) => Task.FromResult(false);
+    public Task DeleteAsync(Student student) { Students.Remove(student); return Task.CompletedTask; }
+    public Task<Student?> GetByStudentNumberAsync(string studentNumber, Guid? excludeProfileId = null) =>
+        Task.FromResult(Students.FirstOrDefault(s => s.UserProfileId != excludeProfileId && Student.NormalizeNumber(s.StudentNumber) == Student.NormalizeNumber(studentNumber)));
+    public Task<bool> StudentNumberExistsAsync(string studentNumber, Guid? excludeProfileId = null) =>
+        Task.FromResult(Students.Any(s => s.UserProfileId != excludeProfileId && Student.NormalizeNumber(s.StudentNumber) == Student.NormalizeNumber(studentNumber)));
 }
 
 public class FakePersonnelRepository : IPersonnelRepository
 {
-    public Task<Personnel?> GetByUserProfileIdAsync(Guid userProfileId) => Task.FromResult<Personnel?>(null);
-    public Task AddAsync(Personnel personnel) => Task.CompletedTask;
+    public List<Personnel> PersonnelList { get; } = new();
+    public Task<Personnel?> GetByUserProfileIdAsync(Guid userProfileId) => Task.FromResult(PersonnelList.FirstOrDefault(p => p.UserProfileId == userProfileId));
+    public Task AddAsync(Personnel personnel) { PersonnelList.Add(personnel); return Task.CompletedTask; }
     public Task UpdateAsync(Personnel personnel) => Task.CompletedTask;
-    public Task DeleteAsync(Personnel personnel) => Task.CompletedTask;
-    public Task<Personnel?> GetByIdCardNumberAsync(string idCardNumber, Guid? excludeProfileId = null) => Task.FromResult<Personnel?>(null);
-    public Task<bool> IdCardNumberExistsAsync(string idCardNumber, Guid? excludeProfileId = null) => Task.FromResult(false);
+    public Task DeleteAsync(Personnel personnel) { PersonnelList.Remove(personnel); return Task.CompletedTask; }
+    public Task<Personnel?> GetByIdCardNumberAsync(string idCardNumber, Guid? excludeProfileId = null) =>
+        Task.FromResult(PersonnelList.FirstOrDefault(p => p.UserProfileId != excludeProfileId && Personnel.NormalizeId(p.IdCardNumber) == Personnel.NormalizeId(idCardNumber)));
+    public Task<bool> IdCardNumberExistsAsync(string idCardNumber, Guid? excludeProfileId = null) =>
+        Task.FromResult(PersonnelList.Any(p => p.UserProfileId != excludeProfileId && Personnel.NormalizeId(p.IdCardNumber) == Personnel.NormalizeId(idCardNumber)));
 }
 
 public class FakeParkingService : IParkingService

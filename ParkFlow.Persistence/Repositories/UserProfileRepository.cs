@@ -63,4 +63,29 @@ public class UserProfileRepository : IUserProfileRepository
             await _appDbContext.SaveChangesAsync();
         });
     }
+
+    public async Task<List<UserProfile>> SearchByNameOrPhoneAsync(string query, int limit = 5)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return [];
+        var term = query.Trim().ToLower();
+        return await _appDbContext.UserProfiles
+            .Include(p => p.UserAccount)
+                .ThenInclude(u => u.AuthIdentities)
+            .Include(p => p.Student)
+            .Include(p => p.Personnel)
+            .Include(p => p.Guard)
+            .Include(p => p.Admin)
+            .AsNoTracking()
+            .Where(p =>
+                (p.FirstName.ToLower() + " " + p.LastName.ToLower()).Contains(term) ||
+                (p.LastName.ToLower() + " " + p.FirstName.ToLower()).Contains(term) ||
+                p.FirstName.ToLower().Contains(term) ||
+                p.LastName.ToLower().Contains(term) ||
+                (p.UserAccount.PhoneNumber != null && p.UserAccount.PhoneNumber.Contains(term)) ||
+                (p.Student != null && p.Student.StudentNumber.Contains(term)) ||
+                (p.Personnel != null && p.Personnel.IdCardNumber.Contains(term)))
+            .Take(limit)
+            .ToListAsync();
+    }
 }
+

@@ -6,4 +6,6 @@ public interface IUserProfileRepository
     Task<UserProfile?> GetByUserIdAsync(Guid userId);
     Task AddAsync(UserProfile profile);
     Task UpdateAsync(UserProfile profile);
+    Task<List<UserProfile>> SearchByNameOrPhoneAsync(string query, int limit = 5) => Task.FromResult(new List<UserProfile>());
 }
+

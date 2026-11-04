@@ -102,6 +102,60 @@ public partial class VisitorEntryTests
         var result = await handler.Handle(command, default);
         Assert.False(result.IsSuccess); Assert.Single(repo.Visitors); Assert.Single(repo.Vehicles); Assert.Single(repo.Sessions);
     }
+
+    [Fact]
+    public async Task ManualLookupSearchesByStudentNumberEmployeeIdAndName()
+    {
+        var vehicles = new FakeVehicleRepository();
+        var visitors = new VisitorRepositoryFake();
+        var profiles = new FakeUserProfileRepository();
+        var students = new FakeStudentRepository();
+        var personnel = new FakePersonnelRepository();
+        var admins = new Test.Features.ParkingLogs.FakeAdminRepository();
+        var logs = new FakeParkingLogRepository();
+
+        var studentUserId = Guid.NewGuid();
+        var studentProfile = new UserProfile(studentUserId, "Maria", "Santos", null, "09171234567");
+        profiles.Profiles.Add(studentProfile);
+        var student = new Student(studentProfile.Id, "2023101234", "BSIT", "4A", 4);
+        typeof(Student).GetProperty("UserProfile")?.SetValue(student, studentProfile);
+        await students.AddAsync(student);
+        var studentVehicle = new Vehicle(studentUserId, "ABC1111", "Yamaha", "qr-1", VehicleType.Motorcycle);
+        studentVehicle.UpdateVerificationStatus(CorVerificationStatus.Verified);
+        await vehicles.AddAsync(studentVehicle);
+
+        var personnelUserId = Guid.NewGuid();
+        var personnelProfile = new UserProfile(personnelUserId, "Prof", "Reyes", null, "09189876543");
+        profiles.Profiles.Add(personnelProfile);
+        var teacher = new Personnel(personnelProfile.Id, "EMP-9999", "IT Dept", Roles.UniversityStaff);
+        typeof(Personnel).GetProperty("UserProfile")?.SetValue(teacher, personnelProfile);
+        await personnel.AddAsync(teacher);
+        var teacherVehicle = new Vehicle(personnelUserId, "XYZ2222", "Toyota", "qr-2", VehicleType.Car);
+        teacherVehicle.UpdateVerificationStatus(CorVerificationStatus.Verified);
+        await vehicles.AddAsync(teacherVehicle);
+
+        var handler = new GetPlateLookupHandler(vehicles, visitors, profiles, students, personnel, admins, logs);
+
+        // Lookup by Student Number
+        var studentLookup = await handler.Handle(new("2023-101234"), default);
+        Assert.True(studentLookup.IsSuccess);
+        Assert.True(studentLookup.Data!.IsRegistered);
+        Assert.Equal("ABC1111", studentLookup.Data.PlateNumber);
+        Assert.Equal("Maria Santos", studentLookup.Data.OwnerName);
+
+        // Lookup by Employee ID
+        var employeeLookup = await handler.Handle(new("EMP-9999"), default);
+        Assert.True(employeeLookup.IsSuccess);
+        Assert.True(employeeLookup.Data!.IsRegistered);
+        Assert.Equal("XYZ2222", employeeLookup.Data.PlateNumber);
+        Assert.Equal("Prof Reyes", employeeLookup.Data.OwnerName);
+
+        // Lookup by Name
+        var nameLookup = await handler.Handle(new("Santos"), default);
+        Assert.True(nameLookup.IsSuccess);
+        Assert.True(nameLookup.Data!.IsRegistered);
+        Assert.Equal("ABC1111", nameLookup.Data.PlateNumber);
+    }
 }
 
 public class VisitorVehicleMigrationTests
@@ -146,3 +200,4 @@ public class VisitorVehicleMigrationTests
         Assert.Contains(sessions.GetForeignKeys(), k => k.PrincipalEntityType.ClrType == typeof(VisitorVehicle) && k.Properties.Count == 2);
     }
 }
+

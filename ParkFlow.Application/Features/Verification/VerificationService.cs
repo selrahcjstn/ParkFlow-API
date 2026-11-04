@@ -42,7 +42,7 @@ public class VerificationService(IVerificationStore store, ICorDocumentReader re
             if (subject.VehicleType == ParkFlow.Domain.Enums.VehicleType.ElectricBike)
             {
                 if (string.IsNullOrWhiteSpace(subject.Brand)) issues.Add("Vehicle brand is required.");
-                if (!subject.OwnershipDocumentsPresent) issues.Add("Upload vehicle photo, driver’s license and profile photo for review.");
+                if (!subject.OwnershipDocumentsPresent) issues.Add("Upload vehicle photo and profile photo for review.");
             }
             else
             {

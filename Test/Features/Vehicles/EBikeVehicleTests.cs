@@ -307,10 +307,10 @@ public class EBikeVehicleTests
         var issues = VerificationService.MandatoryChecks(ebikeSubject, policy);
         Assert.Empty(issues);
 
-        // However, if ownership documents (photo, license, profile picture) are missing, E-bike requires them
+        // However, if ownership documents (photo, profile picture) are missing, E-bike requires them
         var missingDocsSubject = ebikeSubject with { OwnershipDocumentsPresent = false };
         var missingIssues = VerificationService.MandatoryChecks(missingDocsSubject, policy);
-        Assert.Contains(missingIssues, i => i.Contains("Upload vehicle photo, driver’s license and profile photo for review"));
+        Assert.Contains(missingIssues, i => i.Contains("Upload vehicle photo and profile photo for review"));
         Assert.DoesNotContain(missingIssues, i => i.Contains("OR/CR")); // OR/CR is not demanded for E-bike
     }
 

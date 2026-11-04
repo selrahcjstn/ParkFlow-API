@@ -123,7 +123,17 @@ public class CompleteRegistrationHandler(IRegistrationWriter writer, IPasswordHa
         var missingDocs = string.IsNullOrWhiteSpace(request.CorUrl) || string.IsNullOrWhiteSpace(request.MotorUrl) ||
             (d.VehicleType != VehicleType.ElectricBike && string.IsNullOrWhiteSpace(request.OrcrUrl));
         if (missingDocs) errors.Add("All registration documents are required.");
-        if (string.IsNullOrWhiteSpace(request.LicenseUrl) || string.IsNullOrWhiteSpace(request.ProfilePhotoUrl)) errors.Add("Your driver’s license and profile photo are required.");
+        if (d.VehicleType != VehicleType.ElectricBike)
+        {
+            if (string.IsNullOrWhiteSpace(request.LicenseUrl) || string.IsNullOrWhiteSpace(request.ProfilePhotoUrl))
+                errors.Add("Your driver’s license and profile photo are required.");
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(request.ProfilePhotoUrl))
+                errors.Add("Your profile photo is required.");
+        }
         return errors;
     }
 }
+

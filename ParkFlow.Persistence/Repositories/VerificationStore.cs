@@ -182,7 +182,8 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         if (vehicle == null) return false;
         await db.Entry(vehicle).ReloadAsync(ct);
         var driver = await db.UserProfiles.SingleAsync(p => p.UserAccountId == owner.Value, ct);
-        if (status == VerificationState.Approved && (string.IsNullOrWhiteSpace(driver.DriversLicenseUrl) || string.IsNullOrWhiteSpace(driver.ProfilePictureUrl))) return false;
+        var requiresLicense = vehicle.VehicleType != VehicleType.ElectricBike;
+        if (status == VerificationState.Approved && ((requiresLicense && string.IsNullOrWhiteSpace(driver.DriversLicenseUrl)) || string.IsNullOrWhiteSpace(driver.ProfilePictureUrl))) return false;
         if (status == VerificationState.Approved || driver.LicenseStatus != CorVerificationStatus.Verified)
             driver.ReviewLicense(status == VerificationState.Approved, actor, reason);
         vehicle.UpdateVerificationStatus(status == VerificationState.Approved ? CorVerificationStatus.Verified : CorVerificationStatus.Rejected, reason);
@@ -319,7 +320,7 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
             ? await db.ParkingSchedules.AsNoTracking().Where(x => x.SubmissionId == id).OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartTime)
                 .Select(x => new VerificationSchedule(x.DayOfWeek, x.StartTime, x.EndTime)).ToListAsync(ct) : [];
         var ownershipDocsPresent = vehicle?.VehicleType == VehicleType.ElectricBike
-            ? ValidDocument(vehicle?.VehiclePictureUrl) && ValidDocument(profile?.DriversLicenseUrl) && ValidDocument(profile?.ProfilePictureUrl)
+            ? ValidDocument(vehicle?.VehiclePictureUrl) && ValidDocument(profile?.ProfilePictureUrl)
             : ValidDocument(vehicle?.OrcrDocumentUrl) && ValidDocument(vehicle?.VehiclePictureUrl) && ValidDocument(profile?.DriversLicenseUrl) && ValidDocument(profile?.ProfilePictureUrl);
         var subject = new VerificationSubject(id, ownerId, type, "", user.AuthIdentities.Any(x => x.IsVerified), duplicate,
             identifier, profile?.FirstName ?? "", profile?.LastName ?? "", profile?.Student?.Course, profile?.Personnel != null,
@@ -365,7 +366,10 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
                 {
                     var approvedVehicle = await db.Vehicles.AnyAsync(v => v.OwnerId == id && v.VerificationStatus == CorVerificationStatus.Verified &&
                         (v.VehicleType == VehicleType.ElectricBike || !string.IsNullOrWhiteSpace(v.OrcrDocumentUrl)) && !string.IsNullOrWhiteSpace(v.VehiclePictureUrl), ct);
-                    var driverReady = await db.UserProfiles.AnyAsync(p => p.UserAccountId == id && p.LicenseStatus == CorVerificationStatus.Verified && p.DriversLicenseUrl != null && p.ProfilePictureUrl != null, ct);
+                    var isEBikeOnly = await db.Vehicles.AnyAsync(v => v.OwnerId == id && v.VehicleType == VehicleType.ElectricBike, ct) &&
+                        !await db.Vehicles.AnyAsync(v => v.OwnerId == id && v.VehicleType != VehicleType.ElectricBike, ct);
+                    var driverReady = await db.UserProfiles.AnyAsync(p => p.UserAccountId == id &&
+                        ((isEBikeOnly && p.ProfilePictureUrl != null) || (p.LicenseStatus == CorVerificationStatus.Verified && p.DriversLicenseUrl != null && p.ProfilePictureUrl != null)), ct);
                     account.UpdateStatus(VerificationService.StudentAccountStatus(subject, await GetPolicyAsync(ct), approvedVehicle, driverReady));
                     await db.SaveChangesAsync(ct);
                 }
@@ -583,7 +587,10 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
             db.VerificationRecords.Any(r => r.Type == VerificationType.Schedule && r.SubjectId == c.Id && r.IsCurrent && r.Status == VerificationState.Approved), ct);
         var vehicle = await db.Vehicles.AnyAsync(v => v.OwnerId == userId && v.VerificationStatus == CorVerificationStatus.Verified &&
             (v.VehicleType == VehicleType.ElectricBike || !string.IsNullOrWhiteSpace(v.OrcrDocumentUrl)) && !string.IsNullOrWhiteSpace(v.VehiclePictureUrl), ct);
-        var driver = await db.UserProfiles.AnyAsync(p => p.UserAccountId == userId && p.LicenseStatus == CorVerificationStatus.Verified && p.DriversLicenseUrl != null && p.ProfilePictureUrl != null, ct);
+        var isEBikeOnly = await db.Vehicles.AnyAsync(v => v.OwnerId == userId && v.VehicleType == VehicleType.ElectricBike, ct) &&
+            !await db.Vehicles.AnyAsync(v => v.OwnerId == userId && v.VehicleType != VehicleType.ElectricBike, ct);
+        var driver = await db.UserProfiles.AnyAsync(p => p.UserAccountId == userId &&
+            ((isEBikeOnly && p.ProfilePictureUrl != null) || (p.LicenseStatus == CorVerificationStatus.Verified && p.DriversLicenseUrl != null && p.ProfilePictureUrl != null)), ct);
         user.UpdateStatus(identity && schedule && vehicle && driver ? AccountStatus.Active : AccountStatus.PendingVerification);
         await db.SaveChangesAsync(ct);
     }
