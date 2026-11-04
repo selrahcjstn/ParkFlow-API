@@ -136,7 +136,7 @@ public sealed class RegistrationDraftService(IServiceScopeFactory scopes, ILogge
             finally { job.Draft.Gate.Release(); }
         }
     }
-    public async Task<Result<string>> CompleteAsync(string token, RegistrationDetails details, IFormFile? cor, IFormFile orcr, IFormFile motor, IFormFile license, IFormFile profilePhoto, CancellationToken ct)
+    public async Task<Result<string>> CompleteAsync(string token, RegistrationDetails details, IFormFile? cor, IFormFile? orcr, IFormFile motor, IFormFile? license, IFormFile profilePhoto, CancellationToken ct)
     {
         var draft = Get(token); await draft.Gate.WaitAsync(ct);
         try
@@ -146,14 +146,15 @@ public sealed class RegistrationDraftService(IServiceScopeFactory scopes, ILogge
             var services = scope.ServiceProvider;
             using var corStream = details.Role == Roles.Student && draft.Bytes != null ? new MemoryStream(draft.Bytes, writable: false) : null;
             var corFile = corStream == null ? cor : new FormFile(corStream, 0, corStream.Length, "cor", draft.FileName);
-            if (corFile == null || orcr == null || motor == null || license == null || profilePhoto == null) throw new DocumentValidationException("All registration documents are required.");
+            var isEBike = details.VehicleType == ParkFlow.Domain.Enums.VehicleType.ElectricBike;
+            if (corFile == null || (!isEBike && orcr == null) || motor == null || (!isEBike && license == null) || profilePhoto == null) throw new DocumentValidationException("All registration documents are required.");
             var command = new CompleteRegistration(draft.Id, details, draft.Email, "staged", "staged", "staged", draft.Fields, "staged", "staged");
             var errors = await CompleteRegistrationHandler.ValidateAsync(command, ct);
             if (errors.Count > 0) return Result<string>.Failure(string.Join(" ", errors.Distinct()), ErrorCode.BadRequest);
             await ValidateFileAsync(corFile, "cor", services, ct);
-            await ValidateFileAsync(orcr, "orcr", services, ct);
+            if (!isEBike && orcr != null) await ValidateFileAsync(orcr, "orcr", services, ct);
             await ValidateFileAsync(motor, "motor", services, ct);
-            await ValidateFileAsync(license, "orcr", services, ct);
+            if (!isEBike && license != null) await ValidateFileAsync(license, "orcr", services, ct);
             await ValidateFileAsync(profilePhoto, "motor", services, ct);
             var cloud = services.GetRequiredService<ICloudinaryService>();
             async Task<string> Upload(IFormFile file, string folder)
@@ -167,11 +168,11 @@ public sealed class RegistrationDraftService(IServiceScopeFactory scopes, ILogge
                 return uploaded.SecureUrl;
             }
             var corUrl = await Upload(corFile, "parkflow/cor");
-            var orcrUrl = await Upload(orcr, "parkflow/orcr");
+            var orcrUrl = !isEBike && orcr != null ? await Upload(orcr, "parkflow/orcr") : null;
             var motorUrl = await Upload(motor, "parkflow/motor-pictures");
-            var licenseUrl = await Upload(license, "parkflow/licenses");
+            var licenseUrl = !isEBike && license != null ? await Upload(license, "parkflow/licenses") : null;
             var profilePhotoUrl = await Upload(profilePhoto, "parkflow/profile-pictures");
-            var result = await services.GetRequiredService<IMediator>().Send(command with { CorUrl = corUrl, OrcrUrl = orcrUrl, MotorUrl = motorUrl, LicenseUrl = licenseUrl, ProfilePhotoUrl = profilePhotoUrl }, ct);
+            var result = await services.GetRequiredService<IMediator>().Send(command with { CorUrl = corUrl, OrcrUrl = orcrUrl ?? "", MotorUrl = motorUrl, LicenseUrl = licenseUrl ?? "", ProfilePhotoUrl = profilePhotoUrl }, ct);
             if (result.IsSuccess)
             {
                 draft.Bytes = null; draft.Fields = null; draft.Preview = null; draft.FileName = "";

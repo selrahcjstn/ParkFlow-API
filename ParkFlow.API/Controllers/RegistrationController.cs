@@ -28,7 +28,7 @@ public class RegistrationController(IRegistrationDraftService drafts) : Controll
     public Task<ActionResult<Result<CorSchedulePreview>>> Fetch(FetchRequest request, CancellationToken ct) =>
         Run(async () => Result<CorSchedulePreview>.Success(await drafts.FetchAsync(Token, request.RecordId, request.Version, ct)));
     [HttpPost("complete"), RequestSizeLimit(29 * 1024 * 1024)]
-    public Task<ActionResult<Result<string>>> Complete([FromForm] string details, IFormFile? cor, IFormFile orcr, IFormFile motor, IFormFile license, IFormFile profilePhoto, CancellationToken ct) =>
+    public Task<ActionResult<Result<string>>> Complete([FromForm] string details, IFormFile? cor, IFormFile? orcr, IFormFile motor, IFormFile? license, IFormFile profilePhoto, CancellationToken ct) =>
         Run(async () =>
         {
             RegistrationDetails? data;
