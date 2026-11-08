@@ -219,21 +219,38 @@ public sealed class RegistrationDraftService(IServiceScopeFactory scopes, ILogge
     {
         if (upload.Url.StartsWith("private-uploads/parkflow/licenses/", StringComparison.Ordinal))
         {
-            var licenseRoot = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "App_Data", "private-uploads", "parkflow", "licenses")) + Path.DirectorySeparatorChar;
-            var licensePath = Path.GetFullPath(Path.Combine(licenseRoot, Path.GetFileName(upload.Url)));
-            if (licensePath.StartsWith(licenseRoot, StringComparison.OrdinalIgnoreCase))
-                try { File.Delete(licensePath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            var fileName = Path.GetFileName(upload.Url);
+            var candidates = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "App_Data", "private-uploads", "parkflow", "licenses", fileName),
+                Path.Combine(Directory.GetCurrentDirectory(), "App_Data", "private-uploads", "parkflow", "licenses", fileName),
+                Path.Combine(Path.GetTempPath(), "parkflow", "App_Data", "private-uploads", "parkflow", "licenses", fileName)
+            };
+            foreach (var candidate in candidates)
+            {
+                try { if (File.Exists(candidate)) File.Delete(candidate); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            }
             return;
         }
         if (!upload.Url.StartsWith("uploads/parkflow/", StringComparison.Ordinal))
         { await cloud.DeleteFileAsync(upload.PublicId, upload.IsImage); return; }
         // Only delete the exact server-generated file inside the local upload root.
-        var root = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "parkflow")) + Path.DirectorySeparatorChar;
-        var path = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", upload.Url.Replace('/', Path.DirectorySeparatorChar)));
-        if (path.StartsWith(root, StringComparison.OrdinalIgnoreCase))
-            try { File.Delete(path); }
-            catch (IOException) { /* Best-effort storage compensation. */ }
-            catch (UnauthorizedAccessException) { /* The transaction still rolled back. */ }
+        var relative = upload.Url.Replace('/', Path.DirectorySeparatorChar);
+        var roots = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "wwwroot"),
+            Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"),
+            Path.Combine(Path.GetTempPath(), "parkflow", "wwwroot")
+        };
+        foreach (var root in roots)
+        {
+            var allowedRoot = Path.GetFullPath(Path.Combine(root, "uploads", "parkflow")) + Path.DirectorySeparatorChar;
+            var path = Path.GetFullPath(Path.Combine(root, relative));
+            if (path.StartsWith(allowedRoot, StringComparison.OrdinalIgnoreCase))
+                try { if (File.Exists(path)) File.Delete(path); }
+                catch (IOException) { /* Best-effort storage compensation. */ }
+                catch (UnauthorizedAccessException) { /* The transaction still rolled back. */ }
+        }
     }
     public override void Dispose() { sessions.Dispose(); base.Dispose(); }
 }

@@ -38,7 +38,18 @@ public class CloudinaryService : ICloudinaryService
         if (file == null || file.Length == 0)
             throw new ArgumentException("File is empty or null.", nameof(file));
 
-        if (folder == "parkflow/licenses") return await SavePrivateLicenseAsync(file);
+        if (folder == "parkflow/licenses")
+        {
+            try
+            {
+                return await SavePrivateLicenseAsync(file);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CloudinaryService] Local license storage failed ({ex.Message}). Falling back to Cloudinary.");
+                if (!_isCloudinaryConfigured || _cloudinary == null) throw;
+            }
+        }
 
         if (_isCloudinaryConfigured && _cloudinary != null)
         {
@@ -73,7 +84,18 @@ public class CloudinaryService : ICloudinaryService
         if (file == null || file.Length == 0)
             throw new ArgumentException("File is empty or null.", nameof(file));
 
-        if (folder == "parkflow/licenses") return await SavePrivateLicenseAsync(file);
+        if (folder == "parkflow/licenses")
+        {
+            try
+            {
+                return await SavePrivateLicenseAsync(file);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CloudinaryService] Local license storage failed ({ex.Message}). Falling back to Cloudinary.");
+                if (!_isCloudinaryConfigured || _cloudinary == null) throw;
+            }
+        }
 
         if (_isCloudinaryConfigured && _cloudinary != null)
         {
@@ -103,11 +125,35 @@ public class CloudinaryService : ICloudinaryService
         return await SaveLocalFileAsync(file, folder);
     }
 
+    public static string GetPrivateLicenseDirectory()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "App_Data", "private-uploads", "parkflow", "licenses"),
+            Path.Combine(Directory.GetCurrentDirectory(), "App_Data", "private-uploads", "parkflow", "licenses"),
+            Path.Combine(Path.GetTempPath(), "parkflow", "App_Data", "private-uploads", "parkflow", "licenses")
+        };
+
+        foreach (var dir in candidates)
+        {
+            try
+            {
+                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                return dir;
+            }
+            catch (Exception)
+            {
+                // Try next directory candidate
+            }
+        }
+
+        return candidates[0];
+    }
+
     private static async Task<(string SecureUrl, string PublicId)> SavePrivateLicenseAsync(IFormFile file)
     {
         var name = Guid.NewGuid().ToString("N") + Path.GetExtension(file.FileName).ToLowerInvariant();
-        var directory = Path.Combine(Directory.GetCurrentDirectory(), "App_Data", "private-uploads", "parkflow", "licenses");
-        Directory.CreateDirectory(directory);
+        var directory = GetPrivateLicenseDirectory();
         await using var output = new FileStream(Path.Combine(directory, name), FileMode.CreateNew);
         await file.CopyToAsync(output);
         return ($"private-uploads/parkflow/licenses/{name}", name);
@@ -116,10 +162,23 @@ public class CloudinaryService : ICloudinaryService
     private async Task<(string SecureUrl, string PublicId)> SaveLocalFileAsync(IFormFile file, string folder)
     {
         var cleanFolder = folder.Replace('/', Path.DirectorySeparatorChar);
-        var uploadDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", cleanFolder);
-        if (!Directory.Exists(uploadDir))
+        var baseCandidates = new[]
         {
-            Directory.CreateDirectory(uploadDir);
+            Path.Combine(AppContext.BaseDirectory, "wwwroot", "uploads", cleanFolder),
+            Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", cleanFolder),
+            Path.Combine(Path.GetTempPath(), "parkflow", "wwwroot", "uploads", cleanFolder)
+        };
+
+        string uploadDir = baseCandidates[0];
+        foreach (var dir in baseCandidates)
+        {
+            try
+            {
+                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                uploadDir = dir;
+                break;
+            }
+            catch { }
         }
 
         var ext = Path.GetExtension(file.FileName);
@@ -206,8 +265,14 @@ public class CloudinaryService : ICloudinaryService
         {
             var name = fileUrlOrPublicId["private-uploads/parkflow/licenses/".Length..];
             if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-f0-9]{32}\.(pdf|jpg|jpeg|png)$")) return null;
-            var path = Path.Combine(Directory.GetCurrentDirectory(), "App_Data", "private-uploads", "parkflow", "licenses", name);
-            if (!File.Exists(path)) return null;
+            var candidates = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "App_Data", "private-uploads", "parkflow", "licenses", name),
+                Path.Combine(Directory.GetCurrentDirectory(), "App_Data", "private-uploads", "parkflow", "licenses", name),
+                Path.Combine(Path.GetTempPath(), "parkflow", "App_Data", "private-uploads", "parkflow", "licenses", name)
+            };
+            var path = candidates.FirstOrDefault(File.Exists);
+            if (path == null) return null;
             var type = Path.GetExtension(name) switch { ".pdf" => "application/pdf", ".png" => "image/png", _ => "image/jpeg" };
             return (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read), type, name);
         }
@@ -216,22 +281,32 @@ public class CloudinaryService : ICloudinaryService
         var trimmed = fileUrlOrPublicId.Trim().TrimStart('/');
         if (trimmed.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
         {
-            var publicRoot = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads")) + Path.DirectorySeparatorChar;
-            var localPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", trimmed.Replace('/', Path.DirectorySeparatorChar)));
-            if (!localPath.StartsWith(publicRoot, StringComparison.OrdinalIgnoreCase)) return null;
-            if (File.Exists(localPath))
+            var relative = trimmed.Replace('/', Path.DirectorySeparatorChar);
+            var roots = new[]
             {
-                var stream = new FileStream(localPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                var ext = Path.GetExtension(localPath).ToLowerInvariant();
-                var contentType = ext switch
+                Path.Combine(AppContext.BaseDirectory, "wwwroot"),
+                Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"),
+                Path.Combine(Path.GetTempPath(), "parkflow", "wwwroot")
+            };
+
+            foreach (var root in roots)
+            {
+                var localPath = Path.GetFullPath(Path.Combine(root, relative));
+                var allowedPrefix = Path.GetFullPath(Path.Combine(root, "uploads")) + Path.DirectorySeparatorChar;
+                if (localPath.StartsWith(allowedPrefix, StringComparison.OrdinalIgnoreCase) && File.Exists(localPath))
                 {
-                    ".pdf" => "application/pdf",
-                    ".png" => "image/png",
-                    ".jpg" or ".jpeg" => "image/jpeg",
-                    _ => "application/octet-stream"
-                };
-                var fileName = Path.GetFileName(localPath);
-                return (stream, contentType, fileName);
+                    var stream = new FileStream(localPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    var ext = Path.GetExtension(localPath).ToLowerInvariant();
+                    var contentType = ext switch
+                    {
+                        ".pdf" => "application/pdf",
+                        ".png" => "image/png",
+                        ".jpg" or ".jpeg" => "image/jpeg",
+                        _ => "application/octet-stream"
+                    };
+                    var fileName = Path.GetFileName(localPath);
+                    return (stream, contentType, fileName);
+                }
             }
         }
 

@@ -10,7 +10,7 @@ using ParkFlow.Domain.Enums;
 namespace ParkFlow.API.Controllers;
 
 [ApiController, AllowAnonymous, Route("api/registration")]
-public class RegistrationController(IRegistrationDraftService drafts) : ControllerBase
+public class RegistrationController(IRegistrationDraftService drafts, ILogger<RegistrationController>? logger = null) : ControllerBase
 {
     private string Token => Request.Headers["X-Registration-Token"].ToString();
     public record StartRequest(string Email, string EmailVerificationToken);
@@ -44,5 +44,10 @@ public class RegistrationController(IRegistrationDraftService drafts) : Controll
     {
         try { return this.ToActionResult(await action()); }
         catch (DocumentValidationException ex) { return BadRequest(Result<T>.Failure(ex.Message, ErrorCode.BadRequest)); }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Registration draft action failed.");
+            return StatusCode(500, Result<T>.Failure(ex.Message, ErrorCode.ServerError));
+        }
     }
 }
