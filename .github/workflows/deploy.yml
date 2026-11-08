@@ -34,7 +34,7 @@ jobs:
         script: |
           sudo systemctl stop parkflow || true
 
-    - name: Purge Stale Application Binaries
+    - name: Purge Stale Application Binaries and Free Disk Space
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.EC2_HOST }}
@@ -43,6 +43,11 @@ jobs:
         script: |
           mkdir -p /home/ubuntu/app/publish
           find /home/ubuntu/app/publish/ -maxdepth 1 -type f ! -name 'appsettings.Production.json' -delete
+          rm -rf /home/ubuntu/app/releases || true
+          sudo rm -rf /tmp/* /var/tmp/* || true
+          sudo journalctl --vacuum-size=50M || true
+          sudo apt-get clean || true
+          df -h
 
     - name: Deploy Fresh Binaries via SCP
       uses: appleboy/scp-action@v0.1.7
@@ -70,5 +75,4 @@ jobs:
           sudo systemctl restart parkflow
           sleep 3
           sudo systemctl is-active --quiet parkflow || (echo "Service failed to start! Recent logs:" && sudo journalctl -u parkflow -n 50 --no-pager && exit 1)
-          sudo systemctl status parkflow --no-pager -l
-          curl --fail --retry 10 --retry-connrefused --retry-delay 2 http://127.0.0.1:5000/swagger/index.html || (echo "Failed to query Swagger on port 5000! Recent logs:" && sudo journalctl -u parkflow -n 50 --no-pager && exit 1)
+          curl --fail --retry 10 --retry-connrefused --retry-delay 2 http://127.0.0.1:5000/swagger/v1/swagger.json || curl --fail --retry 5 --retry-connrefused --retry-delay 2 http://127.0.0.1:5000/swagger/index.html || (echo "Failed to query Swagger on port 5000! Recent logs:" && sudo journalctl -u parkflow -n 50 --no-pager && exit 1)
