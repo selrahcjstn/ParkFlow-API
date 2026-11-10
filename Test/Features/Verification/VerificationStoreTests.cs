@@ -401,6 +401,24 @@ public class VerificationStoreTests
     }
 
     [PostgresVerificationFact]
+    public async Task EBikeWithoutOrcrOrLicense_CanBeApprovedAndRejectedManually()
+    {
+        await using var fixture = await DatabaseFixture.Create(); var (user, _) = await fixture.Seed();
+        await using var db = fixture.Context(); var store = new VerificationStore(db); var vehicles = new VehicleRepository(db);
+        db.Add(new UserProfile(user.Id, "Juan", "Cruz", null, "uploads/profile.jpg")); await db.SaveChangesAsync();
+        var ebike = new Vehicle(user.Id, null, "TailG", "hash", VehicleType.ElectricBike, vehiclePictureUrl: "uploads/parkflow/motor-pictures/ebike.jpg");
+        await vehicles.AddAsync(ebike);
+        var source = (await store.GetSubjectAsync(VerificationType.Vehicle, ebike.Id, default))!;
+        Assert.Empty(VerificationService.MandatoryChecks(source, new VerificationPolicy()));
+        Assert.True(await store.ReviewVehicleManuallyAsync(ebike.Id, source.Fingerprint, VerificationState.Approved, "E-bike photo checked", Guid.NewGuid(), default));
+        Assert.Equal(CorVerificationStatus.Verified, (await db.Vehicles.AsNoTracking().SingleAsync()).VerificationStatus);
+        Assert.Null((await db.UserProfiles.AsNoTracking().SingleAsync()).DriversLicenseUrl);
+        Assert.True(await store.ReviewVehicleManuallyAsync(ebike.Id, source.Fingerprint, VerificationState.Rejected, "Photo unclear", Guid.NewGuid(), default));
+        var rejected = await db.Vehicles.AsNoTracking().SingleAsync();
+        Assert.Equal(CorVerificationStatus.Rejected, rejected.VerificationStatus); Assert.Equal("Photo unclear", rejected.RejectionReason);
+    }
+
+    [PostgresVerificationFact]
     public async Task OldVehicleJobsCannotProcessOrOverwriteManualReviewAndHistoryIsPreserved()
     {
         await using var fixture = await DatabaseFixture.Create(); var (user, _) = await fixture.Seed(driver: true);
