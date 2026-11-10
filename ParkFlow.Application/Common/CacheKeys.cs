@@ -13,6 +13,10 @@ public static class CacheKeys
 
     public static string DashboardSummary(int capacity) => $"{DashboardPrefix}summary:cap_{capacity}";
 
+    public static string DashboardOverview => $"{DashboardPrefix}overview";
+
+    public static string DashboardActivity(string range) => $"{DashboardPrefix}activity:{range}";
+
     public static string ActiveSessionCount(int capacity) => $"{SessionPrefix}count:cap_{capacity}";
 
     public static string ActiveSessions(int capacity) => $"{SessionPrefix}active:cap_{capacity}";

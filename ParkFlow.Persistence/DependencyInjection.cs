@@ -43,6 +43,7 @@ namespace ParkFlow.Persistence
             services.AddScoped<IViolationRepository, ViolationRepository>();
             services.AddScoped<IEmailOtpRepository, EmailOtpRepository>();
             services.AddScoped<IDashboardRepository, DashboardRepository>();
+            services.AddScoped<IDashboardAnalyticsRepository, DashboardAnalyticsRepository>();
             services.AddScoped<IParkingReservationRepository, ParkingReservationRepository>();
             services.AddScoped<IFeedbackRepository, FeedbackRepository>();
             services.AddScoped<ISystemAnnouncementRepository, SystemAnnouncementRepository>();
