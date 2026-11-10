@@ -16,27 +16,62 @@ using Xunit;
 
 namespace Test.Features.Auth;
 
-/// <summary>
-/// Smoke test against the deployed EC2 server. It registers a real account and sends a real OTP email,
-/// and it fails whenever the server is down or mid-deploy, so it must not run on every CI build.
-/// Run it deliberately with PARKFLOW_LIVE_EC2_TESTS=1.
-/// </summary>
-public sealed class LiveEc2FactAttribute : FactAttribute
-{
-    public const string EnableVariable = "PARKFLOW_LIVE_EC2_TESTS";
+[Flags]
+public enum LiveServices { Database = 1, Cloudinary = 2, Api = 4 }
 
-    public LiveEc2FactAttribute()
+/// <summary>
+/// Tests that talk to REAL production services (the RDS database, the Cloudinary account, the deployed
+/// EC2 server). They create accounts, upload files and send OTP emails, and they fail whenever production
+/// is down or mid-deploy, so they never run on a normal build.
+///
+/// To run them deliberately set PARKFLOW_LIVE_TESTS=1 and provide the variables each test needs:
+///   Database:   PARKFLOW_LIVE_DB_CONNECTION
+///   Cloudinary: PARKFLOW_LIVE_CLOUDINARY_CLOUD_NAME, PARKFLOW_LIVE_CLOUDINARY_API_KEY, PARKFLOW_LIVE_CLOUDINARY_API_SECRET
+///   Api:        PARKFLOW_LIVE_API_URL
+/// No credential belongs in source control.
+/// </summary>
+public sealed class LiveProductionFactAttribute : FactAttribute
+{
+    public const string EnableVariable = "PARKFLOW_LIVE_TESTS";
+    public const string DatabaseVariable = "PARKFLOW_LIVE_DB_CONNECTION";
+    public const string CloudNameVariable = "PARKFLOW_LIVE_CLOUDINARY_CLOUD_NAME";
+    public const string CloudKeyVariable = "PARKFLOW_LIVE_CLOUDINARY_API_KEY";
+    public const string CloudSecretVariable = "PARKFLOW_LIVE_CLOUDINARY_API_SECRET";
+    public const string ApiUrlVariable = "PARKFLOW_LIVE_API_URL";
+
+    public LiveProductionFactAttribute(LiveServices needs)
     {
         if (Environment.GetEnvironmentVariable(EnableVariable) != "1")
-            Skip = $"Live EC2 smoke test. Set {EnableVariable}=1 to run it against the deployed server.";
+        {
+            Skip = $"Live production test. Set {EnableVariable}=1 and the variables it needs to run it deliberately.";
+            return;
+        }
+        var required = new List<string>();
+        if (needs.HasFlag(LiveServices.Database)) required.Add(DatabaseVariable);
+        if (needs.HasFlag(LiveServices.Cloudinary)) required.AddRange([CloudNameVariable, CloudKeyVariable, CloudSecretVariable]);
+        if (needs.HasFlag(LiveServices.Api)) required.Add(ApiUrlVariable);
+        var missing = required.Where(name => string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(name))).ToList();
+        if (missing.Count > 0) Skip = "Live production test is enabled but missing: " + string.Join(", ", missing);
     }
 }
 
 public class RegistrationCompleteTests
-{
-    private const string ConnectionString = "Host=parkflow.ci5g4wkmae5j.us-east-1.rds.amazonaws.com;Port=5432;Database=postgres;Username=parkflow;Password=ParkFlow2026!;SSL Mode=Require;Trust Server Certificate=true;Timeout=60;Command Timeout=60;Keepalive=30;";
 
-    [Fact]
+{
+    private static string Required(string name) =>
+        Environment.GetEnvironmentVariable(name) ?? throw new InvalidOperationException($"{name} is not set.");
+
+    private static string ConnectionString => Required(LiveProductionFactAttribute.DatabaseVariable);
+    private static string ApiUrl => Required(LiveProductionFactAttribute.ApiUrlVariable);
+
+    private static ParkFlow.Infrastructure.Cloudinary.CloudinarySettings LiveCloudinary() => new()
+    {
+        CloudName = Required(LiveProductionFactAttribute.CloudNameVariable),
+        ApiKey = Required(LiveProductionFactAttribute.CloudKeyVariable),
+        ApiSecret = Required(LiveProductionFactAttribute.CloudSecretVariable),
+    };
+
+    [LiveProductionFact(LiveServices.Database)]
     public async Task Test_Student_SaveAsync_WithRealDb()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -104,15 +139,10 @@ public class RegistrationCompleteTests
         Assert.True(result.IsSuccess, $"SaveAsync failed with message: {result.Message}, errorCode: {result.ErrorCode}");
     }
 
-    [Fact]
+    [LiveProductionFact(LiveServices.Cloudinary)]
     public async Task Test_Cloudinary_Upload()
     {
-        var options = Microsoft.Extensions.Options.Options.Create(new ParkFlow.Infrastructure.Cloudinary.CloudinarySettings
-        {
-            CloudName = "dp5p5kba8",
-            ApiKey = "697415494571335",
-            ApiSecret = "LJJemlAbkYeCnBCX3c6GOGghHJQ"
-        });
+        var options = Microsoft.Extensions.Options.Options.Create(LiveCloudinary());
         var cloud = new ParkFlow.Infrastructure.Cloudinary.CloudinaryService(options);
         var bytes = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j8ZkAAAAASUVORK5CYII=");
         using var stream = new MemoryStream(bytes);
@@ -125,15 +155,10 @@ public class RegistrationCompleteTests
         Assert.StartsWith("private-uploads/parkflow/licenses/", licenseResult.SecureUrl);
     }
 
-    [Fact]
+    [LiveProductionFact(LiveServices.Cloudinary)]
     public async Task Test_Cloudinary_UploadPdf()
     {
-        var options = Microsoft.Extensions.Options.Options.Create(new ParkFlow.Infrastructure.Cloudinary.CloudinarySettings
-        {
-            CloudName = "dp5p5kba8",
-            ApiKey = "697415494571335",
-            ApiSecret = "LJJemlAbkYeCnBCX3c6GOGghHJQ"
-        });
+        var options = Microsoft.Extensions.Options.Options.Create(LiveCloudinary());
         var cloud = new ParkFlow.Infrastructure.Cloudinary.CloudinaryService(options);
         var pdfBytes = System.Text.Encoding.ASCII.GetBytes("%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj 3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R>>endobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000109 00000 n \ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF");
         using var stream = new MemoryStream(pdfBytes);
@@ -144,15 +169,10 @@ public class RegistrationCompleteTests
         Assert.False(string.IsNullOrWhiteSpace(result.SecureUrl));
     }
 
-    [Fact]
+    [LiveProductionFact(LiveServices.Cloudinary)]
     public async Task Test_CorFile_FormFile_StreamLifecycle()
     {
-        var options = Microsoft.Extensions.Options.Options.Create(new ParkFlow.Infrastructure.Cloudinary.CloudinarySettings
-        {
-            CloudName = "dp5p5kba8",
-            ApiKey = "697415494571335",
-            ApiSecret = "LJJemlAbkYeCnBCX3c6GOGghHJQ"
-        });
+        var options = Microsoft.Extensions.Options.Options.Create(LiveCloudinary());
         var cloud = new ParkFlow.Infrastructure.Cloudinary.CloudinaryService(options);
         var bytes = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j8ZkAAAAASUVORK5CYII=");
         
@@ -179,7 +199,7 @@ public class RegistrationCompleteTests
         Assert.NotNull(uploaded.SecureUrl);
     }
 
-    [Fact]
+    [LiveProductionFact(LiveServices.Database)]
     public async Task Test_CompleteRegistrationHandler()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -266,7 +286,7 @@ public class RegistrationCompleteTests
         Assert.NotNull(result.Data);
     }
 
-    [Fact]
+    [LiveProductionFact(LiveServices.Database)]
     public async Task Test_Inspect_Rds_Recent_Records()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -295,7 +315,7 @@ public class RegistrationCompleteTests
         Assert.NotEmpty(recentUsers);
     }
 
-    [LiveEc2Fact]
+    [LiveProductionFact(LiveServices.Database | LiveServices.Api)]
     public async Task Test_EC2_EBike_Registration_Succeeds()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -304,7 +324,7 @@ public class RegistrationCompleteTests
         await using var db = new AppDbContext(options);
 
         var testEmail = $"dean.test_{Guid.NewGuid():N}@gmail.com";
-        using var client = new HttpClient { BaseAddress = new Uri("http://54.90.173.98:5000"), Timeout = TimeSpan.FromSeconds(60) };
+        using var client = new HttpClient { BaseAddress = new Uri(ApiUrl), Timeout = TimeSpan.FromSeconds(60) };
 
         var sendOtpRes = await client.PostAsJsonAsync("/api/auth/send-email-otp", new { Email = testEmail });
         Assert.True(sendOtpRes.IsSuccessStatusCode);
@@ -367,7 +387,7 @@ public class RegistrationCompleteTests
         Assert.True(completeRes.IsSuccessStatusCode, $"Expected success for EBike without license on EC2, but got: {completeRes.StatusCode} {completeBody}");
     }
 
-    [LiveEc2Fact]
+    [LiveProductionFact(LiveServices.Database | LiveServices.Api)]
     public async Task Test_EC2_Motorcycle_With_License_Succeeds()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -376,7 +396,7 @@ public class RegistrationCompleteTests
         await using var db = new AppDbContext(options);
 
         var testEmail = $"dean.test_{Guid.NewGuid():N}@gmail.com";
-        using var client = new HttpClient { BaseAddress = new Uri("http://54.90.173.98:5000"), Timeout = TimeSpan.FromSeconds(60) };
+        using var client = new HttpClient { BaseAddress = new Uri(ApiUrl), Timeout = TimeSpan.FromSeconds(60) };
 
         var sendOtpRes = await client.PostAsJsonAsync("/api/auth/send-email-otp", new { Email = testEmail });
         Assert.True(sendOtpRes.IsSuccessStatusCode);
@@ -442,7 +462,7 @@ public class RegistrationCompleteTests
         Assert.True(completeRes.IsSuccessStatusCode, $"Expected success for Motorcycle with license on EC2, but got: {completeRes.StatusCode} {completeBody}");
     }
 
-    [Fact]
+    [LiveProductionFact(LiveServices.Database | LiveServices.Cloudinary)]
     public async Task Test_RegistrationDraftService_CompleteAsync_FullFlow()
     {
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
@@ -467,12 +487,7 @@ public class RegistrationCompleteTests
         services.AddMemoryCache();
         services.AddScoped<IEmailVerificationReceipt, ParkFlow.Infrastructure.Security.EmailVerificationReceipt>();
 
-        services.AddSingleton(Microsoft.Extensions.Options.Options.Create(new ParkFlow.Infrastructure.Cloudinary.CloudinarySettings
-        {
-            CloudName = "dp5p5kba8",
-            ApiKey = "697415494571335",
-            ApiSecret = "LJJemlAbkYeCnBCX3c6GOGghHJQ"
-        }));
+        services.AddSingleton(Microsoft.Extensions.Options.Options.Create(LiveCloudinary()));
         services.AddScoped<ICloudinaryService, ParkFlow.Infrastructure.Cloudinary.CloudinaryService>();
         services.AddScoped<ICorDocumentReader, SyntheticReader>();
         services.AddLogging();
