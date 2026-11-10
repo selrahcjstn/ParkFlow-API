@@ -16,6 +16,22 @@ using Xunit;
 
 namespace Test.Features.Auth;
 
+/// <summary>
+/// Smoke test against the deployed EC2 server. It registers a real account and sends a real OTP email,
+/// and it fails whenever the server is down or mid-deploy, so it must not run on every CI build.
+/// Run it deliberately with PARKFLOW_LIVE_EC2_TESTS=1.
+/// </summary>
+public sealed class LiveEc2FactAttribute : FactAttribute
+{
+    public const string EnableVariable = "PARKFLOW_LIVE_EC2_TESTS";
+
+    public LiveEc2FactAttribute()
+    {
+        if (Environment.GetEnvironmentVariable(EnableVariable) != "1")
+            Skip = $"Live EC2 smoke test. Set {EnableVariable}=1 to run it against the deployed server.";
+    }
+}
+
 public class RegistrationCompleteTests
 {
     private const string ConnectionString = "Host=parkflow.ci5g4wkmae5j.us-east-1.rds.amazonaws.com;Port=5432;Database=postgres;Username=parkflow;Password=ParkFlow2026!;SSL Mode=Require;Trust Server Certificate=true;Timeout=60;Command Timeout=60;Keepalive=30;";
@@ -279,7 +295,7 @@ public class RegistrationCompleteTests
         Assert.NotEmpty(recentUsers);
     }
 
-    [Fact]
+    [LiveEc2Fact]
     public async Task Test_EC2_EBike_Registration_Succeeds()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -351,7 +367,7 @@ public class RegistrationCompleteTests
         Assert.True(completeRes.IsSuccessStatusCode, $"Expected success for EBike without license on EC2, but got: {completeRes.StatusCode} {completeBody}");
     }
 
-    [Fact]
+    [LiveEc2Fact]
     public async Task Test_EC2_Motorcycle_With_License_Succeeds()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
