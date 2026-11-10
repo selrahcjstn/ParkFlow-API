@@ -419,6 +419,51 @@ public class VerificationStoreTests
     }
 
     [PostgresVerificationFact]
+    public async Task DashboardAnalytics_BucketEntriesAndExitsByPhilippineTimeInSql()
+    {
+        await using var fixture = await DatabaseFixture.Create(); var (user, _) = await fixture.Seed(driver: true);
+        await using var db = fixture.Context();
+        var vehicle = new Vehicle(user.Id, "DSH1234", "Honda", "hash", VehicleType.Motorcycle, vehiclePictureUrl: "uploads/dash.jpg");
+        await new VehicleRepository(db).AddAsync(vehicle);
+        var log = new ParkingLog(vehicle.Id, null, ParkingStatus.Parked, EntryMethod.Manual);
+        db.ParkingLogs.Add(log); await db.SaveChangesAsync();
+        // 2026-11-09 16:30 UTC is 2026-11-10 00:30 in Manila; the exit at 02:15 UTC is 10:15 in Manila.
+        var entry = new DateTime(2026, 11, 9, 16, 30, 0, DateTimeKind.Utc);
+        var exit = new DateTime(2026, 11, 10, 2, 15, 0, DateTimeKind.Utc);
+        await db.Database.ExecuteSqlRawAsync("UPDATE \"ParkingLogs\" SET \"EntryTime\" = {0}, \"ExitTime\" = {1} WHERE \"Id\" = {2}", entry, exit, log.Id);
+
+        var repo = new DashboardAnalyticsRepository(db);
+        var start = new DateTime(2026, 11, 9, 16, 0, 0, DateTimeKind.Utc);
+        var end = start.AddDays(1);
+
+        var daily = await repo.GetActivityBucketsAsync(start, end, hourly: false, default);
+        var day = Assert.Single(daily);
+        Assert.Equal(new DateTime(2026, 11, 10), day.LocalBucket);
+        Assert.Equal((1, 1), (day.Entries, day.Exits));
+
+        var hourly = await repo.GetActivityBucketsAsync(start, end, hourly: true, default);
+        Assert.Contains(hourly, r => r.LocalBucket == new DateTime(2026, 11, 10, 0, 0, 0) && r.Entries == 1);
+        Assert.Contains(hourly, r => r.LocalBucket == new DateTime(2026, 11, 10, 10, 0, 0) && r.Exits == 1);
+
+        var hours = await repo.GetHourOfDayAsync(start, end, default);
+        Assert.Contains(hours, r => r.Hour == 0 && r.Entries == 1);
+        Assert.Contains(hours, r => r.Hour == 10 && r.Exits == 1);
+
+        Assert.Equal((1, 1), await repo.GetEntryExitTotalsAsync(start, end, default));
+        Assert.Equal((0, 0), await repo.GetEntryExitTotalsAsync(end, end.AddDays(1), default));
+        Assert.Equal(0, await repo.GetCurrentlyInsideAsync(default)); // the entry already has an exit time
+
+        // Every overview query must execute against a real database, not just translate.
+        var vehicles = await repo.GetVehicleBreakdownAsync(default);
+        Assert.Equal((1, 1, 0, 0), (vehicles.Total, vehicles.Motorcycles, vehicles.Cars, vehicles.ElectricBikes));
+        Assert.Equal(1, vehicles.Pending + vehicles.Approved + vehicles.Rejected);
+        Assert.True((await repo.GetAccountBreakdownAsync(default)).Total >= 1);
+        await repo.GetPendingWorkAsync(default);
+        var recent = Assert.Single(await repo.GetRecentActivityAsync(8, default));
+        Assert.Equal(("DSH1234", "Motorcycle", "Exited"), (recent.Identifier, recent.VehicleType, recent.Status));
+    }
+
+    [PostgresVerificationFact]
     public async Task OldVehicleJobsCannotProcessOrOverwriteManualReviewAndHistoryIsPreserved()
     {
         await using var fixture = await DatabaseFixture.Create(); var (user, _) = await fixture.Seed(driver: true);
@@ -721,7 +766,9 @@ public class VerificationStoreTests
             await using (var create = db.Database.GetDbConnection().CreateCommand())
             {
                 create.Transaction = transaction.GetDbTransaction();
-                create.CommandText = db.Database.GenerateCreateScript() + ParkFlow.Persistence.Migrations.EnforceVehiclePlateOwnership.PreflightSql + ParkFlow.Persistence.Migrations.EnforceVehiclePlateOwnership.AuthoritySql;
+                create.CommandText = db.Database.GenerateCreateScript() + ParkFlow.Persistence.Migrations.EnforceVehiclePlateOwnership.PreflightSql + ParkFlow.Persistence.Migrations.EnforceVehiclePlateOwnership.AuthoritySql
+                    // Production also runs this later migration, which lets e-bikes have no plate.
+                    + ParkFlow.Persistence.Migrations.AllowElectricBikeNullPlateAndUpdateTrigger.UpdatePlateOwnershipTriggersSql;
                 await create.ExecuteNonQueryAsync();
             }
             await transaction.CommitAsync();
