@@ -8,6 +8,7 @@ public class ExitManualParkingLogValidator : AbstractValidator<ExitManualParking
     {
         RuleFor(x => x.PlateNumber)
             .NotEmpty()
+            .When(x => x.VehicleId == null || x.VehicleId == Guid.Empty)
             .WithMessage("Plate number is required.")
             .MaximumLength(50)
             .WithMessage("Plate number is too long.");

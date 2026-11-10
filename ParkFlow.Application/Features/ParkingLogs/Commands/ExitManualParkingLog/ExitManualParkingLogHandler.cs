@@ -82,7 +82,18 @@ public class ExitManualParkingLogHandler : IRequestHandler<ExitManualParkingLogC
             return Result<ExitParkingLogResponse>.Failure(errors, ErrorCode.BadRequest);
         }
 
-        var vehicle = await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber);
+        Vehicle? vehicle;
+        if (request.VehicleId is { } vehicleId && vehicleId != Guid.Empty)
+        {
+            // Registered e-bikes have no plate, so they are exited by vehicle id.
+            vehicle = await _vehicleRepository.GetByIdAsync(vehicleId);
+            if (vehicle != null && (vehicle.VehicleType != VehicleType.ElectricBike || !string.IsNullOrWhiteSpace(vehicle.PlateNumber)))
+                return Result<ExitParkingLogResponse>.Failure("Exit by vehicle ID is only available for e-bikes without a plate.", ErrorCode.BadRequest);
+        }
+        else
+        {
+            vehicle = await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber);
+        }
 
         if (vehicle == null)
             return Result<ExitParkingLogResponse>.Failure("Vehicle not found.", ErrorCode.NotFound);

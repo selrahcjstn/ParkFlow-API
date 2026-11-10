@@ -256,6 +256,64 @@ public class ExitManualParkingLogTests
         Assert.Equal(ParkingStatus.Exited.ToString(), result.Data.Status);
         Assert.Equal("Campus Administrator", result.Data.IssuedBy);
     }
+
+    private async Task<(ExitManualParkingLogHandler Handler, Guid VehicleId)> BuildAdminExitScenarioAsync(string? plate, VehicleType type)
+    {
+        var ownerId = Guid.NewGuid();
+        var vehicleId = Guid.NewGuid();
+        var vehicle = new Vehicle(ownerId, plate, "TailG", "hashed_qr_ebike", type);
+        typeof(BaseEntity).GetProperty("Id")?.SetValue(vehicle, vehicleId);
+        await _vehicleRepository.AddAsync(vehicle);
+
+        var ownerAccount = new UserAccount(string.Empty, "+639999999996");
+        var ownerProfile = new UserProfile(ownerId, "Ebi", "Rider", null, null) { UserAccount = ownerAccount };
+        _userProfileRepository.Profiles.Add(ownerProfile);
+        typeof(Vehicle).GetProperty("Owner")?.SetValue(vehicle, ownerAccount);
+
+        await _adminRepository.AddAsync(new Admin(new UserProfile(Guid.NewGuid(), "System", "Admin", null, null), RoleLevel.Admin));
+
+        var activeLog = new ParkingLog(vehicleId, Guid.Empty, ParkingStatus.Parked, EntryMethod.Manual);
+        typeof(ParkingLog).GetProperty("Vehicle")?.SetValue(activeLog, vehicle);
+
+        var handler = new ExitManualParkingLogHandler(
+            new FakeParkingLogRepositoryForExit(activeLog), _vehicleRepository, _userProfileRepository, _guardRepository,
+            _corSubmissionRepository, _parkingScheduleRepository, _studentRepository, _personnelRepository, _adminRepository,
+            _parkingService, _parkingLogRoleService, new ExitManualParkingLogValidator(), new FakeSignalRNotificationSender());
+        return (handler, vehicleId);
+    }
+
+    [Fact]
+    public async Task Handle_ExitsPlatelessRegisteredEBike_ByVehicleId()
+    {
+        var (handler, vehicleId) = await BuildAdminExitScenarioAsync(null, VehicleType.ElectricBike);
+
+        var result = await handler.Handle(new ExitManualParkingLogCommand(VehicleId: vehicleId), CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Message);
+        Assert.Equal(ParkingStatus.Exited.ToString(), result.Data!.Status);
+    }
+
+    [Fact]
+    public async Task Handle_RejectsExitByVehicleId_ForPlatedVehicles()
+    {
+        var (handler, vehicleId) = await BuildAdminExitScenarioAsync("CAR-0001", VehicleType.Car);
+
+        var result = await handler.Handle(new ExitManualParkingLogCommand(VehicleId: vehicleId), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.BadRequest, result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task Handle_RequiresPlateOrVehicleId()
+    {
+        var (handler, _) = await BuildAdminExitScenarioAsync(null, VehicleType.ElectricBike);
+
+        var result = await handler.Handle(new ExitManualParkingLogCommand(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.BadRequest, result.ErrorCode);
+    }
 }
 
 public class FakeParkingLogRepositoryForExit : IParkingLogRepository
