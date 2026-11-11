@@ -155,6 +155,62 @@ public class VerificationStoreTests
     }
 
     [PostgresVerificationFact]
+    public async Task NewEmployeeRegistrationAppearsInTheAdminApprovalList()
+    {
+        await using var fixture = await DatabaseFixture.Create();
+        await using var db = fixture.Context();
+        var user = new UserAccount("hash", "09171234567");
+        db.Add(user); await db.SaveChangesAsync();
+        var profile = new UserProfile(user.Id, "New", "Employee", null, null);
+        db.Add(profile); await db.SaveChangesAsync();
+
+        await new PersonnelRepository(db).AddAsync(new Personnel(profile.Id, "EMP-9001", "CICT", Roles.UniversityStaff));
+
+        var store = new VerificationStore(db);
+        var records = await store.ListAsync(null, false, default);
+        var account = records.SingleOrDefault(r => r.Type == VerificationType.Account && r.SubjectId == user.Id);
+        Assert.NotNull(account);
+        Assert.True(account!.IsCurrent);
+    }
+
+    [PostgresVerificationFact]
+    public async Task EmployeeWithAnActiveAccountIsQueuedForAdminReviewWhenPersonnelIsAdded()
+    {
+        await using var fixture = await DatabaseFixture.Create();
+        await using var db = fixture.Context();
+        var user = new UserAccount("hash", "09171234567"); user.UpdateStatus(AccountStatus.Active);
+        db.Add(user); await db.SaveChangesAsync();
+        var profile = new UserProfile(user.Id, "Active", "Employee", null, null);
+        db.Add(profile); await db.SaveChangesAsync();
+
+        await new PersonnelRepository(db).AddAsync(new Personnel(profile.Id, "EMP-9002", "CICT", Roles.UniversityStaff));
+
+        var records = await new VerificationStore(db).ListAsync(null, false, default);
+        Assert.Contains(records, r => r.Type == VerificationType.Account && r.SubjectId == user.Id && r.IsCurrent);
+    }
+
+    [PostgresVerificationFact]
+    public async Task EmployeeRegisteredInOneStepGetsAnAdminAccountAndIdDocumentRequest()
+    {
+        await using var fixture = await DatabaseFixture.Create();
+        await using var db = fixture.Context();
+        var id = Guid.NewGuid();
+        var details = new ParkFlow.Application.Features.Auth.Registration.RegistrationDetails { Role = Roles.UniversityStaff, Email = id + "@example.invalid",
+            PhoneNumber = "09170000000", FirstName = "Synthetic", LastName = "Faculty", Department = "CICT", IdCardNumber = "EMP-" + id.ToString("N")[..6],
+            PlateNumber = "EMP" + id.ToString("N")[..5], Brand = "Synthetic", VehicleType = VehicleType.Car };
+        var result = await new RegistrationWriter(db).SaveAsync(new(id, details, details.Email, "uploads/id.pdf", "uploads/orcr.jpg", "uploads/car.jpg", null,
+            "private-uploads/license.jpg", "uploads/profile.jpg"), "hash", "qr", default);
+        Assert.True(result.IsSuccess, result.Message);
+
+        await using var check = fixture.Context();
+        var records = await new VerificationStore(check).ListAsync(null, false, default);
+        Assert.Contains(records, r => r.Type == VerificationType.Account && r.SubjectId == id && r.IsCurrent);
+        Assert.Contains(records, r => r.Type == VerificationType.Cor && r.UserAccountId == id && r.IsCurrent);
+        var user = await check.UserAccounts.SingleAsync(u => u.Id == id);
+        Assert.Equal(AccountStatus.PendingVerification, user.Status);
+    }
+
+    [PostgresVerificationFact]
     public async Task BothPersonnelRolesKeepEmployeeDocumentBackgroundProcessingWithoutStudentPreview()
     {
         await using var fixture = await DatabaseFixture.Create();

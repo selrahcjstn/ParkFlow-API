@@ -70,7 +70,19 @@ public class CompleteRegistrationHandler(IRegistrationWriter writer, IPasswordHa
         await cache.RemoveByPrefixAsync(CacheKeys.SchedulePrefix, CancellationToken.None);
         await cache.RemoveByPrefixAsync(CacheKeys.DashboardPrefix, CancellationToken.None);
         // Realtime consumers only see committed registrations.
-        try { await signalR.SendToAllAsync("ApprovalListUpdated", new { type = "Vehicle", userId = result.Data.Id }); }
+        try
+        {
+            // Employees need an admin decision, so tell admins right away (students are approved automatically).
+            if (d.Role != Roles.Student)
+                await signalR.SendToAllAsync("RegistrationSubmitted", new
+                {
+                    userId = result.Data.Id,
+                    fullName = (d.FirstName + " " + d.LastName).Trim(),
+                    role = d.Role.ToString(),
+                    idCardNumber = d.IdCardNumber
+                });
+            await signalR.SendToAllAsync("ApprovalListUpdated", new { type = d.Role == Roles.Student ? "Vehicle" : "registration", userId = result.Data.Id });
+        }
         catch { /* The committed registration is available by normal API reads. */ }
         return Result<string>.Success(token, "Registration completed successfully.");
     }
