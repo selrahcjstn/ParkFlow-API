@@ -20,6 +20,7 @@ public class GetActiveParkingSessionHandler
     private readonly IParkingLogRoleService _parkingLogRoleService;
     private readonly IParkingReservationRepository? _reservationRepository;
     private readonly ICacheService? _cacheService;
+    private readonly IVisitorRepository? _visitorRepository;
 
     public GetActiveParkingSessionHandler(
         IParkingLogRepository parkingLogRepository,
@@ -28,8 +29,10 @@ public class GetActiveParkingSessionHandler
         IAdminRepository adminRepository,
         IParkingLogRoleService parkingLogRoleService,
         IParkingReservationRepository? reservationRepository = null,
-        ICacheService? cacheService = null)
+        ICacheService? cacheService = null,
+        IVisitorRepository? visitorRepository = null)
     {
+        _visitorRepository = visitorRepository;
         _parkingLogRepository = parkingLogRepository;
         _parkingScheduleRepository = parkingScheduleRepository;
         _corSubmissionRepository = corSubmissionRepository;
@@ -133,7 +136,35 @@ public class GetActiveParkingSessionHandler
             ? await _cacheService.GetOrCreateAsync(cacheKey, LoadAsync, TimeSpan.FromSeconds(20), cancellationToken)
             : await LoadAsync();
 
+        // Visitors are read live (not from the 20s cache) so a fresh entry shows right away.
+        var all = new List<GetActiveParkingSessionResponse>(dtos);
+        if (_visitorRepository != null)
+        {
+            var visits = await _visitorRepository.GetActiveVisitSessionsAsync(Math.Max(1000, effectiveCapacity), cancellationToken);
+            var nowUtc = DateTime.UtcNow;
+            foreach (var visit in visits)
+            {
+                var fullName = (visit.Visitor?.FullName ?? "Visitor").Trim();
+                var space = fullName.IndexOf(' ');
+                var first = space < 0 ? fullName : fullName[..space];
+                var last = space < 0 ? string.Empty : fullName[(space + 1)..].Trim();
+                var vehicle = visit.VisitorVehicle;
+                all.Add(new GetActiveParkingSessionResponse(
+                    FirstName: first, LastName: last, MiddleName: null,
+                    PhoneNumber: visit.Visitor?.ContactNumber ?? string.Empty,
+                    Role: "Visitor", Email: null,
+                    Status: "Inside",
+                    PlateNumber: string.IsNullOrWhiteSpace(vehicle?.PlateNumber) ? null : vehicle!.PlateNumber,
+                    Brand: vehicle?.Brand ?? string.Empty,
+                    VehicleType: (vehicle?.VehicleType ?? visit.Visitor?.VehicleType ?? default).ToString(),
+                    EntryTime: visit.EntryTime, MaximumExitTime: null, OverstayHours: 0,
+                    TotalParkingHours: $"{Math.Max(0, (nowUtc - visit.EntryTime).TotalHours):F2} hours",
+                    EntryMethod: "Visitor"));
+            }
+            all = all.OrderByDescending(x => x.EntryTime).ToList();
+        }
+
         return Result<IEnumerable<GetActiveParkingSessionResponse>>
-            .Success(dtos, "Active parking sessions retrieved.");
+            .Success(all, "Active parking sessions retrieved.");
     }
 }

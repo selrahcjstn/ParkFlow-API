@@ -27,4 +27,7 @@ public interface IVisitorRepository
     Task<bool> CompleteVisitSessionWithChargeAsync(VisitSession session, Violation? charge)
         => charge == null ? CompleteVisitSessionAsync(session) : throw new NotSupportedException("Atomic visitor financial checkout is required.");
     Task<int> GetActiveVisitSessionCountAsync();
+    // Visitors currently inside, with visitor and vehicle loaded, for the live sessions list.
+    Task<IReadOnlyList<VisitSession>> GetActiveVisitSessionsAsync(int limit, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<VisitSession>>(Array.Empty<VisitSession>());
 }

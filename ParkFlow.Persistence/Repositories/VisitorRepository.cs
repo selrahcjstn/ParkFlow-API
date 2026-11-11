@@ -123,6 +123,11 @@ public class VisitorRepository(AppDbContext context) : IVisitorRepository
         { throw new ParkingCapacityException("This vehicle was registered or entered by another request. Search the plate again."); }
     }
     public async Task UpdateVisitSessionAsync(VisitSession session) { _context.VisitSessions.Update(session); await _context.SaveChangesAsync(); }
+    public async Task<IReadOnlyList<VisitSession>> GetActiveVisitSessionsAsync(int limit, CancellationToken ct = default)
+        => await _context.VisitSessions.AsNoTracking()
+            .Include(s => s.Visitor).Include(s => s.VisitorVehicle)
+            .Where(s => s.Status == VisitSessionStatus.Inside)
+            .OrderByDescending(s => s.EntryTime).Take(limit).ToListAsync(ct);
     public Task<int> GetActiveVisitSessionCountAsync() => _context.VisitSessions.CountAsync(s => s.Status == VisitSessionStatus.Inside);
     public async Task<bool> CompleteVisitSessionAsync(VisitSession session)
         => await CompleteVisitSessionWithChargeAsync(session, null);
