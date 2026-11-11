@@ -75,7 +75,7 @@ public class GetUserByIdHandler : IRequestHandler<GetUserByIdQuery, Result<UserW
                 : "UniversityStaff";
         }
 
-        var studentDto = profile?.Student != null
+        var studentDto = profile?.Student != null && profile.Guard == null
             ? new UserStudentDto(profile.Student.StudentNumber ?? string.Empty, profile.Student.Course ?? string.Empty, profile.Student.Section ?? string.Empty, profile.Student.YearLevel)
             : null;
 

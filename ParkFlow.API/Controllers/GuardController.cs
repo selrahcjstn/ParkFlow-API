@@ -21,7 +21,7 @@ public class GuardController : ControllerBase
     /// <summary>
     /// Creates a new guard account with login credentials.
     /// </summary>
-    [AllowAnonymous]
+    [Authorize(Policy = "AdminOrSuperAdmin")]
     [HttpPost("create")]
     [HttpPost("")]
     public async Task<ActionResult<Result<Guid>>> Create([FromBody] CreateGuardAccountCommand command)

@@ -132,7 +132,11 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
 
             var roleStr = request.Role?.Trim() ?? "";
 
-            if (roleStr.Equals("Student", StringComparison.OrdinalIgnoreCase) || request.Student != null)
+            // An explicit role always wins. The student/guard/personnel detail objects are only a fallback
+            // when no role was sent, so a guard whose form also carried student fields is never made a student.
+            var explicitRole = !string.IsNullOrWhiteSpace(roleStr);
+            var isGuardRole = roleStr.Equals("Guard", StringComparison.OrdinalIgnoreCase);
+            if (roleStr.Equals("Student", StringComparison.OrdinalIgnoreCase) || (!explicitRole && request.Student != null))
             {
                 resolvedRole = "student";
                 var studentNumber = request.Student?.StudentNumber?.Trim();
@@ -149,7 +153,7 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
                 var student = new Student(userProfile.Id, studentNumber, course, section, yearLevel);
                 await _studentRepository.AddAsync(student);
             }
-            else if (roleStr.Equals("Guard", StringComparison.OrdinalIgnoreCase) || request.Guard != null)
+            else if (isGuardRole || (!explicitRole && request.Guard != null))
             {
                 resolvedRole = "guard";
                 var assignedGate = request.Guard?.AssignedGate ?? 1;
@@ -159,7 +163,7 @@ public class RegisterManualAccountHandler : IRequestHandler<RegisterManualAccoun
             else if (roleStr.Equals("UniversityStaff", StringComparison.OrdinalIgnoreCase) ||
                      roleStr.Equals("NonAcademicPersonnel", StringComparison.OrdinalIgnoreCase) ||
                      roleStr.Equals("Personnel", StringComparison.OrdinalIgnoreCase) ||
-                     request.Personnel != null)
+                     (!explicitRole && request.Personnel != null))
             {
                 resolvedRole = "personnel";
                 var idCard = request.Personnel?.IdCardNumber?.Trim();
