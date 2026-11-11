@@ -90,28 +90,9 @@ public class GetViolationHistoryHandler
                         if (!isOverstaying) continue;
 
                         var ownerProfile = owner.UserProfile;
-                        var rate = sysSettings.ForVehicle(vehicle.VehicleType);
-                        var days = Math.Max(0, (ParkingTimeHelper.ConvertUtcToPhilippinesTime(nowUtc).Date -
-                            ParkingTimeHelper.ConvertUtcToPhilippinesTime(log.EntryTime).Date).Days);
                         var userReservation = reservationsByOwner[owner.Id].FirstOrDefault(r => r.VehicleId == vehicle.Id && r.Status == ReservationStatus.Approved);
-                        var isPersonnel = ownerProfile?.Personnel != null;
-                        var isFaculty = PersonnelParkingPolicy.IsFaculty(ownerProfile?.Personnel);
-
-                        decimal fee;
-                        if (userReservation?.Type == ReservationType.Special) fee = rate.VipEntryFee;
-                        else if (isFaculty)
-                            fee = rate.FacultyEntryFee + (decimal)Math.Ceiling(Math.Max(0, timing.OverstayHours)) * rate.ViolationRatePerHour;
-                        else if (isPersonnel)
-                            fee = rate.PersonnelEntryFee + (decimal)Math.Ceiling(Math.Max(0, timing.OverstayHours)) * rate.ViolationRatePerHour;
-                        else if (log.EntryMethod == EntryMethod.Manual) fee = rate.EntryFee + days * rate.DailyOverstayFee;
-                        else if (userReservation != null) fee = rate.EntryFee + (timing.OverstayHours > 0 ? (days + 1) * rate.DailyOverstayFee : 0);
-                        else fee = (ownerProfile?.Student != null ? rate.StudentEntryFee : rate.EntryFee) +
-                            new ViolationService().CalculatePenaltyForVehicle(TimeSpan.FromHours(Math.Max(0, timing.OverstayHours)), vehicle.VehicleType);
-
-                        if (fee <= 0 && rate.ViolationRatePerHour > 0)
-                        {
-                            fee = rate.ViolationRatePerHour;
-                        }
+                        var fee = ParkingCharges.Amount(vehicle.VehicleType, log.EntryMethod, ownerProfile?.Personnel,
+                            ownerProfile?.Student != null, userReservation, timing.OverstayHours);
 
                         if (fee > 0)
                         {

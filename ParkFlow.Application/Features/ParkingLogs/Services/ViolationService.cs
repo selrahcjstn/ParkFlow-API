@@ -39,10 +39,10 @@ public class ViolationService : IViolationService
     public decimal CalculatePenaltyForVehicle(TimeSpan duration, VehicleType vehicleType)
     {
         var rates = SystemSettingsStore.Current.ForVehicle(vehicleType);
-        return CalculatePenalty(duration, rates.ViolationRatePerHour, rates.BaseFee);
+        return CalculatePenalty(duration, rates.ViolationRatePerHour, rates.BaseFee, rates.DailyOverstayFee);
     }
 
-    private decimal CalculatePenalty(TimeSpan overstayDuration, decimal? customHourlyRate, decimal baseFee)
+    private decimal CalculatePenalty(TimeSpan overstayDuration, decimal? customHourlyRate, decimal baseFee, decimal dailyFee = 0m)
     {
         if (overstayDuration <= TimeSpan.Zero)
             return 0m;
@@ -58,7 +58,8 @@ public class ViolationService : IViolationService
 
         return mode switch
         {
-            "per_day" => hourlyRate,
+            // Each started 24 hours over the limit is one day; falls back to the hourly rate if no daily fee is set.
+            "per_day" => (dailyFee > 0m ? dailyFee : hourlyRate) * Math.Max(1, (int)Math.Ceiling(overstayDuration.TotalDays)),
             "one_time" => baseFee > 0m ? baseFee : hourlyRate,
             "one_time_hourly" => baseFee + (hours * hourlyRate),
             "per_hour" or _ => hours * hourlyRate,
