@@ -457,6 +457,35 @@ public class VerificationStoreTests
     }
 
     [PostgresVerificationFact]
+    public async Task RejectingAVehicleIsRecordedWithItsReasonAndCanBeResubmitted()
+    {
+        await using var fixture = await DatabaseFixture.Create(); var (user, _) = await fixture.Seed(driver: true);
+        await using var db = fixture.Context(); var store = new VerificationStore(db); var vehicles = new VehicleRepository(db);
+        var vehicle = new Vehicle(user.Id, "REJ1234", "Honda", "hash", VehicleType.Motorcycle,
+            orcrDocumentUrl: "uploads/orcr.pdf", vehiclePictureUrl: "uploads/plate.jpg");
+        await vehicles.AddAsync(vehicle);
+        var source = (await store.GetSubjectAsync(VerificationType.Vehicle, vehicle.Id, default))!;
+
+        Assert.True(await store.ReviewVehicleManuallyAsync(vehicle.Id, source.Fingerprint, VerificationState.Rejected, "OR/CR is blurry", Guid.NewGuid(), default));
+
+        var rejected = await db.Vehicles.AsNoTracking().SingleAsync();
+        Assert.Equal(CorVerificationStatus.Rejected, rejected.VerificationStatus);
+        Assert.Equal("OR/CR is blurry", rejected.RejectionReason);
+        // Known behavior: an unverified driver's license is rejected together with the vehicle (same reason).
+        var profile = await db.UserProfiles.AsNoTracking().SingleAsync();
+        Assert.Equal(CorVerificationStatus.Rejected, profile.LicenseStatus);
+
+        // The owner fixes the document: it goes back to Pending and can be approved normally.
+        var fixedVehicle = (await vehicles.GetByIdAsync(vehicle.Id))!;
+        fixedVehicle.UpdateDocuments("uploads/orcr-clear.pdf", null); await vehicles.UpdateAsync(fixedVehicle);
+        Assert.Equal(CorVerificationStatus.Pending, (await db.Vehicles.AsNoTracking().SingleAsync()).VerificationStatus);
+        var resubmitted = (await store.GetSubjectAsync(VerificationType.Vehicle, vehicle.Id, default))!;
+        Assert.True(await store.ReviewVehicleManuallyAsync(vehicle.Id, resubmitted.Fingerprint, VerificationState.Approved, "Looks good", Guid.NewGuid(), default));
+        var approved = await db.Vehicles.AsNoTracking().SingleAsync();
+        Assert.Equal(CorVerificationStatus.Verified, approved.VerificationStatus); Assert.Null(approved.RejectionReason);
+    }
+
+    [PostgresVerificationFact]
     public async Task EBikeWithoutOrcrOrLicense_CanBeApprovedAndRejectedManually()
     {
         await using var fixture = await DatabaseFixture.Create(); var (user, _) = await fixture.Seed();
