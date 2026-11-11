@@ -107,6 +107,35 @@ public class SetPrimaryEmailTests
         Assert.False(_authIdentityRepository.Identities.Single(i => i.Email == oldEmail).IsPrimary);
     }
 
+    private sealed class RecordingCache : ICacheService
+    {
+        public List<string> Removed { get; } = new();
+        public Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default) => Task.FromResult(default(T));
+        public Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RemoveAsync(string key, CancellationToken cancellationToken = default) { Removed.Add(key); return Task.CompletedTask; }
+        public Task RemoveByPrefixAsync(string prefixKey, CancellationToken cancellationToken = default) { Removed.Add(prefixKey); return Task.CompletedTask; }
+        public Task<T> GetOrCreateAsync<T>(string key, Func<Task<T>> factory, TimeSpan? expiration = null, CancellationToken cancellationToken = default) => factory();
+    }
+
+    [Fact]
+    public async Task SetPrimaryEmailHandler_ClearsTheCachedProfileSoTheNewEmailIsShown()
+    {
+        var userId = Guid.NewGuid();
+        var user = new UserAccount("hash", "+639000000000");
+        typeof(BaseEntity).GetProperty("Id")?.SetValue(user, userId);
+        user.AuthIdentities.Add(AuthIdentity.CreateManual(userId, "old@parkflow.com", "hash", isPrimary: true));
+        user.AuthIdentities.Add(AuthIdentity.CreateMicrosoft(userId, "new@parkflow.com", "ms-id"));
+        await _userAccountRepository.AddAsync(user);
+        var cache = new RecordingCache();
+
+        var result = await new SetPrimaryEmailCommandHandler(_userAccountRepository, _validator, cache)
+            .Handle(new SetPrimaryEmailCommand(userId, "new@parkflow.com"), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("new@parkflow.com", user.PrimaryEmail);
+        Assert.Contains(CacheKeys.UserProfile(userId), cache.Removed);
+    }
+
     [Fact]
     public async Task SetPrimaryEmailHandler_ShouldReturnNotFoundIfEmailIsNotLinked()
     {

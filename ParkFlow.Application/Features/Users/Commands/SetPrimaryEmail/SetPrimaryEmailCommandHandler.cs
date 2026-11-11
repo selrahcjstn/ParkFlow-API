@@ -13,11 +13,14 @@ public class SetPrimaryEmailCommandHandler : IRequestHandler<SetPrimaryEmailComm
 {
     private readonly IUserAccountRepository _userAccountRepository;
     private readonly IValidator<SetPrimaryEmailCommand> _validator;
+    private readonly ICacheService? _cacheService;
 
     public SetPrimaryEmailCommandHandler(
         IUserAccountRepository userAccountRepository,
-        IValidator<SetPrimaryEmailCommand> validator)
+        IValidator<SetPrimaryEmailCommand> validator,
+        ICacheService? cacheService = null)
     {
+        _cacheService = cacheService;
         _userAccountRepository = userAccountRepository;
         _validator = validator;
     }
@@ -66,6 +69,13 @@ public class SetPrimaryEmailCommandHandler : IRequestHandler<SetPrimaryEmailComm
         // Step 2: Now set the target identity as primary and save
         targetIdentity.MarkAsPrimary();
         await _userAccountRepository.UpdateAsync(user);
+
+        // The profile screen shows the primary email from a 5-minute cached profile; without this it keeps the old one.
+        if (_cacheService != null)
+        {
+            await _cacheService.RemoveAsync(CacheKeys.UserProfile(request.UserId), cancellationToken);
+            await _cacheService.RemoveByPrefixAsync(CacheKeys.UserPrefix, cancellationToken);
+        }
 
         return Result<bool>.Success(true, "Primary email updated successfully.");
     }
