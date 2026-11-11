@@ -9,7 +9,8 @@ public record VehicleScanPreview(string FullName, string Role, string? PhoneNumb
     bool IsCurrentlyParked, bool CanEnter, string? EntryRestriction);
 public record PreviewVehicleScan(string QrCode) : IRequest<Result<VehicleScanPreview>>;
 public class PreviewVehicleScanHandler(IVehicleRepository vehicles, IUserProfileRepository profiles,
-    IParkingLogRepository logs, IParkingReservationRepository reservations) : IRequestHandler<PreviewVehicleScan, Result<VehicleScanPreview>>
+    IParkingLogRepository logs, IParkingReservationRepository reservations,
+    IViolationRepository? violations = null) : IRequestHandler<PreviewVehicleScan, Result<VehicleScanPreview>>
 {
     public async Task<Result<VehicleScanPreview>> Handle(PreviewVehicleScan r, CancellationToken ct)
     {
@@ -37,6 +38,10 @@ public class PreviewVehicleScanHandler(IVehicleRepository vehicles, IUserProfile
         var restriction = DriverEntryPolicy.MissingRequirement(profile);
         if (restriction == null && vehicle.VerificationStatus != ParkFlow.Domain.Enums.CorVerificationStatus.Verified)
             restriction = "Vehicle documents are waiting for approval or have been rejected.";
+        // Only matters for entry: a parked vehicle with a violation must still be able to exit.
+        if (restriction == null && !parked && violations != null &&
+            await violations.GetActiveViolationCountAsync(vehicle.Id, vehicle.OwnerId) > 0)
+            restriction = DriverEntryPolicy.UnsettledViolationMessage;
         var role = profile.Student != null ? "Student" : PersonnelParkingPolicy.IsFaculty(profile.Personnel) ? "Faculty"
             : profile.Personnel != null ? "University Staff" : profile.Guard != null ? "Guard" : "Admin";
         return Result<VehicleScanPreview>.Success(new($"{profile.FirstName} {profile.LastName}".Trim(), role,

@@ -201,9 +201,10 @@ public class CreateParkingLogHandler : IRequestHandler<CreateParkingLogCommand, 
         var student = await _studentRepository.GetByUserProfileIdAsync(ownerProfile.Id);
         var personnel = await _personnelRepository.GetByUserProfileIdAsync(ownerProfile.Id);
         var admin = await _adminRepository.GetByUserProfileIdAsync(ownerProfile.Id);
-        if (_violationRepository != null && ParkingCharges.HasConfiguredFees(vehicle.VehicleType) &&
+        // Unsettled violations always block entry, even when parking fees are set to zero.
+        if (_violationRepository != null &&
             await _violationRepository.GetActiveViolationCountAsync(vehicle.Id,vehicle.OwnerId)>0)
-            return Result<CreateParkingLogResponse>.Failure("Please settle outstanding charges before entering campus.",ErrorCode.Forbidden);
+            return Result<CreateParkingLogResponse>.Failure(DriverEntryPolicy.UnsettledViolationMessage,ErrorCode.Forbidden);
 
         var isStudentOrPersonnel = (student != null || personnel != null) && admin == null;
 

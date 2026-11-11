@@ -3,6 +3,9 @@ namespace ParkFlow.Application.Features.ParkingLogs.Services;
 
 public static class DriverEntryPolicy
 {
+    public const string UnsettledViolationMessage =
+        "This driver has an unsettled violation. Settle it with the admin before entering campus.";
+
     public static string? MissingRequirement(UserProfile profile)
     {
         if (string.IsNullOrWhiteSpace(profile.ProfilePictureUrl))
