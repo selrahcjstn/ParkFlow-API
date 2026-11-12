@@ -94,7 +94,7 @@ public class PostReservationEntryTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task CheckoutPersistsCurrentReservationCompletion(bool manual)
+    public async Task EarlyCheckoutKeepsTheReservationOpenForReentry(bool manual)
     {
         var f = await Fixture.Create(true, "valid");
         var now = ParkingTimeHelper.ConvertUtcToPhilippinesTime(DateTime.UtcNow);
@@ -120,8 +120,9 @@ public class PostReservationEntryTests
                 .Handle(new(f.Vehicle.QrCodeHash, f.GuardUserId), default);
             Assert.True(result.IsSuccess, result.Message);
         }
-        Assert.Equal(ReservationStatus.Completed, booking.Status);
-        Assert.Same(booking, Assert.Single(f.Logs.CompletedReservations));
+        // The reservation runs for 30 more minutes, so leaving early must not void it.
+        Assert.Equal(ReservationStatus.Approved, booking.Status);
+        Assert.Empty(f.Logs.CompletedReservations);
         Assert.Same(log, Assert.Single(f.Logs.CompletedExits));
         Assert.NotNull(log.ExitTime);
         Assert.Equal(ParkingStatus.Exited, log.Status);

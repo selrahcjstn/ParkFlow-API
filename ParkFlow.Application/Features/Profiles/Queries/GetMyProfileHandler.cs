@@ -65,8 +65,9 @@ public class GetMyProfileHandler
         }
 
         var latestCor = await _corSubmissionRepository.GetLatestByUserIdAsync(profile.UserAccountId);
-        var corStatus = (profile.Personnel != null && profile.UserAccount?.Status == AccountStatus.Active)
-            ? CorVerificationStatus.Verified
+        // Staff stay Pending until an admin approves the account, even before any ID is uploaded.
+        var corStatus = profile.Personnel != null && profile.Admin == null && profile.Guard == null
+            ? (profile.UserAccount?.Status == AccountStatus.Active ? CorVerificationStatus.Verified : CorVerificationStatus.Pending)
             : (latestCor?.VerificationStatus ?? (profile.Admin != null || profile.Guard != null || profile.Personnel != null
                 ? CorVerificationStatus.Verified
                 : CorVerificationStatus.NotSubmitted));

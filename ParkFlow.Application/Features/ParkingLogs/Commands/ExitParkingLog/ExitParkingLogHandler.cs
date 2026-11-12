@@ -232,6 +232,7 @@ public class ExitParkingLogHandler : IRequestHandler<ExitParkingLogCommand, Resu
 
             foreach (var res in activeTodayReservations)
             {
+                if (ReservationSessionWindow.StillOpenAfterExit(res, exitTime)) continue;
                 res.MarkCompleted();
                 completedReservations.Add(res);
             }
