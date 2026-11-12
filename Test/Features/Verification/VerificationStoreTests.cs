@@ -486,6 +486,30 @@ public class VerificationStoreTests
     }
 
     [PostgresVerificationFact]
+    public async Task ApprovingAnEmployeeAlsoApprovesTheirUploadedEmployeeId()
+    {
+        await using var fixture = await DatabaseFixture.Create();
+        await using var db = fixture.Context(); var store = new VerificationStore(db);
+        var user = new UserAccount("hash", "09171234567"); user.UpdateOnboardingStep(OnboardingStep.Done);
+        db.Add(user); await db.SaveChangesAsync();
+        var identity = AuthIdentity.CreateManual(user.Id, "staff@example.invalid", "hash", true); identity.MarkVerified(); db.Add(identity);
+        var profile = new UserProfile(user.Id, "Univ", "Staff", null, "uploads/profile.jpg"); db.Add(profile); await db.SaveChangesAsync();
+        await new PersonnelRepository(db).AddAsync(new Personnel(profile.Id, "EMP-7001", "CICT", Roles.UniversityStaff));
+        // Admin-created staff sign in and upload their employee ID before the admin accepts them.
+        var cor = new CorSubmission(user.Id, "Employee ID", "uploads/employee-id.jpg", verificationStatus: CorVerificationStatus.Pending);
+        db.Add(cor); await db.SaveChangesAsync();
+        await store.EnqueueAsync(VerificationType.Cor, cor.Id, default);
+        var service = new VerificationService(store, new PreparedReader(), new FakeCloudinaryService(), new NoTrustedApproval(), null!, null!, new NoCache());
+
+        Assert.True(await service.ReviewSubjectAsync(VerificationType.Account, user.Id, VerificationState.Approved, "Employee reviewed", Guid.NewGuid(), default));
+
+        // The employee ID is approved with them, so the phone no longer shows it as waiting.
+        Assert.Equal(CorVerificationStatus.Verified, (await db.CorSubmissions.AsNoTracking().SingleAsync()).VerificationStatus);
+        var records = await db.VerificationRecords.AsNoTracking().Where(r => r.IsCurrent).ToListAsync();
+        Assert.All(records, r => Assert.Equal(VerificationState.Approved, r.Status));
+    }
+
+    [PostgresVerificationFact]
     public async Task EBikeWithoutOrcrOrLicense_CanBeApprovedAndRejectedManually()
     {
         await using var fixture = await DatabaseFixture.Create(); var (user, _) = await fixture.Seed();

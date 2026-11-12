@@ -210,6 +210,10 @@ public class VerificationService(IVerificationStore store, ICorDocumentReader re
         if (!await store.ReviewAsync(id, version, subject.Fingerprint, new(status, reason.Trim()), actor, ct)) return false;
         record.Status = status; record.Reason = reason;
         await NotifyAsync(record, ct, true);
+        // Approving an employee reviews their ID document with them; otherwise the ID stays "pending" on the
+        // employee's phone after the admin has already accepted them, and the app keeps asking for it.
+        if (record.Type == VerificationType.Account && status == VerificationState.Approved && subject.IsPersonnel)
+            await ApprovePersonnelIdDocumentAsync(record.UserAccountId, actor, ct);
         if (record.Type == VerificationType.Cor && status == VerificationState.Approved)
             await EnqueueAsync(VerificationType.Schedule, record.SubjectId, ct);
         return true;
@@ -283,6 +287,20 @@ public class VerificationService(IVerificationStore store, ICorDocumentReader re
             }
         }
         catch { /* Polling remains available if notification transport is unavailable. */ }
+    }
+
+    private async Task ApprovePersonnelIdDocumentAsync(Guid userId, Guid actor, CancellationToken ct)
+    {
+        var document = (await store.ListAsync(userId, false, ct)).FirstOrDefault(r => r.Type == VerificationType.Cor && r.IsCurrent && r.Status != VerificationState.Approved);
+        if (document == null) return;
+        var source = await store.GetSubjectAsync(VerificationType.Cor, document.SubjectId, ct);
+        if (source == null || MandatoryChecks(source, await store.GetPolicyAsync(ct)).Count > 0) return;
+        if (await store.ReviewAsync(document.Id, document.Version, source.Fingerprint,
+                new(VerificationState.Approved, "Employee ID approved together with the employee registration."), actor, ct))
+        {
+            document.Status = VerificationState.Approved;
+            await NotifyAsync(document, ct, false);
+        }
     }
 
     public Task PublishAsync(VerificationRecord record, CancellationToken ct, bool persist = false) => NotifyAsync(record, ct, persist);
