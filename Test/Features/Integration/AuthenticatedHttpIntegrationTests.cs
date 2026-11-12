@@ -243,7 +243,7 @@ public class AuthenticatedHttpIntegrationTests(VisitorPostgresDatabase database)
     }
 
     [VisitorPostgresFact]
-    public async Task GuardQrExitCompletesReservationAndReentryUsesApprovedDocumentsWithoutFinancialWrites()
+    public async Task GuardQrEarlyExitKeepsReservationOpenAndReentryUsesApprovedDocumentsWithoutFinancialWrites()
     {
         await using var host=await Host.Create(database,liveParking:true); using var guard=host.Client("guard");
         var financialBefore=await FinancialCounts(database);
@@ -251,7 +251,8 @@ public class AuthenticatedHttpIntegrationTests(VisitorPostgresDatabase database)
         await using (var db=database.Context())
         {
             var log=await db.ParkingLogs.SingleAsync(p=>p.VehicleId==host.VehicleId); Assert.Equal(ParkingStatus.Exited,log.Status); Assert.NotNull(log.ExitTime); Assert.Equal(host.GuardProfileId,log.GuardId);
-            Assert.Equal(ReservationStatus.Completed,(await db.ParkingReservations.SingleAsync(r=>r.UserId==host.OwnerId)).Status);
+            // An early exit leaves a still-running reservation open so the holder can re-enter.
+            Assert.Equal(ReservationStatus.Approved,(await db.ParkingReservations.SingleAsync(r=>r.UserId==host.OwnerId)).Status);
         }
         await Success(await guard.PostAsJsonAsync("api/parking-logs/entry",new {qrCodeHash=host.QrHash,userId=Guid.NewGuid()}));
         await using (var db=database.Context()) Assert.Equal(1,await db.ParkingLogs.CountAsync(p=>p.VehicleId==host.VehicleId&&p.Status==ParkingStatus.Parked&&p.ExitTime==null));
