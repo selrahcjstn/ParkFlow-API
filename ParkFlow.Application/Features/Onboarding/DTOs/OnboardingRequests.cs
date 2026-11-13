@@ -21,7 +21,7 @@ public record OnboardingPersonnelRequest(
     string? Role = null);
 
 public record OnboardingVehicleRequest(
-    string PlateNumber,
+    string? PlateNumber,
     string Brand,
     VehicleType VehicleType);
 
