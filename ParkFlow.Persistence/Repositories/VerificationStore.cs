@@ -577,15 +577,6 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         var user = await db.UserAccounts.FindAsync([userId], ct);
         if (user == null || user.Status == AccountStatus.Suspended) return;
         var adminApproved = await db.VerificationRecords.AnyAsync(r => r.UserAccountId == userId && r.Type == VerificationType.Account && r.IsCurrent && r.Status == VerificationState.Approved, ct);
-        // An administrator's explicit approval of the employee account is authoritative. Schedule, vehicle and driver
-        // documents are reviewed separately and gate parking entry (DriverEntryPolicy), not whether the account is approved;
-        // requiring them here silently reverted the approval to Pending, so the app never showed it.
-        if (adminApproved)
-        {
-            user.UpdateStatus(AccountStatus.Active);
-            await db.SaveChangesAsync(ct);
-            return;
-        }
         var identity = adminApproved
             || (await db.UserAccounts.Include(u => u.AuthIdentities).Include(u => u.UserProfile).ThenInclude(p => p!.Personnel).FirstOrDefaultAsync(u => u.Id == userId, ct) is { } u
                 && u.AuthIdentities.Any(i => i.IsVerified) && !string.IsNullOrWhiteSpace(u.UserProfile?.Personnel?.IdCardNumber)
@@ -595,6 +586,15 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
              db.VerificationRecords.Any(r => r.Type == VerificationType.Schedule && r.SubjectId == c.Id && r.IsCurrent)), ct);
         var schedule = !requiresSchedule || await db.CorSubmissions.AnyAsync(c => c.UserAccountId == userId && c.VerificationStatus == CorVerificationStatus.Verified && c.ScheduleVerificationStatus == CorVerificationStatus.Verified &&
             db.VerificationRecords.Any(r => r.Type == VerificationType.Schedule && r.SubjectId == c.Id && r.IsCurrent && r.Status == VerificationState.Approved), ct);
+        // An administrator's explicit approval of the employee account is authoritative apart from an uploaded schedule,
+        // which keeps its own review. Vehicle and driver documents gate parking entry (DriverEntryPolicy), not approval;
+        // requiring them here silently reverted the approval to Pending, so the app never showed it.
+        if (adminApproved)
+        {
+            user.UpdateStatus(identity && schedule ? AccountStatus.Active : AccountStatus.PendingVerification);
+            await db.SaveChangesAsync(ct);
+            return;
+        }
         var vehicle = await db.Vehicles.AnyAsync(v => v.OwnerId == userId && v.VerificationStatus == CorVerificationStatus.Verified &&
             (v.VehicleType == VehicleType.ElectricBike || !string.IsNullOrWhiteSpace(v.OrcrDocumentUrl)) && !string.IsNullOrWhiteSpace(v.VehiclePictureUrl), ct);
         var isEBikeOnly = await db.Vehicles.AnyAsync(v => v.OwnerId == userId && v.VehicleType == VehicleType.ElectricBike, ct) &&
