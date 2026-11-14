@@ -576,7 +576,17 @@ public class VerificationStore(AppDbContext db) : IVerificationStore
         await db.SaveChangesAsync(ct);
         var user = await db.UserAccounts.FindAsync([userId], ct);
         if (user == null || user.Status == AccountStatus.Suspended) return;
-        var identity = await db.VerificationRecords.AnyAsync(r => r.UserAccountId == userId && r.Type == VerificationType.Account && r.IsCurrent && r.Status == VerificationState.Approved, ct)
+        var adminApproved = await db.VerificationRecords.AnyAsync(r => r.UserAccountId == userId && r.Type == VerificationType.Account && r.IsCurrent && r.Status == VerificationState.Approved, ct);
+        // An administrator's explicit approval of the employee account is authoritative. Schedule, vehicle and driver
+        // documents are reviewed separately and gate parking entry (DriverEntryPolicy), not whether the account is approved;
+        // requiring them here silently reverted the approval to Pending, so the app never showed it.
+        if (adminApproved)
+        {
+            user.UpdateStatus(AccountStatus.Active);
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+        var identity = adminApproved
             || (await db.UserAccounts.Include(u => u.AuthIdentities).Include(u => u.UserProfile).ThenInclude(p => p!.Personnel).FirstOrDefaultAsync(u => u.Id == userId, ct) is { } u
                 && u.AuthIdentities.Any(i => i.IsVerified) && !string.IsNullOrWhiteSpace(u.UserProfile?.Personnel?.IdCardNumber)
                 && !await db.VerificationRecords.AnyAsync(r => r.UserAccountId == userId && r.Type == VerificationType.Account && r.IsCurrent && r.Status == VerificationState.Rejected, ct));
