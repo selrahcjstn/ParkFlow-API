@@ -77,7 +77,10 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
     public async Task<Result<CreateParkingLogResponse>> Handle(CreateManualParkingLogCommand request, CancellationToken cancellationToken)
     {
         // 1. Find vehicle by plate number
-        var vehicle = await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber.Trim().ToUpperInvariant());
+        var vehicle = request.VehicleId is { } vehicleId && vehicleId != Guid.Empty
+            ? await _vehicleRepository.GetByIdAsync(vehicleId)
+            : null;
+        vehicle ??= await _vehicleRepository.GetByPlateNumberAsync(request.PlateNumber.Trim().ToUpperInvariant());
 
         if (vehicle == null)
             return Result<CreateParkingLogResponse>.Failure(

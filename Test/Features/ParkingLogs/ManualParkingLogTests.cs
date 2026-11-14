@@ -126,6 +126,36 @@ public class ManualParkingLogTests
     }
 
     [Fact]
+    public async Task Handle_RegisteredEBikeWithoutPlateEntersByVehicleIdInsteadOfThePlaceholder()
+    {
+        var ownerId = Guid.NewGuid();
+        var guardUserId = Guid.NewGuid();
+        var vehicle = new Vehicle(ownerId, null, "Honda", "EBIKE:qr", VehicleType.ElectricBike, verificationStatus: CorVerificationStatus.Verified);
+        typeof(BaseEntity).GetProperty("Id")?.SetValue(vehicle, Guid.NewGuid());
+        await _vehicleRepository.AddAsync(vehicle);
+
+        var ownerProfile = new UserProfile(ownerId, "Jesus", "Raymundo", null, null) { UserAccount = new UserAccount(string.Empty, "+639999999999") };
+        Test.Support.DriverDocumentFixture.Approve(ownerProfile);
+        _userProfileRepository.Profiles.Add(ownerProfile);
+
+        var guardProfile = new UserProfile(guardUserId, "Guard", "One", null, null) { UserAccount = new UserAccount(string.Empty, "+639888888888") };
+        _userProfileRepository.Profiles.Add(guardProfile);
+        _guardRepository.Guard = new Guard(guardProfile, 1);
+
+        var handler = new CreateManualParkingLogHandler(_parkingLogRepository, _vehicleRepository, _userProfileRepository,
+            _userAccountRepository, _guardRepository, _corSubmissionRepository, _parkingScheduleRepository, _studentRepository,
+            _personnelRepository, _adminRepository, _parkingService, _scheduleService, _parkingLogRoleService,
+            new FakeSignalRNotificationSender());
+
+        var byPlaceholder = await handler.Handle(new CreateManualParkingLogCommand("EBIKE", VehicleType.ElectricBike, "N/A", "Honda", guardUserId), CancellationToken.None);
+        Assert.False(byPlaceholder.IsSuccess);
+
+        var byVehicleId = await handler.Handle(new CreateManualParkingLogCommand("EBIKE", VehicleType.ElectricBike, "N/A", "Honda", guardUserId, vehicle.Id), CancellationToken.None);
+        Assert.NotEqual(ErrorCode.NotFound, byVehicleId.ErrorCode);
+        Assert.DoesNotContain("not registered", byVehicleId.Message ?? "");
+    }
+
+    [Fact]
     public async Task Handle_ShouldRejectUnknownPlate_WithoutAutoRegisteringVehicle()
     {
         // Arrange
