@@ -44,11 +44,20 @@ jobs:
           NEEDED_MB=350
           echo "== Disk before cleanup"; df -h /
           sudo rm -rf /tmp/* /var/tmp/* || true
+          # Rotate first so the active journal file becomes an archive that vacuum can remove.
+          sudo journalctl --rotate || true
           sudo journalctl --vacuum-size=50M || true
           sudo apt-get clean || true
           sudo apt-get autoremove -y || true
-          sudo find /var/log -type f \( -name '*.gz' -o -name '*.[0-9]' -o -name '*.old' \) -delete 2>/dev/null || true
-          sudo find /var/log -type f -name '*.log' -size +50M -exec truncate -s 0 {} \; 2>/dev/null || true
+          echo "== Largest files in /var/log before cleanup"
+          sudo find /var/log -type f -printf '%s %p\n' 2>/dev/null | sort -rn | head -10 | awk '{printf "%d MB  %s\n", $1/1048576, $2}'
+          sudo find /var/log -type f \( -name '*.gz' -o -name '*.[0-9]' -o -name '*.old' -o -name '*.[0-9].log' \) -delete 2>/dev/null || true
+          # /var/log held ~2.9 GB while no single file matched '*.log': syslog, kern.log, btmp, nginx and
+          # app logs have other names. Empty any plain log over 20 MB regardless of name (journal excluded;
+          # truncating in place keeps the file handle valid for the process that is writing it).
+          sudo find /var/log -type f -size +20M ! -path '/var/log/journal/*' -exec truncate -s 0 {} \; 2>/dev/null || true
+          # Last resort when logs are many small files: keep only the newest 3 days of anything outside the journal.
+          sudo find /var/log -type f -mtime +3 ! -path '/var/log/journal/*' -exec truncate -s 0 {} \; 2>/dev/null || true
           if command -v snap >/dev/null 2>&1; then
             snap list --all 2>/dev/null | awk '/disabled/{print $1, $3}' | while read -r name rev; do sudo snap remove "$name" --revision="$rev" || true; done
           fi
@@ -84,8 +93,10 @@ jobs:
           find /home/ubuntu/app/publish/ -maxdepth 1 -type f ! -name 'appsettings.Production.json' -delete
           rm -rf /home/ubuntu/app/releases || true
           sudo rm -rf /tmp/* /var/tmp/* || true
+          sudo journalctl --rotate || true
           sudo journalctl --vacuum-size=50M || true
           sudo apt-get clean || true
+          sudo find /var/log -type f -size +20M ! -path '/var/log/journal/*' -exec truncate -s 0 {} \; 2>/dev/null || true
           df -h
 
     - name: Deploy Fresh Binaries via SCP
