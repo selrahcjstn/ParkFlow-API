@@ -155,6 +155,49 @@ public class ManualParkingLogTests
         Assert.DoesNotContain("not registered", byVehicleId.Message ?? "");
     }
 
+    private sealed class FixedTime(DateTime utc) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(DateTime.SpecifyKind(utc, DateTimeKind.Utc));
+    }
+
+    [Theory]
+    [InlineData(VehicleType.ElectricBike)]
+    [InlineData(VehicleType.Motorcycle)]
+    [InlineData(VehicleType.Car)]
+    public async Task Handle_DeniesEveryVehicleTypeAfterTheScheduleHasEnded(VehicleType type)
+    {
+        var ownerId = Guid.NewGuid();
+        var guardUserId = Guid.NewGuid();
+        var vehicle = new Vehicle(ownerId, type == VehicleType.ElectricBike ? null : "ABC-1234", "Honda", "qr", type, verificationStatus: CorVerificationStatus.Verified);
+        typeof(BaseEntity).GetProperty("Id")?.SetValue(vehicle, Guid.NewGuid());
+        await _vehicleRepository.AddAsync(vehicle);
+        var ownerProfile = new UserProfile(ownerId, "Jesus", "Raymundo", null, null) { UserAccount = new UserAccount(string.Empty, "+639999999999") };
+        Test.Support.DriverDocumentFixture.Approve(ownerProfile);
+        _userProfileRepository.Profiles.Add(ownerProfile);
+        var guardProfile = new UserProfile(guardUserId, "Guard", "One", null, null) { UserAccount = new UserAccount(string.Empty, "+639888888888") };
+        _userProfileRepository.Profiles.Add(guardProfile);
+        _guardRepository.Guard = new Guard(guardProfile, 1);
+
+        var cor = new CorSubmission(ownerId, "term-1", "doc-url");
+        typeof(BaseEntity).GetProperty("Id")?.SetValue(cor, Guid.NewGuid());
+        cor.UpdateSubmission(null, null, CorVerificationStatus.Verified);
+        // 12:00 in Manila; the only class ran 08:00-10:00.
+        var now = DateTime.UtcNow.Date.AddHours(4);
+        var manilaDay = ParkingTimeHelper.ConvertUtcToPhilippinesTime(now).DayOfWeek;
+        var schedule = new ParkingSchedule(cor.Id, manilaDay, TimeSpan.FromHours(8), TimeSpan.FromHours(10));
+
+        var handler = new CreateManualParkingLogHandler(_parkingLogRepository, _vehicleRepository, _userProfileRepository,
+            _userAccountRepository, _guardRepository, new FakeCorSubmissionRepositoryWithMock(new List<CorSubmission> { cor }),
+            new FakeParkingScheduleRepositoryWithMock(new List<ParkingSchedule> { schedule }), _studentRepository,
+            _personnelRepository, _adminRepository, _parkingService, new ScheduleService(), _parkingLogRoleService,
+            new FakeSignalRNotificationSender(), timeProvider: new FixedTime(now));
+
+        var result = await handler.Handle(new CreateManualParkingLogCommand("ABC-1234", type, "N/A", "Honda", guardUserId, vehicle.Id), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("ended", result.Message ?? "");
+    }
+
     [Fact]
     public async Task Handle_ShouldRejectUnknownPlate_WithoutAutoRegisteringVehicle()
     {
