@@ -270,7 +270,12 @@ public class CreateManualParkingLogHandler : IRequestHandler<CreateManualParking
 
             if (todaySchedules.Count == 0)
             {
-
+                // Cars and motorcycles may still be let in manually as an unscheduled exception;
+                // registered e-bikes may not, matching the QR rule (an approved reservation is handled above).
+                if (vehicle.VehicleType == VehicleType.ElectricBike)
+                    return Result<CreateParkingLogResponse>.Failure(
+                        $"Entry denied: No class or work schedule submitted for today ({todayDayOfWeek}).",
+                        ErrorCode.Forbidden);
                 isUnscheduledEntry = true;
             }
 
